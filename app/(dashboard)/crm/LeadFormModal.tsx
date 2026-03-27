@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { logLeadActivity } from '@/lib/supabase/activities';
 import { LEAD_STATUSES, LEAD_SOURCES, REGIONS } from '@/lib/constants';
 import type { Lead } from '@/types';
+import { useAuth } from '@/context/AuthContext';
 import dayjs from 'dayjs';
 
 const { TextArea } = Input;
@@ -18,6 +19,7 @@ interface LeadFormModalProps {
 }
 
 export default function LeadFormModal({ open, lead, onClose, onSaved }: LeadFormModalProps) {
+  const { user } = useAuth();
   const [form] = Form.useForm();
   const supabase = createClient();
   const isEdit = !!lead;
@@ -57,7 +59,11 @@ export default function LeadFormModal({ open, lead, onClose, onSaved }: LeadForm
         
         message.success('تم تحديث العميل بنجاح (Lead updated)');
       } else {
-        const { data, error } = await supabase.from('leads').insert(payload).select().single();
+        const { data, error } = await supabase
+          .from('leads')
+          .insert({ ...payload, assigned_to: user?.id })
+          .select()
+          .single();
         if (error) throw error;
         
         // Log creation

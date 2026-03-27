@@ -56,7 +56,7 @@ export default function LeadDrawer({ lead, open, onClose, onEdit }: LeadDrawerPr
     setLoadingBoqs(true);
     const { data } = await supabase
       .from('boqs')
-      .select('*, items(*, product(*))')
+      .select('*, boq_items(*, product(*))')
       .eq('lead_id', lead.id)
       .order('created_at', { ascending: false });
     
@@ -219,7 +219,7 @@ export default function LeadDrawer({ lead, open, onClose, onEdit }: LeadDrawerPr
                     </Tooltip>
                   </Link>
                   <PDFDownloadButton 
-                    items={boq.items || []}
+                    items={boq.boq_items || []}
                     subtotal={boq.subtotal}
                     discountPercent={boq.discount_percent}
                     vatAmount={boq.vat_amount}

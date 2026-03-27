@@ -103,7 +103,7 @@ export interface BOQ {
   created_by?: string;
   // Joined
   lead?: Lead;
-  items?: BOQItem[];
+  boq_items?: BOQItem[];
 }
 
 export interface BOQItem {

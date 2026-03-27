@@ -1,10 +1,9 @@
-"use client";
-
-import React from "react";
-import { PDFDownloadLink } from "@react-pdf/renderer";
+import React, { useState } from "react";
+import { pdf } from "@react-pdf/renderer";
+import { saveAs } from "file-saver";
 import { BOQDocument } from "./BOQDocument";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { BOQItem, Lead } from "@/types";
 
 interface PDFDownloadButtonProps {
@@ -27,26 +26,38 @@ export default function PDFDownloadButton({
   label = "Export PDF",
   ...props 
 }: PDFDownloadButtonProps) {
-  // We use key based on customer and items length so it regenerates the blob when data changes
-  const documentKey = `${props.customer?.id}-${props.items.length}-${props.grandTotal}`;
+  const [loading, setLoading] = useState(false);
+
+  const handleDownload = async () => {
+    if (props.items.length === 0) return;
+    
+    setLoading(true);
+    try {
+      const fileName = `GCHV_BOQ_${props.customer?.name?.replace(/\s+/g, '_') || 'Draft'}.pdf`;
+      const blob = await pdf(<BOQDocument {...props} />).toBlob();
+      saveAs(blob, fileName);
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <PDFDownloadLink
-      key={documentKey}
-      document={<BOQDocument {...props} />}
-      fileName={`GCHV_BOQ_${props.customer?.name?.replace(/\s+/g, '_') || 'Draft'}.pdf`}
+    <Button 
+      variant={variant}
+      size={size}
+      className={className}
+      disabled={loading || props.items.length === 0}
+      onClick={handleDownload}
     >
-      {({ loading }) => (
-        <Button 
-          variant={variant}
-          size={size}
-          className={className}
-          disabled={loading || props.items.length === 0}
-        >
-          <Download className={size === "icon" ? "h-4 w-4" : "mr-2 h-4 w-4"} /> 
-          {size !== "icon" && (loading ? "Generating..." : label)}
-        </Button>
+      {loading ? (
+        <Loader2 className={size === "icon" ? "h-4 w-4 animate-spin" : "mr-2 h-4 w-4 animate-spin"} />
+      ) : (
+        <Download className={size === "icon" ? "h-4 w-4" : "mr-2 h-4 w-4"} />
       )}
-    </PDFDownloadLink>
+      {size !== "icon" && (loading ? "Generating..." : label)}
+    </Button>
   );
 }

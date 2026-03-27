@@ -52,47 +52,49 @@ export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grand
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.logoBox}>
-            <Text style={{ fontSize: 20, fontWeight: "bold", color: "#0ea5e9" }}>GCHV Egypt</Text>
-            <Text style={{ fontSize: 10, color: "#64748b", marginTop: 4 }}>Premium HVAC Solutions</Text>
+            <Text style={{ fontSize: 22, fontWeight: "bold", color: "#0284c7" }}>GCHV Egypt</Text>
+            <Text style={{ fontSize: 9, color: "#64748b", marginTop: 2 }}>Premium HVAC Solutions (HVAC)</Text>
           </View>
           <View style={styles.companyDetails}>
-            <Text>123 Business District</Text>
-            <Text>Cairo, Egypt</Text>
+            <Text>جي سي اتش في مصر (GCHV Egypt)</Text>
+            <Text>123 Business District, Cairo</Text>
             <Text>contact@gchvegypt.com</Text>
             <Text>+20 100 123 4567</Text>
           </View>
         </View>
 
-        <Text style={styles.title}>Bill of Quantities / Quotation</Text>
+        <View style={{ marginBottom: 20 }}>
+          <Text style={styles.title}>Bill of Quantities / مقايسة أعمال</Text>
+        </View>
 
         {/* Client Details */}
         <View style={styles.clientBox}>
-          <Text style={styles.sectionTitle}>Billed To</Text>
+          <Text style={styles.sectionTitle}>Client Details / بيانات العميل</Text>
           {customer ? (
             <>
-              <Text style={{ fontSize: 12, fontWeight: "bold" }}>{customer.name}</Text>
-              {customer.company && <Text style={{ marginTop: 2 }}>{customer.company}</Text>}
+              <Text style={{ fontSize: 13, fontWeight: "bold", color: "#0f172a" }}>{customer.name}</Text>
+              {customer.company && <Text style={{ marginTop: 4 }}>{customer.company}</Text>}
               {customer.phone && <Text style={{ marginTop: 2 }}>{customer.phone}</Text>}
             </>
           ) : (
-            <Text>No Customer Specified</Text>
+            <Text>No Customer Specified / لم يتم تحديد عميل</Text>
           )}
         </View>
 
         {/* Table */}
         <View style={styles.table}>
           <View style={[styles.tableRow, styles.tableHeader]}>
-            <Text style={styles.col1}>Description</Text>
-            <Text style={styles.col2}>Unit Price</Text>
-            <Text style={styles.col3}>Qty</Text>
-            <Text style={styles.col4}>Total</Text>
+            <Text style={styles.col1}>Description / الوصف</Text>
+            <Text style={styles.col2}>Unit Price / السعر</Text>
+            <Text style={styles.col3}>Qty / الكمية</Text>
+            <Text style={styles.col4}>Total / الإجمالي</Text>
           </View>
           
           {items.map((item, i) => (
             <View key={i} style={styles.tableRow}>
               <View style={styles.col1}>
-                <Text style={{ fontWeight: "bold" }}>{item.model}</Text>
-                {item.product?.sku && <Text style={{ fontSize: 8, color: "#64748b", marginTop: 2 }}>{item.product.sku}</Text>}
+                <Text style={{ fontWeight: "bold", color: "#1e293b" }}>{item.model}</Text>
+                {item.product?.sku && <Text style={{ fontSize: 8, color: "#94a3b8", marginTop: 2 }}>SKU: {item.product.sku}</Text>}
               </View>
               <Text style={styles.col2}>{formatCurrency(item.unit_price)}</Text>
               <Text style={styles.col3}>{item.quantity}</Text>
@@ -104,29 +106,30 @@ export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grand
         {/* Totals */}
         <View style={styles.totalBox}>
           <View style={styles.totalRow}>
-            <Text>Subtotal</Text>
+            <Text>Subtotal / الإجمالي الفرعي</Text>
             <Text style={styles.totalVal}>{formatCurrency(subtotal)}</Text>
           </View>
           {discountPercent > 0 && (
             <View style={styles.totalRow}>
-              <Text>Discount ({discountPercent}%)</Text>
-              <Text style={styles.totalVal}>-{formatCurrency(subtotal * (discountPercent/100))}</Text>
+              <Text>Discount ({discountPercent}%) / الخصم</Text>
+              <Text style={[styles.totalVal, { color: "#e11d48" }]}>-{formatCurrency(subtotal * (discountPercent/100))}</Text>
             </View>
           )}
           <View style={styles.totalRow}>
-            <Text>VAT (14%)</Text>
+            <Text>VAT (14%) / ضريبة القيمة المضافة</Text>
             <Text style={styles.totalVal}>{formatCurrency(vatAmount)}</Text>
           </View>
-          <View style={[styles.totalRow, { borderTop: 1, borderTopColor: "#e2e8f0", marginTop: 4, paddingTop: 4 }]}>
-            <Text style={styles.grandTotal}>Grand Total</Text>
-            <Text style={styles.grandTotal}>{formatCurrency(grandTotal)}</Text>
+          <View style={[styles.totalRow, { borderTop: 1, borderTopColor: "#94a3b8", marginTop: 6, paddingTop: 6 }]}>
+            <Text style={[styles.grandTotal, { color: "#0369a1" }]}>Grand Total / الإجمالي العام</Text>
+            <Text style={[styles.grandTotal, { color: "#0369a1" }]}>{formatCurrency(grandTotal)}</Text>
           </View>
         </View>
 
         {/* Footer */}
-        <Text style={styles.footer}>
-          Thank you for choosing GCHV Egypt. This quotation is valid for 15 days.
-        </Text>
+        <View style={styles.footer}>
+          <Text>Thank you for choosing GCHV Egypt. شكراً لاختياركم جي سي اتش في مصر</Text>
+          <Text style={{ marginTop: 4, fontSize: 8 }}>This quotation is valid for 15 days. عرض السعر ساري لمدة ١٥ يوم</Text>
+        </View>
       </Page>
     </Document>
   );

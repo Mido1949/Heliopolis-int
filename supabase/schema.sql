@@ -11,7 +11,7 @@ CREATE TABLE profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   email TEXT NOT NULL,
-  role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+  role TEXT NOT NULL DEFAULT 'Sales Engineer' CHECK (role IN ('admin', 'Sales Engineer', 'Manager', 'Telesales', 'user')),
   avatar_url TEXT,
   score INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT now(),
@@ -226,7 +226,7 @@ CREATE POLICY "profiles_update" ON profiles FOR UPDATE USING (auth.uid() = id);
 -- Products: all authenticated can read, admin can modify
 CREATE POLICY "products_select" ON products FOR SELECT USING (true);
 CREATE POLICY "products_insert" ON products FOR INSERT WITH CHECK (
-  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'Manager'))
 );
 CREATE POLICY "products_update" ON public.products FOR UPDATE USING (true);
 
@@ -235,7 +235,7 @@ CREATE POLICY "leads_select" ON leads FOR SELECT USING (true);
 CREATE POLICY "leads_insert" ON leads FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 CREATE POLICY "leads_update" ON leads FOR UPDATE USING (auth.uid() IS NOT NULL);
 CREATE POLICY "leads_delete" ON leads FOR DELETE USING (
-  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'Manager'))
 );
 
 -- BOQs: all authenticated
@@ -260,7 +260,7 @@ CREATE POLICY "recipients_insert" ON email_recipients FOR INSERT WITH CHECK (aut
 
 -- Time Logs: users see own, admin sees all
 CREATE POLICY "time_logs_select" ON time_logs FOR SELECT USING (
-  auth.uid() = user_id OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  auth.uid() = user_id OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'Manager'))
 );
 CREATE POLICY "time_logs_insert" ON time_logs FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "time_logs_update" ON time_logs FOR UPDATE USING (auth.uid() = user_id);
@@ -280,7 +280,7 @@ CREATE POLICY "ai_logs_insert" ON ai_logs FOR INSERT WITH CHECK (auth.uid() = us
 
 -- Score Log: users see own, admin sees all
 CREATE POLICY "score_log_select" ON score_log FOR SELECT USING (
-  auth.uid() = user_id OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  auth.uid() = user_id OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'Manager'))
 );
 CREATE POLICY "score_log_insert" ON score_log FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
@@ -295,7 +295,7 @@ BEGIN
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
     NEW.email,
-    'sales'
+    'Sales Engineer'
   );
   RETURN NEW;
 END;
