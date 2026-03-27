@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #000917;
+  --primary-container: #0d2137;
+  --accent: #b80f19;
+  --bg: #f8f9fb;
+  --surface: #ffffff;
+  --surface-low: #f2f4f6;
+  --surface-container: #eceef0;
+  --text-primary: #191c1e;
+  --text-secondary: #44474d;
+  --outline: #74777d;
+  --outline-variant: #c4c6cd;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  color: var(--text-primary);
+  background: var(--bg);
+  font-family: 'Inter', 'Manrope', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* RTL Support */
+html[dir="rtl"] {
+  direction: rtl;
+}
+
+/* Ant Design Overrides for GCHV theme */
+.ant-btn {
+  border-radius: 6px !important;
+}
+
+.ant-btn-primary {
+  background-color: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: #ffffff !important;
+  box-shadow: inset 0 -2px 0 rgba(255,255,255,0.1) !important;
+}
+
+.ant-btn-primary:hover {
+  background-color: #93000e !important;
+  border-color: #93000e !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--outline-variant);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--outline);
+}
+
+/* Smooth transitions */
+@layer utilities {
+  .transition-sidebar {
+    transition: width 0.3s ease, margin 0.3s ease;
+  }
+}
