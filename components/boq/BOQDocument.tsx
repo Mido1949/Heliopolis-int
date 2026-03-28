@@ -53,7 +53,11 @@ interface BOQDocumentProps {
   grandTotal: number;
   grandTotalUSD?: number;
   dateCreated?: string;
-  customer?: Lead;
+  customer?: Lead & {
+    customer_name?: string;
+    customer_phone?: string;
+    customer_address?: string;
+  };
 }
 
 export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grandTotal, grandTotalUSD, dateCreated, customer }: BOQDocumentProps) {
@@ -91,13 +95,13 @@ export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grand
         <View style={styles.infoRow}>
           <View style={styles.infoBox}>
             <Text style={styles.infoLabel}>Client / العميل</Text>
-            <Text style={styles.infoValue}>{customer?.name || "N/A"}</Text>
-            {customer?.phone && <Text style={styles.infoValueSmall}>{customer.phone}</Text>}
-            {customer?.company && <Text style={styles.infoValueSmall}>{customer.company}</Text>}
+            <Text style={styles.infoValue}>{customer?.name || customer?.customer_name || "N/A"}</Text>
+            {(customer?.phone || customer?.customer_phone) && <Text style={styles.infoValueSmall}>{customer?.phone || customer?.customer_phone}</Text>}
+            {(customer?.company || customer?.customer_address) && <Text style={styles.infoValueSmall}>{customer?.company || customer?.customer_address}</Text>}
           </View>
           <View style={styles.infoBox}>
             <Text style={styles.infoLabel}>Date / التاريخ</Text>
-            <Text style={styles.infoValue}>{formatDate(dateCreated)}</Text>
+            <Text style={styles.infoValue}>{dateCreated ? formatDate(dateCreated) : 'N/A'}</Text>
           </View>
         </View>
 
@@ -114,19 +118,23 @@ export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grand
           </View>
           
           {/* Table Rows */}
-          {items.map((item, index) => (
+          {items && items.length > 0 ? items.map((item, index) => (
             <View key={index} style={index % 2 === 1 ? [styles.tableRow, styles.tableRowAlt] : styles.tableRow}>
               <Text style={styles.colNo}>{index + 1}</Text>
               <View style={styles.colDesc}>
-                <Text style={{ fontWeight: "bold", fontSize: 9 }}>{item.product?.name || item.model}</Text>
+                <Text style={{ fontWeight: "bold", fontSize: 9 }}>{(item.product?.name) || item.model || 'Product'}</Text>
                 {item.product?.sku && <Text style={{ fontSize: 7, color: "#6b7280" }}>SKU: {item.product.sku}</Text>}
               </View>
-              <Text style={styles.colModel}>{item.model}</Text>
-              <Text style={styles.colQty}>{item.quantity}</Text>
-              <Text style={styles.colPrice}>{formatCurrency(item.unit_price)}</Text>
-              <Text style={styles.colTotal}>{formatCurrency(item.total)}</Text>
+              <Text style={styles.colModel}>{item.model || '-'}</Text>
+              <Text style={styles.colQty}>{item.quantity || 0}</Text>
+              <Text style={styles.colPrice}>{formatCurrency(item.unit_price || 0)}</Text>
+              <Text style={styles.colTotal}>{formatCurrency(item.total || 0)}</Text>
             </View>
-          ))}
+          )) : (
+            <View style={styles.tableRow}>
+              <Text style={{ textAlign: "center", padding: 20, color: "#999" }}>No items in this BOQ</Text>
+            </View>
+          )}
         </View>
 
         {/* Totals */}
