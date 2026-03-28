@@ -260,8 +260,7 @@ export default function BOQPage() {
         product_id: item.product_id,
         model: item.model,
         quantity: item.quantity,
-        unit_price: item.unit_price,
-        total: item.total
+        unit_price: item.unit_price
       }));
 
       const { error: itemsError } = await supabase

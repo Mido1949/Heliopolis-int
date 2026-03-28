@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
   totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
   totalVal: { fontWeight: "bold" },
   grandTotal: { fontSize: 14, color: "#000", fontWeight: "bold" },
-  footer: { position: "absolute", bottom: 30, left: 40, right: 40, textAlign: "center", fontStyle: "italic", color: "#94a3b8" }
+  footer: { position: "absolute", bottom: 30, left: 40, right: 40, textAlign: "center", color: "#94a3b8" }
 });
 
 interface BOQDocumentProps {
