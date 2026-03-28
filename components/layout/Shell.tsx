@@ -61,7 +61,7 @@ export default function Shell({ children }: ShellProps) {
       
       <main
         className={`transition-all duration-300 min-h-screen pt-16 ${
-          collapsed ? 'md:ms-[72px] ms-0' : 'md:ms-[200px] ms-0'
+          collapsed ? 'md:ml-[72px] ml-0' : 'md:ml-[200px] ml-0'
         }`}
       >
         <div className="p-4 md:p-8 max-w-[1600px] mx-auto overflow-x-hidden">

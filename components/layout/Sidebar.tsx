@@ -63,9 +63,9 @@ export default function Sidebar({ collapsed, onCollapse, lang, profile, mobileMe
       )}
       
       <aside
-        className={`fixed top-0 start-0 h-screen z-50 flex flex-col transition-transform duration-300 bg-[#0D2137] border-e border-slate-800 ${
+        className={`fixed top-0 left-0 h-screen z-50 flex flex-col transition-transform duration-300 bg-[#0D2137] border-r border-slate-800 ${
           collapsed ? 'w-[72px]' : 'w-[200px]'
-        } ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full'} md:translate-x-0 md:rtl:translate-x-0`}
+        } ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
       >
       {/* Logo Area */}
       <div className="flex items-center justify-between px-4 h-20 border-b border-white/10 shrink-0">
@@ -99,7 +99,7 @@ export default function Sidebar({ collapsed, onCollapse, lang, profile, mobileMe
         )}
         <button
           onClick={() => onCollapse(!collapsed)}
-          className={`text-slate-400 hover:text-white transition-colors ${collapsed ? 'absolute -end-3 top-7 bg-[#0D2137] border border-slate-700 rounded-full p-0.5' : ''}`}
+          className={`text-slate-400 hover:text-white transition-colors ${collapsed ? 'absolute -right-3 top-7 bg-[#0D2137] border border-slate-700 rounded-full p-0.5' : ''}`}
         >
           {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-5 h-5" />}
         </button>
