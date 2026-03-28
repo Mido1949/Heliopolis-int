@@ -1,9 +1,17 @@
 import React from "react";
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Font } from "@react-pdf/renderer";
 import { BOQItem, Lead } from "@/types";
 
+Font.register({
+  family: 'Cairo',
+  fonts: [
+    { src: '/fonts/Cairo-Regular.ttf', fontWeight: 'normal' },
+    { src: '/fonts/Cairo-Bold.ttf', fontWeight: 'bold' }
+  ]
+});
+
 const styles = StyleSheet.create({
-  page: { padding: 30, fontFamily: "Helvetica", fontSize: 10, color: "#1a1a1a", backgroundColor: "#fff" },
+  page: { padding: 30, fontFamily: "Cairo", fontSize: 10, color: "#1a1a1a", backgroundColor: "#fff" },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, paddingBottom: 10, borderBottomWidth: 2, borderBottomColor: "#dc2626" },
   logoContainer: { flexDirection: "row", alignItems: "center", gap: 8 },
   logoBox: { width: 40, height: 40, backgroundColor: "#dc2626", borderRadius: 6, alignItems: "center", justifyContent: "center" },
@@ -82,9 +90,9 @@ export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grand
           <View style={styles.companyInfo}>
             <Text style={styles.companyName}>GCHV Egypt</Text>
             <Text style={styles.companyNameAr}>جي سي اتش في مصر</Text>
-            <Text style={styles.companyContact}>📍 Cairo, Egypt</Text>
-            <Text style={styles.companyContact}>📞 +20 100 123 4567</Text>
-            <Text style={styles.companyContact}>✉️ contact@gchvegypt.com</Text>
+            <Text style={styles.companyContact}>Cairo, Egypt</Text>
+            <Text style={styles.companyContact}>+20 100 123 4567</Text>
+            <Text style={styles.companyContact}>contact@gchvegypt.com</Text>
           </View>
         </View>
 
