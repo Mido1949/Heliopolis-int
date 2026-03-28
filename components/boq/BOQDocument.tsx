@@ -1,24 +1,15 @@
 import React from "react";
-import { Document, Page, Text, View, StyleSheet, Font } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { BOQItem, Lead } from "@/types";
 
-Font.register({
-  family: 'Cairo',
-  fonts: [
-    { src: '/fonts/Cairo-Regular.ttf', fontWeight: 'normal' },
-    { src: '/fonts/Cairo-Bold.ttf', fontWeight: 'bold' }
-  ]
-});
-
 const styles = StyleSheet.create({
-  page: { padding: 30, fontFamily: "Cairo", fontSize: 10, color: "#1a1a1a", backgroundColor: "#fff" },
+  page: { padding: 30, fontFamily: "Helvetica", fontSize: 10, color: "#1a1a1a", backgroundColor: "#fff" },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, paddingBottom: 10, borderBottomWidth: 2, borderBottomColor: "#dc2626" },
   logoContainer: { flexDirection: "row", alignItems: "center", gap: 8 },
   logoBox: { width: 40, height: 40, backgroundColor: "#dc2626", borderRadius: 6, alignItems: "center", justifyContent: "center" },
   logoText: { fontSize: 12, fontWeight: "bold", color: "#fff" },
   companyInfo: { alignItems: "flex-end" },
   companyName: { fontSize: 14, fontWeight: "bold", color: "#dc2626" },
-  companyNameAr: { fontSize: 10, color: "#666", marginTop: 2 },
   companyContact: { fontSize: 8, color: "#666", marginTop: 2, textAlign: "right" },
   title: { fontSize: 20, fontWeight: "bold", marginBottom: 20, color: "#1a1a1a", textAlign: "center" },
   infoRow: { flexDirection: "row", marginBottom: 15, gap: 20 },
@@ -47,9 +38,7 @@ const styles = StyleSheet.create({
   grandTotalValue: { fontSize: 14, fontWeight: "bold", color: "#dc2626" },
   footer: { position: "absolute", bottom: 25, left: 30, right: 30, paddingTop: 15, borderTopWidth: 1, borderTopColor: "#e5e7eb" },
   footerText: { fontSize: 8, color: "#9ca3af", textAlign: "center" },
-  footerTextAr: { fontSize: 8, color: "#9ca3af", textAlign: "center", marginTop: 2 },
   thankYou: { fontSize: 10, fontWeight: "bold", color: "#1a1a1a", textAlign: "center", marginBottom: 4 },
-  thankYouAr: { fontSize: 10, color: "#666", textAlign: "center" },
   validText: { fontSize: 8, color: "#6b7280", textAlign: "center", marginTop: 8 },
 });
 
@@ -89,7 +78,6 @@ export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grand
           </View>
           <View style={styles.companyInfo}>
             <Text style={styles.companyName}>GCHV Egypt</Text>
-            <Text style={styles.companyNameAr}>جي سي اتش في مصر</Text>
             <Text style={styles.companyContact}>Cairo, Egypt</Text>
             <Text style={styles.companyContact}>+20 100 123 4567</Text>
             <Text style={styles.companyContact}>contact@gchvegypt.com</Text>
@@ -97,18 +85,18 @@ export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grand
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>Bill of Quantities / مقايسة أعمال</Text>
+        <Text style={styles.title}>Bill of Quantities</Text>
 
         {/* Client & Date Info */}
         <View style={styles.infoRow}>
           <View style={styles.infoBox}>
-            <Text style={styles.infoLabel}>Client / العميل</Text>
+            <Text style={styles.infoLabel}>Client</Text>
             <Text style={styles.infoValue}>{customer?.name || customer?.customer_name || "N/A"}</Text>
             {(customer?.phone || customer?.customer_phone) && <Text style={styles.infoValueSmall}>{customer?.phone || customer?.customer_phone}</Text>}
             {(customer?.company || customer?.customer_address) && <Text style={styles.infoValueSmall}>{customer?.company || customer?.customer_address}</Text>}
           </View>
           <View style={styles.infoBox}>
-            <Text style={styles.infoLabel}>Date / التاريخ</Text>
+            <Text style={styles.infoLabel}>Date</Text>
             <Text style={styles.infoValue}>{dateCreated ? formatDate(dateCreated) : 'N/A'}</Text>
           </View>
         </View>
@@ -118,7 +106,7 @@ export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grand
           {/* Table Header */}
           <View style={styles.tableHeader}>
             <Text style={[styles.tableHeaderText, styles.colNo]}>#</Text>
-            <Text style={[styles.tableHeaderText, styles.colDesc]}>Description / الوصف</Text>
+            <Text style={[styles.tableHeaderText, styles.colDesc]}>Description</Text>
             <Text style={[styles.tableHeaderText, styles.colModel]}>Model</Text>
             <Text style={[styles.tableHeaderText, styles.colQty]}>Qty</Text>
             <Text style={[styles.tableHeaderText, styles.colPrice]}>Unit Price</Text>
@@ -149,26 +137,26 @@ export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grand
         <View style={styles.totalsSection}>
           <View style={styles.totalsBox}>
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Subtotal / الإجمالي</Text>
+              <Text style={styles.totalLabel}>Subtotal</Text>
               <Text style={styles.totalValue}>{formatCurrency(subtotal)} EGP</Text>
             </View>
             {discountPercent > 0 && (
               <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Discount / الخصم ({discountPercent}%)</Text>
+                <Text style={styles.totalLabel}>Discount ({discountPercent}%)</Text>
                 <Text style={[styles.totalValue, { color: "#dc2626" }]}>-{formatCurrency(subtotal * (discountPercent/100))} EGP</Text>
               </View>
             )}
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>VAT 14% / ضريبة القيمة المضافة</Text>
+              <Text style={styles.totalLabel}>VAT 14%</Text>
               <Text style={styles.totalValue}>{formatCurrency(vatAmount)} EGP</Text>
             </View>
             <View style={styles.grandTotalRow}>
-              <Text style={styles.grandTotalLabel}>Grand Total / الإجمالي العام</Text>
+              <Text style={styles.grandTotalLabel}>Grand Total</Text>
               <Text style={styles.grandTotalValue}>{formatCurrency(grandTotal)} EGP</Text>
             </View>
             {typeof grandTotalUSD === 'number' && (
               <View style={[styles.totalRow, { marginTop: 6 }]}>
-                <Text style={[styles.grandTotalLabel, { fontSize: 12 }]}>Total / الإجمالي</Text>
+                <Text style={[styles.grandTotalLabel, { fontSize: 12 }]}>Total (USD)</Text>
                 <Text style={[styles.grandTotalValue, { fontSize: 12 }]}>{formatCurrencyUSD(grandTotalUSD)}</Text>
               </View>
             )}
@@ -178,8 +166,7 @@ export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grand
         {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.thankYou}>Thank you for choosing GCHV Egypt</Text>
-          <Text style={styles.thankYouAr}>شكراً لاختياركم جي سي اتش في مصر</Text>
-          <Text style={styles.validText}>This quotation is valid for 15 days | عرض السعر ساري لمدة ١٥ يوم</Text>
+          <Text style={styles.validText}>This quotation is valid for 15 days</Text>
         </View>
       </Page>
     </Document>
