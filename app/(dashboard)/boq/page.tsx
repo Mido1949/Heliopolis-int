@@ -295,7 +295,7 @@ export default function BOQPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">BOQ Management</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Build, track, and export quotes. عروض الأسعار
+            Build, track, and export quotes. v2.1 - Fixes Applied
           </p>
         </div>
         <div className="flex bg-white border rounded-lg p-1 shadow-sm">

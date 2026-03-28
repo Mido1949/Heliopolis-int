@@ -8,6 +8,7 @@ Font.register({
   fonts: [
     { src: 'https://fonts.gstatic.com/s/cairo/v20/SLXWc1nY6Hkvalv_Zk8.ttf', fontWeight: 'normal' },
     { src: 'https://fonts.gstatic.com/s/cairo/v20/SLXWc1nY6Hkvalv_Zk8.ttf', fontWeight: 'bold' },
+    { src: 'https://fonts.gstatic.com/s/cairo/v20/SLXWc1nY6Hkvalv_Zk8.ttf', fontWeight: 'normal', fontStyle: 'italic' },
   ]
 });
 
