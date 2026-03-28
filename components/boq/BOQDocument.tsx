@@ -2,18 +2,16 @@ import React from "react";
 import { Document, Page, Text, View, StyleSheet, Font } from "@react-pdf/renderer";
 import { BOQItem, Lead } from "@/types";
 
-// Register Cairo font for Arabic support
 Font.register({
-  family: 'Cairo',
+  family: 'Helvetica',
   fonts: [
-    { src: 'https://fonts.gstatic.com/s/cairo/v20/SLXWc1nY6Hkvalv_Zk8.ttf', fontWeight: 'normal' },
-    { src: 'https://fonts.gstatic.com/s/cairo/v20/SLXWc1nY6Hkvalv_Zk8.ttf', fontWeight: 'bold' },
-    { src: 'https://fonts.gstatic.com/s/cairo/v20/SLXWc1nY6Hkvalv_Zk8.ttf', fontWeight: 'normal', fontStyle: 'italic' },
+    { src: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxM.woff2', fontWeight: 'normal' },
+    { src: 'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc9.woff2', fontWeight: 'bold' },
   ]
 });
 
 const styles = StyleSheet.create({
-  page: { padding: 40, fontFamily: "Cairo", fontSize: 10, color: "#333" },
+  page: { padding: 40, fontFamily: "Helvetica", fontSize: 10, color: "#333" },
   header: { flexDirection: "row", justifyContent: "space-between", marginBottom: 40 },
   logoBox: { width: 120 },
   companyDetails: { textAlign: "right", color: "#666" },
