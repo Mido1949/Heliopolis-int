@@ -40,15 +40,27 @@ interface BOQDocumentProps {
   discountPercent: number;
   vatAmount: number;
   grandTotal: number;
+  grandTotalUSD?: number;
+  dateCreated?: string;
   customer?: Lead;
 }
 
-export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grandTotal, customer }: BOQDocumentProps) {
+export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grandTotal, grandTotalUSD, dateCreated, customer }: BOQDocumentProps) {
   const formatCurrency = (val: number) => `${new Intl.NumberFormat('en-EG').format(val)} EGP`;
+  const formatCurrencyUSD = (val?: number) =>
+    val !== undefined && val !== null
+      ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val)
+      : '';
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
+        {/* Logo placeholder top-left */}
+        <View style={{ marginBottom: 8 }}>
+          <View style={{ width: 60, height: 30, borderWidth: 1, borderColor: '#3b82f6', borderRadius: 2, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 8, color: '#64748b' }}>Logo</Text>
+          </View>
+        </View>
         
         {/* Header */}
         <View style={styles.header}>
@@ -79,6 +91,9 @@ export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grand
             </>
           ) : (
             <Text>No Customer Specified / لم يتم تحديد عميل</Text>
+          )}
+          {dateCreated && (
+            <Text style={{ fontSize: 9, color: '#64748b', marginTop: 6 }}>Date Created: {dateCreated}</Text>
           )}
         </View>
 
@@ -120,10 +135,16 @@ export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grand
             <Text>VAT (14%) / ضريبة القيمة المضافة</Text>
             <Text style={styles.totalVal}>{formatCurrency(vatAmount)}</Text>
           </View>
-          <View style={[styles.totalRow, { borderTop: 1, borderTopColor: "#94a3b8", marginTop: 6, paddingTop: 6 }]}>
+          <View style={[styles.totalRow, { borderTop: 1, borderTopColor: "#94a3b8", marginTop: 6, paddingTop: 6 }]}> 
             <Text style={[styles.grandTotal, { color: "#0369a1" }]}>Grand Total / الإجمالي العام</Text>
             <Text style={[styles.grandTotal, { color: "#0369a1" }]}>{formatCurrency(grandTotal)}</Text>
           </View>
+          {typeof grandTotalUSD === 'number' && (
+            <View style={[styles.totalRow, { borderTop: 0, paddingTop: 6 }]}> 
+              <Text style={[styles.grandTotal, { color: "#374151" }]}>Total (USD)</Text>
+              <Text style={[styles.grandTotal, { color: "#0369a1" }]}>{formatCurrencyUSD(grandTotalUSD)}</Text>
+            </View>
+          )}
         </View>
 
         {/* Footer */}

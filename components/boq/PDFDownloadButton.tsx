@@ -12,6 +12,8 @@ interface PDFDownloadButtonProps {
   discountPercent: number;
   vatAmount: number;
   grandTotal: number;
+  grandTotalUSD?: number;
+  dateCreated?: string;
   customer?: Lead;
   variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
   size?: "default" | "sm" | "lg" | "icon";
@@ -24,6 +26,8 @@ export default function PDFDownloadButton({
   size = "default", 
   className = "w-full h-10", 
   label = "Export PDF",
+  grandTotalUSD,
+  dateCreated,
   ...props 
 }: PDFDownloadButtonProps) {
   const [loading, setLoading] = useState(false);
@@ -34,7 +38,7 @@ export default function PDFDownloadButton({
     setLoading(true);
     try {
       const fileName = `GCHV_BOQ_${props.customer?.name?.replace(/\s+/g, '_') || 'Draft'}.pdf`;
-      const blob = await pdf(<BOQDocument {...props} />).toBlob();
+      const blob = await pdf(<BOQDocument {...props} grandTotalUSD={grandTotalUSD} dateCreated={dateCreated} />).toBlob();
       saveAs(blob, fileName);
     } catch (error) {
       console.error("PDF generation failed:", error);

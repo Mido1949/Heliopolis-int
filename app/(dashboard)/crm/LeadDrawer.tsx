@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   Drawer, Descriptions, Tag, Space, Button, Timeline, Typography, Divider, Tooltip,
 } from 'antd';
-import { WhatsAppOutlined, PhoneOutlined, MailOutlined, EditOutlined, CalendarOutlined, FileTextOutlined, DownloadOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons';
+import { WhatsAppOutlined, PhoneOutlined, MailOutlined, EditOutlined, CalendarOutlined, FileTextOutlined, DownloadOutlined, PlusOutlined } from '@ant-design/icons';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { LEAD_STATUSES, LEAD_SOURCES } from '@/lib/constants';
@@ -198,53 +198,51 @@ export default function LeadDrawer({ lead, open, onClose, onEdit }: LeadDrawerPr
         </div>
       ) : (
         <div className="space-y-3">
-          {boqs.map((boq) => (
-            <div key={boq.id} className="border border-gray-100 rounded-lg p-3 hover:border-accent transition-colors">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <Text strong className="block text-xs">{boq.boq_number}</Text>
-                  <Text type="secondary" style={{ fontSize: 10 }}>{formatDate(boq.created_at)}</Text>
+          {boqs.map((boq) => {
+            const grandTotalUSD = boq.grand_total / (boq.exchange_rate || 50);
+            const customerName = lead?.name ?? '';
+            return (
+              <div key={boq.id} className="border border-gray-100 rounded-lg p-3 hover:border-accent transition-colors">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <Text strong className="block text-xs">BOQ #{boq.boq_number}</Text>
+                    <Text type="secondary" style={{ fontSize: 10 }}>{formatDate(boq.created_at)}</Text>
+                    <div className="text-xs text-muted-foreground" style={{ marginTop: 2 }}>
+                      {`Customer: ${customerName}`}
+                    </div>
+                  </div>
+                  <Tag color={boq.status === 'Paid' ? 'green' : boq.status === 'Sent' ? 'blue' : 'default'} style={{ margin: 0, fontSize: 10 }}>
+                    {boq.status}
+                  </Tag>
                 </div>
-                <Tag color={boq.status === 'Paid' ? 'green' : boq.status === 'Sent' ? 'blue' : 'default'} style={{ margin: 0, fontSize: 10 }}>
-                  {boq.status}
-                </Tag>
-              </div>
-              
-              <div className="flex justify-between items-center mt-3">
-                <Text strong className="text-accent">{new Intl.NumberFormat('en-EG').format(boq.grand_total)} EGP</Text>
-                <Space size="small">
-                  <Link href={`/boq?id=${boq.id}`}>
-                    <Tooltip title="View / Edit">
-                      <Button size="small" icon={<EyeOutlined />} />
-                    </Tooltip>
-                  </Link>
-                  <PDFDownloadButton 
-                    items={boq.boq_items || []}
-                    subtotal={boq.subtotal}
-                    discountPercent={boq.discount_percent}
-                    vatAmount={boq.vat_amount}
-                    grandTotal={boq.grand_total}
-                    customer={lead}
-                    size="sm"
-                    variant="outline"
-                    className="h-8"
-                    label="PDF"
-                  />
-                  <Tooltip title="Send via WhatsApp">
-                    <Button 
-                      size="small" 
-                      icon={<WhatsAppOutlined />} 
-                      className="bg-[#25D366] hover:bg-[#128C7E] text-white border-none"
-                      onClick={() => {
-                        const text = `Hello ${lead.name},\n\nHere is your quotation ${boq.boq_number} from GCHV Egypt:\n\n*Total: ${new Intl.NumberFormat('en-EG').format(boq.grand_total)} EGP*\n\nPlease let us know if you have any questions.\n\nThank you!`;
-                        window.open(`https://wa.me/${lead.phone?.replace(/[^0-9+]/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
-                      }}
+                
+                <div className="flex items-center justify-between mt-3">
+                  <div>
+                    <span className="font-semibold mr-2">Total:</span>
+                    <span className="font-bold text-accent mr-2">{new Intl.NumberFormat('en-EG').format(boq.grand_total)} EGP</span>
+                    {grandTotalUSD !== undefined && (
+                      <span className="text-sm text-muted-foreground">({new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(grandTotalUSD)})</span>
+                    )}
+                  </div>
+                  <Space size="small">
+                    <Link href={`/boq?id=${boq.id}`}>
+                      <Button size="small">View BOQ</Button>
+                    </Link>
+                    <PDFDownloadButton 
+                      items={boq.boq_items || []}
+                      subtotal={boq.subtotal}
+                      discountPercent={boq.discount_percent}
+                      vatAmount={boq.vat_amount}
+                      grandTotal={boq.grand_total}
+                      grandTotalUSD={grandTotalUSD}
+                      dateCreated={boq.created_at}
+                      customer={lead}
                     />
-                  </Tooltip>
-                </Space>
+                  </Space>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
