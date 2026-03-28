@@ -3,25 +3,46 @@ import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { BOQItem, Lead } from "@/types";
 
 const styles = StyleSheet.create({
-  page: { padding: 40, fontFamily: "Helvetica", fontSize: 10, color: "#333" },
-  header: { flexDirection: "row", justifyContent: "space-between", marginBottom: 40 },
-  logoBox: { width: 120 },
-  companyDetails: { textAlign: "right", color: "#666" },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 20, color: "#111" },
-  clientBox: { marginBottom: 30, padding: 15, backgroundColor: "#f8fafc", borderRadius: 4 },
-  sectionTitle: { fontSize: 12, fontWeight: "bold", marginBottom: 5, color: "#64748b", textTransform: "uppercase" },
-  table: { display: "flex", flexDirection: "column", width: "100%", borderTop: 1, borderTopColor: "#e2e8f0" },
-  tableRow: { flexDirection: "row", borderBottom: 1, borderBottomColor: "#e2e8f0", paddingVertical: 8 },
-  tableHeader: { fontWeight: "bold", backgroundColor: "#f1f5f9", paddingVertical: 10 },
-  col1: { width: "40%", paddingLeft: 8 },
-  col2: { width: "20%", textAlign: "right" },
-  col3: { width: "15%", textAlign: "center" },
-  col4: { width: "25%", textAlign: "right", paddingRight: 8 },
-  totalBox: { marginTop: 20, alignSelf: "flex-end", width: "40%" },
-  totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
-  totalVal: { fontWeight: "bold" },
-  grandTotal: { fontSize: 14, color: "#000", fontWeight: "bold" },
-  footer: { position: "absolute", bottom: 30, left: 40, right: 40, textAlign: "center", color: "#94a3b8" }
+  page: { padding: 30, fontFamily: "Helvetica", fontSize: 10, color: "#1a1a1a", backgroundColor: "#fff" },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 25, paddingBottom: 15, borderBottomWidth: 2, borderBottomColor: "#dc2626" },
+  logoContainer: { flexDirection: "row", alignItems: "center", gap: 10 },
+  logoBox: { width: 50, height: 50, backgroundColor: "#dc2626", borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  logoText: { fontSize: 16, fontWeight: "bold", color: "#fff" },
+  companyInfo: { alignItems: "flex-end" },
+  companyName: { fontSize: 18, fontWeight: "bold", color: "#dc2626" },
+  companyNameAr: { fontSize: 12, color: "#666", marginTop: 2 },
+  companyContact: { fontSize: 9, color: "#666", marginTop: 4, textAlign: "right" },
+  title: { fontSize: 20, fontWeight: "bold", marginBottom: 20, color: "#1a1a1a", textAlign: "center" },
+  infoRow: { flexDirection: "row", marginBottom: 15, gap: 20 },
+  infoBox: { flex: 1, padding: 12, backgroundColor: "#f9fafb", borderRadius: 6, borderWidth: 1, borderColor: "#e5e7eb" },
+  infoLabel: { fontSize: 8, color: "#6b7280", marginBottom: 4, textTransform: "uppercase" },
+  infoValue: { fontSize: 12, fontWeight: "bold", color: "#1a1a1a" },
+  infoValueSmall: { fontSize: 10, color: "#4b5563", marginTop: 2 },
+  table: { width: "100%", borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 4, overflow: "hidden", marginBottom: 20 },
+  tableHeader: { flexDirection: "row", backgroundColor: "#dc2626", paddingVertical: 10, paddingHorizontal: 8 },
+  tableHeaderText: { color: "#fff", fontWeight: "bold", fontSize: 9 },
+  tableRow: { flexDirection: "row", paddingVertical: 10, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: "#e5e7eb" },
+  tableRowAlt: { backgroundColor: "#f9fafb" },
+  colNo: { width: 30 },
+  colDesc: { width: 160 },
+  colModel: { width: 70 },
+  colQty: { width: 40, textAlign: "center" },
+  colPrice: { width: 65, textAlign: "right" },
+  colTotal: { width: 65, textAlign: "right" },
+  totalsSection: { flexDirection: "row", justifyContent: "flex-end" },
+  totalsBox: { width: 200, backgroundColor: "#f9fafb", borderRadius: 6, padding: 12, borderWidth: 1, borderColor: "#e5e7eb" },
+  totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
+  totalLabel: { fontSize: 10, color: "#4b5563" },
+  totalValue: { fontSize: 10, fontWeight: "bold" },
+  grandTotalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 8, marginTop: 4, borderTopWidth: 2, borderTopColor: "#dc2626" },
+  grandTotalLabel: { fontSize: 14, fontWeight: "bold", color: "#dc2626" },
+  grandTotalValue: { fontSize: 14, fontWeight: "bold", color: "#dc2626" },
+  footer: { position: "absolute", bottom: 25, left: 30, right: 30, paddingTop: 15, borderTopWidth: 1, borderTopColor: "#e5e7eb" },
+  footerText: { fontSize: 8, color: "#9ca3af", textAlign: "center" },
+  footerTextAr: { fontSize: 8, color: "#9ca3af", textAlign: "center", marginTop: 2 },
+  thankYou: { fontSize: 10, fontWeight: "bold", color: "#1a1a1a", textAlign: "center", marginBottom: 4 },
+  thankYouAr: { fontSize: 10, color: "#666", textAlign: "center" },
+  validText: { fontSize: 8, color: "#6b7280", textAlign: "center", marginTop: 8 },
 });
 
 interface BOQDocumentProps {
@@ -36,111 +57,113 @@ interface BOQDocumentProps {
 }
 
 export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grandTotal, grandTotalUSD, dateCreated, customer }: BOQDocumentProps) {
-  const formatCurrency = (val: number) => `${new Intl.NumberFormat('en-EG').format(val)} EGP`;
-  const formatCurrencyUSD = (val?: number) =>
-    val !== undefined && val !== null
-      ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val)
-      : '';
+  const formatCurrency = (val: number) => new Intl.NumberFormat('en-EG', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(val);
+  const formatCurrencyUSD = (val?: number) => val !== undefined && val !== null ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val) : '';
+  const formatDate = (dateStr?: string) => dateStr ? new Date(dateStr).toLocaleDateString('en-GB') : '';
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Logo placeholder top-left */}
-        <View style={{ marginBottom: 8 }}>
-          <View style={{ width: 60, height: 30, borderWidth: 1, borderColor: '#3b82f6', borderRadius: 2, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontSize: 8, color: '#64748b' }}>Logo</Text>
-          </View>
-        </View>
-        
-        {/* Header */}
+        {/* Header with Logo */}
         <View style={styles.header}>
-          <View style={styles.logoBox}>
-            <Text style={{ fontSize: 22, fontWeight: "bold", color: "#0284c7" }}>GCHV Egypt</Text>
-            <Text style={{ fontSize: 9, color: "#64748b", marginTop: 2 }}>Premium HVAC Solutions (HVAC)</Text>
+          <View style={styles.logoContainer}>
+            <View style={styles.logoBox}>
+              <Text style={styles.logoText}>GCHV</Text>
+            </View>
+            <View>
+              <Text style={{ fontSize: 16, fontWeight: "bold", color: "#dc2626" }}>GCHV Egypt</Text>
+              <Text style={{ fontSize: 8, color: "#666" }}>Premium HVAC Solutions</Text>
+            </View>
           </View>
-          <View style={styles.companyDetails}>
-            <Text>جي سي اتش في مصر (GCHV Egypt)</Text>
-            <Text>123 Business District, Cairo</Text>
-            <Text>contact@gchvegypt.com</Text>
-            <Text>+20 100 123 4567</Text>
+          <View style={styles.companyInfo}>
+            <Text style={styles.companyName}>GCHV Egypt</Text>
+            <Text style={styles.companyNameAr}>جي سي اتش في مصر</Text>
+            <Text style={styles.companyContact}>📍 Cairo, Egypt</Text>
+            <Text style={styles.companyContact}>📞 +20 100 123 4567</Text>
+            <Text style={styles.companyContact}>✉️ contact@gchvegypt.com</Text>
           </View>
         </View>
 
-        <View style={{ marginBottom: 20 }}>
-          <Text style={styles.title}>Bill of Quantities / مقايسة أعمال</Text>
+        {/* Title */}
+        <Text style={styles.title}>Bill of Quantities / مقايسة أعمال</Text>
+
+        {/* Client & Date Info */}
+        <View style={styles.infoRow}>
+          <View style={styles.infoBox}>
+            <Text style={styles.infoLabel}>Client / العميل</Text>
+            <Text style={styles.infoValue}>{customer?.name || "N/A"}</Text>
+            {customer?.phone && <Text style={styles.infoValueSmall}>{customer.phone}</Text>}
+            {customer?.company && <Text style={styles.infoValueSmall}>{customer.company}</Text>}
+          </View>
+          <View style={styles.infoBox}>
+            <Text style={styles.infoLabel}>Date / التاريخ</Text>
+            <Text style={styles.infoValue}>{formatDate(dateCreated)}</Text>
+          </View>
         </View>
 
-        {/* Client Details */}
-        <View style={styles.clientBox}>
-          <Text style={styles.sectionTitle}>Client Details / بيانات العميل</Text>
-          {customer ? (
-            <>
-              <Text style={{ fontSize: 13, fontWeight: "bold", color: "#0f172a" }}>{customer.name}</Text>
-              {customer.company && <Text style={{ marginTop: 4 }}>{customer.company}</Text>}
-              {customer.phone && <Text style={{ marginTop: 2 }}>{customer.phone}</Text>}
-            </>
-          ) : (
-            <Text>No Customer Specified / لم يتم تحديد عميل</Text>
-          )}
-          {dateCreated && (
-            <Text style={{ fontSize: 9, color: '#64748b', marginTop: 6 }}>Date Created: {dateCreated}</Text>
-          )}
-        </View>
-
-        {/* Table */}
+        {/* Products Table */}
         <View style={styles.table}>
-          <View style={[styles.tableRow, styles.tableHeader]}>
-            <Text style={styles.col1}>Description / الوصف</Text>
-            <Text style={styles.col2}>Unit Price / السعر</Text>
-            <Text style={styles.col3}>Qty / الكمية</Text>
-            <Text style={styles.col4}>Total / الإجمالي</Text>
+          {/* Table Header */}
+          <View style={styles.tableHeader}>
+            <Text style={[styles.tableHeaderText, styles.colNo]}>#</Text>
+            <Text style={[styles.tableHeaderText, styles.colDesc]}>Description / الوصف</Text>
+            <Text style={[styles.tableHeaderText, styles.colModel]}>Model</Text>
+            <Text style={[styles.tableHeaderText, styles.colQty]}>Qty</Text>
+            <Text style={[styles.tableHeaderText, styles.colPrice]}>Unit Price</Text>
+            <Text style={[styles.tableHeaderText, styles.colTotal]}>Total</Text>
           </View>
           
-          {items.map((item, i) => (
-            <View key={i} style={styles.tableRow}>
-              <View style={styles.col1}>
-                <Text style={{ fontWeight: "bold", color: "#1e293b" }}>{item.model}</Text>
-                {item.product?.sku && <Text style={{ fontSize: 8, color: "#94a3b8", marginTop: 2 }}>SKU: {item.product.sku}</Text>}
+          {/* Table Rows */}
+          {items.map((item, index) => (
+            <View key={index} style={index % 2 === 1 ? [styles.tableRow, styles.tableRowAlt] : styles.tableRow}>
+              <Text style={styles.colNo}>{index + 1}</Text>
+              <View style={styles.colDesc}>
+                <Text style={{ fontWeight: "bold", fontSize: 9 }}>{item.product?.name || item.model}</Text>
+                {item.product?.sku && <Text style={{ fontSize: 7, color: "#6b7280" }}>SKU: {item.product.sku}</Text>}
               </View>
-              <Text style={styles.col2}>{formatCurrency(item.unit_price)}</Text>
-              <Text style={styles.col3}>{item.quantity}</Text>
-              <Text style={styles.col4}>{formatCurrency(item.total)}</Text>
+              <Text style={styles.colModel}>{item.model}</Text>
+              <Text style={styles.colQty}>{item.quantity}</Text>
+              <Text style={styles.colPrice}>{formatCurrency(item.unit_price)}</Text>
+              <Text style={styles.colTotal}>{formatCurrency(item.total)}</Text>
             </View>
           ))}
         </View>
 
         {/* Totals */}
-        <View style={styles.totalBox}>
-          <View style={styles.totalRow}>
-            <Text>Subtotal / الإجمالي الفرعي</Text>
-            <Text style={styles.totalVal}>{formatCurrency(subtotal)}</Text>
-          </View>
-          {discountPercent > 0 && (
+        <View style={styles.totalsSection}>
+          <View style={styles.totalsBox}>
             <View style={styles.totalRow}>
-              <Text>Discount ({discountPercent}%) / الخصم</Text>
-              <Text style={[styles.totalVal, { color: "#e11d48" }]}>-{formatCurrency(subtotal * (discountPercent/100))}</Text>
+              <Text style={styles.totalLabel}>Subtotal / الإجمالي</Text>
+              <Text style={styles.totalValue}>{formatCurrency(subtotal)} EGP</Text>
             </View>
-          )}
-          <View style={styles.totalRow}>
-            <Text>VAT (14%) / ضريبة القيمة المضافة</Text>
-            <Text style={styles.totalVal}>{formatCurrency(vatAmount)}</Text>
-          </View>
-          <View style={[styles.totalRow, { borderTop: 1, borderTopColor: "#94a3b8", marginTop: 6, paddingTop: 6 }]}> 
-            <Text style={[styles.grandTotal, { color: "#0369a1" }]}>Grand Total / الإجمالي العام</Text>
-            <Text style={[styles.grandTotal, { color: "#0369a1" }]}>{formatCurrency(grandTotal)}</Text>
-          </View>
-          {typeof grandTotalUSD === 'number' && (
-            <View style={[styles.totalRow, { borderTop: 0, paddingTop: 6 }]}> 
-              <Text style={[styles.grandTotal, { color: "#374151" }]}>Total (USD)</Text>
-              <Text style={[styles.grandTotal, { color: "#0369a1" }]}>{formatCurrencyUSD(grandTotalUSD)}</Text>
+            {discountPercent > 0 && (
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Discount / الخصم ({discountPercent}%)</Text>
+                <Text style={[styles.totalValue, { color: "#dc2626" }]}>-{formatCurrency(subtotal * (discountPercent/100))} EGP</Text>
+              </View>
+            )}
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>VAT 14% / ضريبة القيمة المضافة</Text>
+              <Text style={styles.totalValue}>{formatCurrency(vatAmount)} EGP</Text>
             </View>
-          )}
+            <View style={styles.grandTotalRow}>
+              <Text style={styles.grandTotalLabel}>Grand Total / الإجمالي العام</Text>
+              <Text style={styles.grandTotalValue}>{formatCurrency(grandTotal)} EGP</Text>
+            </View>
+            {typeof grandTotalUSD === 'number' && (
+              <View style={[styles.totalRow, { marginTop: 6 }]}>
+                <Text style={[styles.grandTotalLabel, { fontSize: 12 }]}>Total / الإجمالي</Text>
+                <Text style={[styles.grandTotalValue, { fontSize: 12 }]}>{formatCurrencyUSD(grandTotalUSD)}</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text>Thank you for choosing GCHV Egypt. شكراً لاختياركم جي سي اتش في مصر</Text>
-          <Text style={{ marginTop: 4, fontSize: 8 }}>This quotation is valid for 15 days. عرض السعر ساري لمدة ١٥ يوم</Text>
+          <Text style={styles.thankYou}>Thank you for choosing GCHV Egypt</Text>
+          <Text style={styles.thankYouAr}>شكراً لاختياركم جي سي اتش في مصر</Text>
+          <Text style={styles.validText}>This quotation is valid for 15 days | عرض السعر ساري لمدة ١٥ يوم</Text>
         </View>
       </Page>
     </Document>
