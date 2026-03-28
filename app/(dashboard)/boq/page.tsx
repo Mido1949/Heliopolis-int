@@ -437,7 +437,13 @@ export default function BOQPage() {
                             discountPercent={boq.discount_percent}
                             vatAmount={boq.vat_amount}
                             grandTotal={boq.grand_total}
-                            customer={{ name: boq.customer_name || boq.lead?.name || "Client" } as Lead}
+                            grandTotalUSD={boq.grand_total / (boq.exchange_rate || 50)}
+                            dateCreated={boq.created_at}
+                            customer={{ 
+                              name: boq.customer_name || boq.lead?.name || "Client",
+                              phone: boq.customer_phone || "",
+                              company: boq.customer_address || ""
+                            } as Lead}
                             size="sm"
                             className="h-7 w-auto px-2"
                             label="PDF"

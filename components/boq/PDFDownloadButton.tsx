@@ -42,7 +42,8 @@ export default function PDFDownloadButton({
       saveAs(blob, fileName);
     } catch (error) {
       console.error("PDF generation failed:", error);
-      alert("Failed to generate PDF. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to generate PDF: ${errorMessage}. Please try again.`);
     } finally {
       setLoading(false);
     }
