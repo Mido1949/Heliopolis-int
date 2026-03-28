@@ -433,17 +433,17 @@ export default function BOQPage() {
                           </button>
                           <PDFDownloadButton 
                             items={boq.boq_items || []}
-                            subtotal={boq.subtotal}
-                            discountPercent={boq.discount_percent}
-                            vatAmount={boq.vat_amount}
-                            grandTotal={boq.grand_total}
-                            grandTotalUSD={boq.grand_total / (boq.exchange_rate || 50)}
-                            dateCreated={boq.created_at}
-                            customer={{ 
+                            subtotal={Number(boq.subtotal) || 0}
+                            discountPercent={Number(boq.discount_percent) || 0}
+                            vatAmount={Number(boq.vat_amount) || 0}
+                            grandTotal={Number(boq.grand_total) || 0}
+                            grandTotalUSD={Number(boq.grand_total) / (Number(boq.exchange_rate) || 50)}
+                            dateCreated={boq.created_at || new Date().toISOString()}
+                            customer={Object.assign({}, boq.lead, { 
                               name: boq.customer_name || boq.lead?.name || "Client",
-                              phone: boq.customer_phone || "",
-                              company: boq.customer_address || ""
-                            } as Lead}
+                              phone: boq.customer_phone || boq.lead?.phone || "",
+                              company: boq.customer_address || boq.lead?.company || ""
+                            })}
                             size="sm"
                             className="h-7 w-auto px-2"
                             label="PDF"
