@@ -7,7 +7,7 @@ import { BOQEditor } from "@/components/boq/BOQEditor";
 import { BOQSummary } from "@/components/boq/BOQSummary";
 import { Product, BOQItem, Lead, BOQ } from "@/types";
 import { createClient } from "@/lib/supabase/client";
-import { Plus, FileText, ExternalLink, Calculator, Save, Download, Eye } from "lucide-react";
+import { Download, Eye } from "lucide-react";
 import dynamic from "next/dynamic";
 
 const PDFDownloadButton = dynamic(() => import("@/components/boq/PDFDownloadButton"), {
