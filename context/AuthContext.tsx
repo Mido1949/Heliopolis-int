@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, email?: string) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -31,20 +31,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', userId)
         .single();
       
-      if (!error && data) {
+      if (error && error.code === 'PGRST116') {
+        // Profile doesn't exist, try to create it
+        console.log('Profile missing, creating for user:', userId);
+        const { data: newProfile, error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            name: email ? email.split('@')[0] : 'User',
+            email: email || '',
+            role: 'Sales Engineer'
+          })
+          .select()
+          .single();
+        
+        if (!insertError && newProfile) {
+          setProfile(newProfile);
+        }
+      } else if (data) {
         setProfile(data);
       }
     } catch (err) {
-      console.error('Error fetching profile:', err);
+      console.error('Error in fetchProfile:', err);
     }
   };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchProfile(session.user.id);
+        const u = session?.user ?? null;
+        setUser(u);
+        if (u) {
+          await fetchProfile(u.id, u.email);
         } else {
           setProfile(null);
         }
@@ -53,10 +71,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [supabase]);
 
   const refreshProfile = async () => {
-    if (user) await fetchProfile(user.id);
+    if (user) await fetchProfile(user.id, user.email);
   };
 
   const isAdmin = profile?.role === 'admin';
