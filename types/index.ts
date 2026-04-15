@@ -15,6 +15,8 @@ export type TaskType = 'BOQ' | 'Call' | 'Meeting' | 'Email' | 'Admin' | 'Other';
 export type InventoryAction = 'Sale' | 'Return' | 'Damage' | 'Transfer' | 'Restock';
 export type CampaignStatus = 'Draft' | 'Scheduled' | 'Sent' | 'Failed';
 export type ScrapedLeadStatus = 'New' | 'Added to CRM' | 'Duplicate';
+export type CallType = 'Inbound' | 'Outbound';
+export type CallOutcome = 'Answered' | 'No Answer' | 'Busy' | 'Callback Requested';
 
 // ── Data Models ─────────────────────────────────
 export interface Profile {
@@ -164,6 +166,17 @@ export interface ScoreEvent {
   points: number;
   reference_id?: string;
   reference_type?: string;
+  created_at: string;
+}
+
+export interface CallLog {
+  id: string;
+  lead_id: string;
+  call_type: CallType;
+  outcome: CallOutcome;
+  duration_minutes: number;
+  notes?: string;
+  created_by: string;
   created_at: string;
 }
 

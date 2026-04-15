@@ -67,8 +67,15 @@ export default function DashboardPage() {
         const { data: lowStock } = await supabase.from('products').select('*').lt('stock_quantity', 5).limit(2);
         setLowStockProducts(lowStock || []);
 
+        console.log('--- DASHBOARD DIAGNOSTICS ---');
+        console.log('Leads fetched:', totalLeads);
+        console.log('Revenue fetched:', wonBoqs?.length || 0);
+        console.log('Sent BOQs fetched:', sentBOQs);
+        console.log('Leaderboard fetched:', profiles?.length || 0);
+        console.log('Low Stock fetched:', lowStock?.length || 0);
+
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        console.error('CRITICAL: Dashboard Fetch Error:', error);
       } finally {
         setLoading(false);
       }

@@ -196,50 +196,72 @@ export default function BOQPage() {
       return;
     }
 
+    // ✅ Check user is logged in
+    if (!user?.id) {
+      alert("User not logged in. Please refresh and try again.");
+      console.error("User not authenticated:", user);
+      return;
+    }
+
+    // ✅ Validate customer info
+    if (!customerName.trim()) {
+      alert("Please enter customer name");
+      return;
+    }
+
     setIsSaving(true);
     try {
-      const profileId = user?.id;
+      const profileId = user.id;
+      console.log("🔵 Starting BOQ save with user ID:", profileId); // Debug log
+      
       let currentLeadId = selectedCustomer;
 
-      // Auto-create lead if phone is provided and doesn't exist
-      if (!currentLeadId && customerPhone) {
-        const { data: existingLead } = await supabase
+      // If no existing lead, create one
+      if (!currentLeadId) {
+        console.log("📝 Creating new lead..."); // Debug log
+        
+        const { data: newLead, error: leadError } = await supabase
           .from("leads")
+          .insert({
+            name: customerName,
+            phone: customerPhone,
+            company: customerAddress,
+            source: "BOQ Builder",
+            assigned_to: profileId,
+          })
           .select("id")
-          .eq("phone", customerPhone)
-          .maybeSingle();
+          .single();
 
-        if (existingLead) {
-          currentLeadId = existingLead.id;
-        } else {
-          const { data: newLead, error: leadError } = await supabase
-            .from("leads")
-            .insert({
-              name: customerName,
-              phone: customerPhone,
-              status: "Quote Sent",
-              source: "Direct",
-              assigned_to: profileId,
-              notes: `Auto-created from BOQ Builder. Address: ${customerAddress}`
-            })
-            .select()
-            .single();
-
-          if (leadError) throw leadError;
-          currentLeadId = newLead.id;
+        if (leadError) {
+          console.error("❌ Lead creation failed:", leadError);
+          throw new Error(`Lead creation failed: ${leadError.message}`);
         }
+        
+        if (!newLead?.id) {
+          throw new Error("No lead ID returned from database");
+        }
+        
+        currentLeadId = newLead.id;
+        console.log("✅ Lead created:", currentLeadId); // Debug log
       }
 
-      const boqNumber = `BOQ-${new Date().getFullYear()}${(new Date().getMonth()+1).toString().padStart(2, '0')}${new Date().getDate().toString().padStart(2, '0')}-${Math.floor(Math.random() * 9000) + 1000}`;
+      // Generate BOQ number
+      const boqNumber = `BOQ-${Date.now()}`;
+      console.log("📊 Generated BOQ number:", boqNumber); // Debug log
+
+      // Insert BOQ
+      console.log("💾 Inserting BOQ record..."); // Debug log
       
       const { data: boqData, error: boqError } = await supabase
         .from("boqs")
         .insert({
           boq_number: boqNumber,
+          lead_id: currentLeadId,
           customer_name: customerName,
           customer_phone: customerPhone,
           customer_address: customerAddress,
-          lead_id: currentLeadId || null,
+          created_by: profileId,
+          status: "Draft",
           subtotal,
           discount_percent: discountPercent,
           discount_amount: discountAmount,
@@ -247,16 +269,27 @@ export default function BOQPage() {
           vat_amount: vatAmount,
           grand_total: grandTotal,
           exchange_rate: exchangeRate,
-          created_by: profileId,
-          status: "Draft"
         })
-        .select()
+        .select("id")
         .single();
 
-      if (boqError) throw boqError;
+      if (boqError) {
+        console.error("❌ BOQ insert failed:", boqError);
+        throw new Error(`BOQ save failed: ${boqError.message}`);
+      }
 
+      if (!boqData?.id) {
+        throw new Error("No BOQ ID returned from database");
+      }
+
+      const boqId = boqData.id;
+      console.log("✅ BOQ created:", boqId); // Debug log
+
+      // Insert BOQ items
+      console.log("📝 Inserting BOQ items...", activeItems.length); // Debug log
+      
       const itemsToInsert = activeItems.map(item => ({
-        boq_id: boqData.id,
+        boq_id: boqId,
         product_id: item.product_id,
         model: item.model,
         quantity: item.quantity,
@@ -267,18 +300,30 @@ export default function BOQPage() {
         .from("boq_items")
         .insert(itemsToInsert);
 
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        console.error("❌ BOQ items insert failed:", itemsError);
+        throw new Error(`BOQ items save failed: ${itemsError.message}`);
+      }
 
-      alert("BOQ Saved Successfully!");
+      console.log("✅ All BOQ items saved successfully"); // Debug log
+
+      // Show success
+      alert("✅ BOQ Saved Successfully! BOQ #: " + boqNumber);
+      
+      // Reset form
       setActiveItems([]);
       setSelectedCustomer("");
       setCustomerInfo({ name: "", phone: "", address: "" });
       setActiveTab("list");
-      fetchAllBOQs();
+      
+      // Refresh list
+      await fetchAllBOQs();
+      console.log("🎉 BOQ save complete and UI refreshed"); // Debug log
+      
     } catch (err: unknown) {
-      console.error("Save error:", err);
+      console.error("❌ Save error:", err);
       const message = err instanceof Error ? err.message : String(err);
-      alert("Error saving BOQ: " + message);
+      alert("Error saving BOQ:\n" + message);
     } finally {
       setIsSaving(false);
     }
@@ -439,6 +484,8 @@ export default function BOQPage() {
                             grandTotal={Number(boq.grand_total) || 0}
                             grandTotalUSD={Number(boq.grand_total) / (Number(boq.exchange_rate) || 50)}
                             dateCreated={boq.created_at || new Date().toISOString()}
+                            boqNumber={boq.boq_number}
+                            vatPercent={Number(boq.vat_percent) || 14}
                             customer={Object.assign({}, boq.lead, { 
                               name: boq.customer_name || boq.lead?.name || "Client",
                               phone: boq.customer_phone || boq.lead?.phone || "",

@@ -12,7 +12,7 @@ const styles = StyleSheet.create({
   companyName: { fontSize: 14, fontWeight: "bold", color: "#dc2626" },
   companyContact: { fontSize: 8, color: "#666", marginTop: 2, textAlign: "right" },
   title: { fontSize: 20, fontWeight: "bold", marginBottom: 20, color: "#1a1a1a", textAlign: "center" },
-  infoRow: { flexDirection: "row", marginBottom: 15, gap: 20 },
+  infoRow: { flexDirection: "row", marginBottom: 15, gap: 12 },
   infoBox: { flex: 1, padding: 12, backgroundColor: "#f9fafb", borderRadius: 6, borderWidth: 1, borderColor: "#e5e7eb" },
   infoLabel: { fontSize: 8, color: "#6b7280", marginBottom: 4, textTransform: "uppercase" },
   infoValue: { fontSize: 12, fontWeight: "bold", color: "#1a1a1a" },
@@ -50,6 +50,8 @@ interface BOQDocumentProps {
   grandTotal: number;
   grandTotalUSD?: number;
   dateCreated?: string;
+  boqNumber?: string;
+  vatPercent?: number;
   customer?: Lead & {
     customer_name?: string;
     customer_phone?: string;
@@ -57,7 +59,7 @@ interface BOQDocumentProps {
   };
 }
 
-export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grandTotal, grandTotalUSD, dateCreated, customer }: BOQDocumentProps) {
+export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grandTotal, grandTotalUSD, dateCreated, boqNumber, vatPercent = 14, customer }: BOQDocumentProps) {
   const formatCurrency = (val: number) => new Intl.NumberFormat('en-EG', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(val);
   const formatCurrencyUSD = (val?: number) => val !== undefined && val !== null ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val) : '';
   const formatDate = (dateStr?: string) => dateStr ? new Date(dateStr).toLocaleDateString('en-GB') : '';
@@ -94,6 +96,10 @@ export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grand
             <Text style={styles.infoValue}>{customer?.name || customer?.customer_name || "N/A"}</Text>
             {(customer?.phone || customer?.customer_phone) && <Text style={styles.infoValueSmall}>{customer?.phone || customer?.customer_phone}</Text>}
             {(customer?.company || customer?.customer_address) && <Text style={styles.infoValueSmall}>{customer?.company || customer?.customer_address}</Text>}
+          </View>
+          <View style={styles.infoBox}>
+            <Text style={styles.infoLabel}>BOQ Number</Text>
+            <Text style={styles.infoValue}>{boqNumber || 'N/A'}</Text>
           </View>
           <View style={styles.infoBox}>
             <Text style={styles.infoLabel}>Date</Text>
@@ -138,7 +144,7 @@ export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grand
           <View style={styles.totalsBox}>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Subtotal</Text>
-              <Text style={styles.totalValue}>{formatCurrency(subtotal)} EGP</Text>
+              <Text style={styles.totalValue}>{formatCurrency(subtotal)} EGP {grandTotalUSD ? `| ${formatCurrencyUSD(grandTotalUSD / (1 + vatPercent/100) * (1 - discountPercent/100))}` : ''}</Text>
             </View>
             {discountPercent > 0 && (
               <View style={styles.totalRow}>
@@ -152,14 +158,8 @@ export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grand
             </View>
             <View style={styles.grandTotalRow}>
               <Text style={styles.grandTotalLabel}>Grand Total</Text>
-              <Text style={styles.grandTotalValue}>{formatCurrency(grandTotal)} EGP</Text>
+              <Text style={styles.grandTotalValue}>{formatCurrency(grandTotal)} EGP {grandTotalUSD ? `| ${formatCurrencyUSD(grandTotalUSD)}` : ''}</Text>
             </View>
-            {typeof grandTotalUSD === 'number' && (
-              <View style={[styles.totalRow, { marginTop: 6 }]}>
-                <Text style={[styles.grandTotalLabel, { fontSize: 12 }]}>Total (USD)</Text>
-                <Text style={[styles.grandTotalValue, { fontSize: 12 }]}>{formatCurrencyUSD(grandTotalUSD)}</Text>
-              </View>
-            )}
           </View>
         </View>
 

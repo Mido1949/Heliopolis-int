@@ -65,10 +65,19 @@ export default function CRMPage() {
       if (sourceFilter) query = query.eq('source', sourceFilter);
 
       const { data, count, error } = await query;
-      if (error) throw error;
+      
+      console.log('--- CRM DIAGNOSTICS ---');
+      console.log('Query result length:', data?.length || 0);
+      console.log('Total count from DB:', count);
+      if (error) {
+        console.error('CRM Fetch Error:', error);
+        throw error;
+      }
+
       setLeads((data || []) as Lead[]);
       setTotal(count || 0);
-    } catch {
+    } catch (err) {
+      console.error('Catch block CRM Error:', err);
       message.error('فشل تحميل العملاء');
     } finally {
       setLoading(false);
@@ -169,7 +178,7 @@ export default function CRMPage() {
       title: 'إجراءات (Actions)',
       key: 'actions',
       fixed: 'right',
-      width: 100,
+      width: 150,
       render: (_: unknown, record: Lead) => {
         const items: MenuProps['items'] = [
           {
