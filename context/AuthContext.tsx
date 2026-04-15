@@ -13,6 +13,7 @@ interface AuthContextType {
   isManager: boolean;
   isStaff: boolean;
   refreshProfile: () => Promise<void>;
+  dbStatus: 'online' | 'offline' | 'checking';
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,10 +22,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dbStatus, setDbStatus] = useState<'online' | 'offline' | 'checking'>('checking');
   const supabase = createClient();
+
+  const checkConnection = async () => {
+    try {
+      const { error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
+      if (error) {
+        console.error('DB Connection Check Failed:', error);
+        setDbStatus('offline');
+      } else {
+        setDbStatus('online');
+      }
+    } catch (e) {
+      setDbStatus('offline');
+    }
+  };
 
   const fetchProfile = async (userId: string, email?: string) => {
     try {
+      await checkConnection();
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -81,8 +98,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isManager = profile?.role === 'Manager';
   const isStaff = profile?.role === 'admin' || profile?.role === 'Manager';
 
+  useEffect(() => {
+    checkConnection();
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAdmin, isManager, isStaff, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAdmin, isManager, isStaff, refreshProfile, dbStatus }}>
       {children}
     </AuthContext.Provider>
   );
