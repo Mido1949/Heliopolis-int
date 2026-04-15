@@ -55,7 +55,7 @@ export default function BOQPage() {
     try {
       const { data, error } = await supabase
         .from("boqs")
-        .select("*, lead:leads(name), boq_items(*, product(*))")
+        .select("*, lead:leads(name), boq_items(*, product:products(*))")
         .order("created_at", { ascending: false });
       
       if (error) {
