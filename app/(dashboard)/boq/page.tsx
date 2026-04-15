@@ -288,22 +288,22 @@ export default function BOQPage() {
       // Insert BOQ items
       console.log("📝 Inserting BOQ items...", activeItems.length); // Debug log
       
-      const itemsToInsert = activeItems.map(item => ({
-        boq_id: boqId,
-        product_id: item.product_id,
-        model: item.model,
-        quantity: item.quantity,
-        unit_price: item.unit_price
-      }));
+    const itemsToInsert = activeItems.map(item => ({
+      boq_id: boqId,
+      product_id: item.product_id,
+      model: item.model,
+      quantity: item.quantity,
+      unit_price: item.unit_price
+    }));
 
-      const { error: itemsError } = await supabase
-        .from("boq_items")
-        .insert(itemsToInsert);
+    const { error: itemsError } = await supabase
+      .from("boq_items")
+      .insert(itemsToInsert);
 
-      if (itemsError) {
-        console.error("❌ BOQ items insert failed:", itemsError);
-        throw new Error(`BOQ items save failed: ${itemsError.message}`);
-      }
+    if (itemsError) {
+      console.error("❌ BOQ items insert failed:", itemsError);
+      throw new Error(`BOQ items save failed: ${itemsError.message}`);
+    }
 
       console.log("✅ All BOQ items saved successfully"); // Debug log
 

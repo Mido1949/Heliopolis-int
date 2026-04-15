@@ -68,35 +68,6 @@ export default function Shell({ children }: ShellProps) {
           {children}
         </div>
       </main>
-
-      {/* EMERGENCY DIAGNOSTIC BUTTON */}
-      <button 
-        onClick={async () => {
-          const { count, error } = await supabase.from('leads').select('*', { count: 'exact', head: true });
-          if (error) {
-            alert('❌ CONNECTION ERROR: ' + JSON.stringify(error));
-          } else {
-            alert('✅ CONNECTION SUCCESS! Leads found in DB: ' + count);
-          }
-        }}
-        style={{
-          position: 'fixed',
-          bottom: '20px',
-          left: '20px',
-          zIndex: 9999,
-          background: '#D72B2B',
-          color: 'white',
-          padding: '10px 15px',
-          borderRadius: '50px',
-          fontSize: '12px',
-          fontWeight: 'bold',
-          boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
-          cursor: 'pointer',
-          border: 'none'
-        }}
-      >
-        DIAGNOSTIC CHECK 🧪
-      </button>
     </div>
   );
 }

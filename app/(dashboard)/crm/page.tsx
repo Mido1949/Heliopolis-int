@@ -65,19 +65,11 @@ export default function CRMPage() {
       if (sourceFilter) query = query.eq('source', sourceFilter);
 
       const { data, count, error } = await query;
-      
-      console.log('--- CRM DIAGNOSTICS ---');
-      console.log('Query result length:', data?.length || 0);
-      console.log('Total count from DB:', count);
-      if (error) {
-        console.error('CRM Fetch Error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       setLeads((data || []) as Lead[]);
       setTotal(count || 0);
-    } catch (err) {
-      console.error('Catch block CRM Error:', err);
+    } catch {
       message.error('فشل تحميل العملاء');
     } finally {
       setLoading(false);
