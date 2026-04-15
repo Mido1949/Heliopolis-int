@@ -226,7 +226,7 @@ export default function BOQPage() {
             name: customerName,
             phone: customerPhone,
             company: customerAddress,
-            source: "BOQ Builder",
+            source: "Direct",
             assigned_to: profileId,
           })
           .select("id")
