@@ -1,15 +1,18 @@
 import { createBrowserClient } from '@supabase/ssr';
 
 export function createClient() {
+  const supabaseUrl = 'https://wrmqrvqixtrasajjfbge.supabase.co';
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
   return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseKey,
     {
       global: {
-        fetch: (url, options) => {
+        fetch: (input: RequestInfo | URL, init?: RequestInit) => {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-          return fetch(url, { ...options, signal: controller.signal })
+          return fetch(input, { ...init, signal: controller.signal })
             .finally(() => clearTimeout(timeoutId));
         }
       }

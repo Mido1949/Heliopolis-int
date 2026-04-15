@@ -52,13 +52,22 @@ export default function BOQPage() {
   // Memoized actions
   const fetchAllBOQs = useCallback(async () => {
     setLoadingBOQs(true);
-    const { data } = await supabase
-      .from("boqs")
-      .select("*, lead:leads(name), boq_items(*, product(*))")
-      .order("created_at", { ascending: false });
-    
-    if (data) setAllBOQs(data);
-    setLoadingBOQs(false);
+    try {
+      const { data, error } = await supabase
+        .from("boqs")
+        .select("*, lead:leads(name), boq_items(*, product(*))")
+        .order("created_at", { ascending: false });
+      
+      if (error) {
+        console.error("Error fetching BOQs:", error);
+      } else if (data) {
+        setAllBOQs(data);
+      }
+    } catch (err) {
+      console.error("Fetch Exception:", err);
+    } finally {
+      setLoadingBOQs(false);
+    }
   }, [supabase]);
 
   const handleOpenBOQ = useCallback(async (boq: BOQ) => {
