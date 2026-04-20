@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Table, Tag, Button, Input, Select, Space, Tooltip, Dropdown, Row, Col,
   Typography, message, Segmented,
@@ -10,6 +10,7 @@ import {
   MoreOutlined, FilterOutlined,
   EyeOutlined, EditOutlined, DeleteOutlined,
   TableOutlined, AppstoreOutlined, FileTextOutlined,
+  PhoneOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
@@ -48,13 +49,45 @@ export default function CRMPage() {
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [viewType, setViewType] = useState<'table' | 'kanban'>('table');
 
+  // Call stats
+  const [callStats, setCallStats] = useState({ total: 0, today: 0, answered: 0 });
+
+  const fetchCallStats = useCallback(async () => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const [
+        { count: totalCalls },
+        { count: todayCalls },
+        { count: answeredCalls },
+      ] = await Promise.all([
+        supabase.from('call_logs').select('*', { count: 'exact', head: true }),
+        supabase.from('call_logs').select('*', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
+        supabase.from('call_logs').select('*', { count: 'exact', head: true }).eq('outcome', 'Answered'),
+      ]);
+
+      setCallStats({
+        total: totalCalls || 0,
+        today: todayCalls || 0,
+        answered: answeredCalls || 0,
+      });
+    } catch (err) {
+      console.error('Failed to fetch call stats:', err);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchCallStats();
+  }, [fetchCallStats]);
+
   // Fetch leads
   const fetchLeads = async (p = page) => {
     setLoading(true);
     try {
       let query = supabase
         .from('leads')
-        .select('*', { count: 'exact' })
+        .select('*, assigned_user:profiles!leads_assigned_to_user_fkey(id, name)', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range((p - 1) * pageSize, p * pageSize - 1);
 
@@ -77,7 +110,7 @@ export default function CRMPage() {
   };
 
   // Initial load
-  useState(() => { fetchLeads(1); });
+  useEffect(() => { fetchLeads(1); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Delete lead
   const handleDelete = async (id: string) => {
@@ -167,6 +200,31 @@ export default function CRMPage() {
       render: (date: string) => formatDate(date),
     },
     {
+      title: 'متابعة (Follow-up)',
+      key: 'follow_up',
+      width: 100,
+      render: (_: unknown, record: Lead) => {
+        let color = 'default';
+        let label = 'N/A';
+        if (record.fb3) { color = 'success'; label = 'FB3'; }
+        else if (record.fb2) { color = 'warning'; label = 'FB2'; }
+        else if (record.fb1) { color = 'gold'; label = 'FB1'; }
+
+        return <Tag color={color}>{label}</Tag>;
+      },
+    },
+    {
+      title: 'المعين (Assigned To)',
+      key: 'assigned_user',
+      width: 140,
+      render: (_: unknown, record: Lead) =>
+        record.assigned_user?.name ? (
+          <Text>{record.assigned_user.name}</Text>
+        ) : (
+          <Text type="secondary">—</Text>
+        ),
+    },
+    {
       title: 'إجراءات (Actions)',
       key: 'actions',
       fixed: 'right',
@@ -240,6 +298,43 @@ export default function CRMPage() {
           >
             إضافة عميل (Add Lead)
           </Button>
+        </Col>
+      </Row>
+
+      {/* Calls Summary Widget — FIX 5 */}
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={8}>
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+              <PhoneOutlined className="text-blue-500 text-lg" />
+            </div>
+            <div>
+              <div className="text-xs text-gray-400 font-medium">إجمالي المكالمات (Total)</div>
+              <div className="text-xl font-bold text-gray-800">{callStats.total}</div>
+            </div>
+          </div>
+        </Col>
+        <Col xs={24} sm={8}>
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center">
+              <PhoneOutlined className="text-green-500 text-lg" />
+            </div>
+            <div>
+              <div className="text-xs text-gray-400 font-medium">اليوم (Today)</div>
+              <div className="text-xl font-bold text-gray-800">{callStats.today}</div>
+            </div>
+          </div>
+        </Col>
+        <Col xs={24} sm={8}>
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
+              <PhoneOutlined className="text-amber-500 text-lg" />
+            </div>
+            <div>
+              <div className="text-xs text-gray-400 font-medium">تم الرد (Answered)</div>
+              <div className="text-xl font-bold text-gray-800">{callStats.answered}</div>
+            </div>
+          </div>
         </Col>
       </Row>
 
@@ -324,6 +419,7 @@ export default function CRMPage() {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         onEdit={(lead: Lead) => { setDrawerOpen(false); setEditingLead(lead); setModalOpen(true); }}
+        onAssigned={() => fetchLeads()}
       />
 
       {/* Modal */}

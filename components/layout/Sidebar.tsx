@@ -13,8 +13,10 @@ import {
   Search,
   Bot,
   LogOut,
+  Phone,
   ChevronLeft,
   ChevronRight,
+  BarChart2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { NAV_ITEMS } from '@/lib/constants';
@@ -30,6 +32,8 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   clock: <Clock className="w-5 h-5" />,
   search: <Search className="w-5 h-5" />,
   robot: <Bot className="w-5 h-5" />,
+  phone: <Phone className="w-5 h-5" />,
+  barChart: <BarChart2 className="w-5 h-5" />,
 };
 
 interface SidebarProps {

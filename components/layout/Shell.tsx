@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
+import LookAgent from '@/components/agent/LookAgent';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile } from '@/types';
 
@@ -68,6 +69,9 @@ export default function Shell({ children }: ShellProps) {
           {children}
         </div>
       </main>
+
+      {/* Floating AI agent — rendered globally, pointer-events:none overlay */}
+      <LookAgent />
     </div>
   );
 }

@@ -4,8 +4,9 @@
 // ═══════════════════════════════════════════════
 
 // ── Enums & Union Types ─────────────────────────
-export type UserRole = 'admin' | 'Sales Engineer' | 'Manager' | 'Telesales';
+export type UserRole = 'admin' | 'Sales Engineer' | 'Manager' | 'Telesales' | 'Call Center';
 export type UserTeam = 'Tech Team' | 'Sales Team' | 'Management';
+export type CrmTeam = 'tech' | 'cs';
 export type LeadSource = 'WhatsApp' | 'Meta' | 'Direct' | 'Phone';
 export type LeadStatus = 'New' | 'Interested' | 'Quote Sent' | 'Won' | 'Lost';
 export type BOQStatus = 'Draft' | 'Sent' | 'Paid' | 'Cancelled';
@@ -24,10 +25,12 @@ export interface Profile {
   name: string;
   role: UserRole;
   team: UserTeam;
+  crm_team?: CrmTeam;
   phone?: string;
   avatar_url?: string;
   email?: string;
   score: number;
+  is_admin?: boolean;
   created_at: string;
 }
 
@@ -39,11 +42,22 @@ export interface Lead {
   email?: string;
   source: LeadSource;
   status: LeadStatus;
-  assigned_to: string;
+  assigned_to?: string;
+  assigned_to_team?: CrmTeam;
+  assigned_to_user?: string;
+  assigned_user?: { id: string; name: string } | null;
+  meta_lead_id?: string;
+  form_id?: string;
   project_capacity?: string;
   region?: Region;
   notes?: string;
   next_follow_up?: string;
+  fb1?: boolean;
+  fb1_date?: string;
+  fb2?: boolean;
+  fb2_date?: string;
+  fb3?: boolean;
+  fb3_date?: string;
   created_at: string;
   updated_at: string;
   // Joined
