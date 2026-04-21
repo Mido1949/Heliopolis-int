@@ -26,6 +26,7 @@
     "apify-client": "^2.22.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.38.0",
     "lucide-react": "^0.474.0",
