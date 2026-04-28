@@ -2,9 +2,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
 import {
   LayoutDashboard,
   Users,
