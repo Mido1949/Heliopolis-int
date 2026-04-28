@@ -12,6 +12,9 @@ interface AuthContextType {
   isAdmin: boolean;
   isManager: boolean;
   isStaff: boolean;
+  isTeamLeader: boolean;
+  isCSLead: boolean;
+  isTechLead: boolean;
   refreshProfile: () => Promise<void>;
   dbStatus: 'online' | 'offline' | 'checking';
 }
@@ -94,16 +97,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user) await fetchProfile(user.id, user.email);
   };
 
-  const isAdmin = profile?.role === 'admin';
-  const isManager = profile?.role === 'Manager';
-  const isStaff = profile?.role === 'admin' || profile?.role === 'Manager';
+  const isAdmin = profile?.role === 'admin' || profile?.is_admin === true;
+  const isManager = profile?.role === 'Manager' || profile?.is_admin === true;
+  const isCSLead = profile?.role === 'CS Team Leader';
+  const isTechLead = profile?.role === 'Tech Team Leader';
+  const isTeamLeader = isCSLead || isTechLead;
+  const isStaff = isAdmin || isManager || isTeamLeader;
 
   useEffect(() => {
     checkConnection();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAdmin, isManager, isStaff, refreshProfile, dbStatus }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAdmin, isManager, isStaff, isTeamLeader, isCSLead, isTechLead, refreshProfile, dbStatus }}>
       {children}
     </AuthContext.Provider>
   );

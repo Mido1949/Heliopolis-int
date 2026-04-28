@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { formatCurrency } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/context/AuthContext';
 import DashboardCharts from './DashboardCharts';
 import {
   Users,
@@ -14,48 +15,62 @@ import {
   ShoppingCart,
   UserPlus,
   FilePlus,
-  Loader2
+  Loader2,
+  Phone,
+  ClipboardList,
 } from 'lucide-react';
 import Link from 'next/link';
 
+interface DailyReportRow {
+  user_id: string;
+  user_name: string;
+  user_role: string;
+  leads_created: number;
+  updates_done: number;
+  calls_made: number;
+  boqs_created: number;
+}
+
 export default function DashboardPage() {
   const supabase = createClient();
+  const { isAdmin, isManager, isTeamLeader, user } = useAuth();
+  const canSeeFullReport = isAdmin || isManager || isTeamLeader;
+
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalLeads: 0,
     newLeads: 0,
-    wonLeads: 0,
     totalRevenue: 0,
     sentBOQs: 0,
   });
 
-  const [recentLeads, setRecentLeads] = useState<any[]>([]); // eslint-disable-line @typescript-eslint/no-explicit-any
-  const [leaderboard, setLeaderboard] = useState<any[]>([]); // eslint-disable-line @typescript-eslint/no-explicit-any
-  const [lowStockProducts, setLowStockProducts] = useState<any[]>([]); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [recentLeads, setRecentLeads] = useState<{ id: string; name: string; source: string; status: string; created_at: string }[]>([]);
+  const [leaderboard, setLeaderboard] = useState<{ id: string; name: string; score: number; avatar_url?: string; role: string }[]>([]);
+  const [lowStockProducts, setLowStockProducts] = useState<{ id: string; name: string; stock_quantity: number }[]>([]);
+  const [dailyReport, setDailyReport] = useState<DailyReportRow[]>([]);
 
   useEffect(() => {
     async function fetchDashboardData() {
       setLoading(true);
       try {
-        // All 8 queries fire in parallel — was sequential (800ms+), now ~100ms
         const [
           { count: totalLeads },
           { count: newLeads },
-          { count: wonLeads },
           { data: wonBoqs },
           { count: sentBOQs },
           { data: leads },
           { data: profiles },
           { data: lowStock },
+          { data: reportData },
         ] = await Promise.all([
           supabase.from('leads').select('*', { count: 'exact', head: true }),
           supabase.from('leads').select('*', { count: 'exact', head: true }).eq('status', 'New'),
-          supabase.from('leads').select('*', { count: 'exact', head: true }).eq('status', 'Won'),
           supabase.from('boqs').select('grand_total').eq('status', 'Paid'),
           supabase.from('boqs').select('*', { count: 'exact', head: true }).neq('status', 'Draft'),
           supabase.from('leads').select('id, name, source, status, created_at').order('created_at', { ascending: false }).limit(3),
           supabase.from('profiles').select('id, name, score, avatar_url, role').order('score', { ascending: false }).limit(5),
           supabase.from('products').select('id, name, stock_quantity').lt('stock_quantity', 5).limit(2),
+          supabase.rpc('get_daily_activity_report'),
         ]);
 
         const totalRevenue = wonBoqs?.reduce((acc, curr) => acc + Number(curr.grand_total), 0) || 0;
@@ -63,13 +78,16 @@ export default function DashboardPage() {
         setStats({
           totalLeads: totalLeads || 0,
           newLeads: newLeads || 0,
-          wonLeads: wonLeads || 0,
           totalRevenue,
           sentBOQs: sentBOQs || 0,
         });
         setRecentLeads(leads || []);
         setLeaderboard(profiles || []);
         setLowStockProducts(lowStock || []);
+
+        // For non-privileged users, filter to show only own row
+        const rows: DailyReportRow[] = (reportData as DailyReportRow[] | null) || [];
+        setDailyReport(canSeeFullReport ? rows : rows.filter(r => r.user_id === user?.id));
 
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -79,7 +97,7 @@ export default function DashboardPage() {
     }
 
     fetchDashboardData();
-  }, [supabase]);
+  }, [supabase, isAdmin, isManager, isTeamLeader, user, canSeeFullReport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const topPerformer = leaderboard.length > 0 ? leaderboard[0] : null;
 
@@ -96,6 +114,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-8">
+
       {/* Welcome Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#0D2137] p-8 rounded-2xl text-white shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-[#D72B2B] opacity-10 rounded-full blur-3xl -mr-32 -mt-32"></div>
@@ -121,7 +140,7 @@ export default function DashboardPage() {
 
       {/* Row 1: KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        
+
         {/* Total Leads */}
         <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col justify-between group hover:shadow-md transition-shadow border border-slate-100">
           <div className="flex justify-between items-start">
@@ -192,6 +211,103 @@ export default function DashboardPage() {
 
       </div>
 
+      {/* Daily Activity Report */}
+      {dailyReport.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <ClipboardList className="w-5 h-5 text-[#D72B2B]" />
+              <div>
+                <h3 className="text-sm font-bold text-[#0D2137]">تقرير النشاط اليومي</h3>
+                <p className="text-xs text-slate-400">ما فعله كل عضو فريق اليوم</p>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'short' })}
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="text-right py-3 px-6 text-xs font-bold text-slate-500">الموظف</th>
+                  <th className="text-center py-3 px-4 text-xs font-bold text-blue-600">
+                    <div className="flex flex-col items-center gap-0.5">
+                      <Users className="w-3.5 h-3.5" />
+                      <span>ليدز</span>
+                    </div>
+                  </th>
+                  <th className="text-center py-3 px-4 text-xs font-bold text-amber-600">
+                    <div className="flex flex-col items-center gap-0.5">
+                      <ClipboardList className="w-3.5 h-3.5" />
+                      <span>تحديثات</span>
+                    </div>
+                  </th>
+                  <th className="text-center py-3 px-4 text-xs font-bold text-green-600">
+                    <div className="flex flex-col items-center gap-0.5">
+                      <Phone className="w-3.5 h-3.5" />
+                      <span>مكالمات</span>
+                    </div>
+                  </th>
+                  <th className="text-center py-3 px-4 text-xs font-bold text-purple-600">
+                    <div className="flex flex-col items-center gap-0.5">
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>BOQs</span>
+                    </div>
+                  </th>
+                  <th className="text-center py-3 px-4 text-xs font-bold text-slate-600">الإجمالي</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {dailyReport.map(row => {
+                  const total = row.leads_created + row.updates_done + row.calls_made + row.boqs_created;
+                  return (
+                    <tr key={row.user_id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="py-3 px-6">
+                        <p className="font-semibold text-[#0D2137]">{row.user_name}</p>
+                        <span className="text-[10px] text-slate-400">{row.user_role}</span>
+                      </td>
+                      <td className="text-center py-3 px-4">
+                        <span className={`text-base font-black ${row.leads_created > 0 ? 'text-blue-600' : 'text-slate-200'}`}>
+                          {row.leads_created}
+                        </span>
+                      </td>
+                      <td className="text-center py-3 px-4">
+                        <span className={`text-base font-black ${row.updates_done > 0 ? 'text-amber-500' : 'text-slate-200'}`}>
+                          {row.updates_done}
+                        </span>
+                      </td>
+                      <td className="text-center py-3 px-4">
+                        <span className={`text-base font-black ${row.calls_made > 0 ? 'text-green-600' : 'text-slate-200'}`}>
+                          {row.calls_made}
+                        </span>
+                      </td>
+                      <td className="text-center py-3 px-4">
+                        <span className={`text-base font-black ${row.boqs_created > 0 ? 'text-purple-600' : 'text-slate-200'}`}>
+                          {row.boqs_created}
+                        </span>
+                      </td>
+                      <td className="text-center py-3 px-4">
+                        <span className={`inline-flex items-center justify-center w-9 h-9 rounded-full font-black text-sm ${
+                          total === 0
+                            ? 'bg-slate-100 text-slate-400'
+                            : total >= 10
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-amber-50 text-amber-700'
+                        }`}>
+                          {total}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Charts Section */}
       <DashboardCharts />
 
@@ -205,11 +321,11 @@ export default function DashboardPage() {
                 <h3 className="text-lg font-bold text-[#0D2137]">Activity Feed</h3>
                 <p className="text-xs text-slate-500">آخر المستجدات</p>
               </div>
-              <Link href="/dashboard/crm" className="text-[10px] font-bold text-[#D72B2B] uppercase tracking-wider hover:underline">
+              <Link href="/crm" className="text-[10px] font-bold text-[#D72B2B] uppercase tracking-wider hover:underline">
                 View All
               </Link>
             </div>
-            
+
             <div className="relative space-y-8 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-100">
               {recentLeads.map((lead, idx) => (
                 <div key={lead.id} className="relative pl-8">
@@ -247,25 +363,25 @@ export default function DashboardPage() {
               <p className="text-xs text-slate-500">متصدري الأداء</p>
             </div>
           </div>
-          
+
           <div className="space-y-4">
-            {leaderboard.map((user, idx) => (
-              <div key={user.id} className={`flex items-center justify-between p-3 rounded-xl transition-transform ${idx === 0 ? 'bg-slate-50 hover:scale-[1.02]' : 'hover:bg-slate-50'}`}>
+            {leaderboard.map((u, idx) => (
+              <div key={u.id} className={`flex items-center justify-between p-3 rounded-xl transition-transform ${idx === 0 ? 'bg-slate-50 hover:scale-[1.02]' : 'hover:bg-slate-50'}`}>
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 flex items-center justify-center font-bold ${idx === 0 ? 'text-[#D72B2B]' : idx === 1 ? 'text-slate-500' : 'text-slate-400'}`}>
                     {idx === 0 ? <Trophy className="w-5 h-5" /> : `0${idx + 1}`}
                   </div>
                   <div className="w-10 h-10 rounded-full border-2 border-white shadow-sm bg-slate-200 overflow-hidden flex items-center justify-center text-slate-500 font-bold">
-                    {user.avatar_url ? <img src={user.avatar_url} className="w-full h-full object-cover" alt={user.name} /> : user.name?.charAt(0).toUpperCase()}
+                    {u.avatar_url ? <img src={u.avatar_url} className="w-full h-full object-cover" alt={u.name} /> : u.name?.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-[#0D2137] truncate w-24">{user.name}</p>
+                    <p className="text-sm font-bold text-[#0D2137] truncate w-24">{u.name}</p>
                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-bold uppercase">
-                      {user.role}
+                      {u.role}
                     </span>
                   </div>
                 </div>
-                <p className="text-sm font-black text-[#0D2137]">{user.score} pts</p>
+                <p className="text-sm font-black text-[#0D2137]">{u.score} pts</p>
               </div>
             ))}
           </div>
@@ -287,7 +403,7 @@ export default function DashboardPage() {
                   <p className="text-xs font-bold text-[#0D2137]">{p.name}</p>
                   <p className="text-[10px] text-slate-500">{p.stock_quantity} units remaining (Min: 5)</p>
                 </div>
-                <Link href="/dashboard/inventory" className="p-1.5 bg-white rounded-md text-[#D72B2B] shadow-sm hover:bg-slate-50">
+                <Link href="/inventory" className="p-1.5 bg-white rounded-md text-[#D72B2B] shadow-sm hover:bg-slate-50">
                   <ShoppingCart className="w-4 h-4" />
                 </Link>
               </div>
@@ -302,12 +418,12 @@ export default function DashboardPage() {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100">
           <h3 className="text-lg font-bold text-[#0D2137] mb-6">Quick Actions</h3>
           <div className="grid grid-cols-2 gap-4">
-            <Link href="/dashboard/crm" className="flex flex-col items-center justify-center p-6 bg-[#D72B2B] text-white rounded-lg hover:bg-[#93000e] transition-colors group text-center">
+            <Link href="/crm" className="flex flex-col items-center justify-center p-6 bg-[#D72B2B] text-white rounded-lg hover:bg-[#93000e] transition-colors group text-center">
               <UserPlus className="w-6 h-6 mb-2 group-hover:scale-110 transition-transform" />
               <span className="text-xs font-bold">New Lead</span>
               <span className="text-[10px] opacity-70">طلب جديد</span>
             </Link>
-            <Link href="/dashboard/boq" className="flex flex-col items-center justify-center p-6 bg-[#0D2137] text-white rounded-lg hover:bg-[#000917] transition-colors group text-center">
+            <Link href="/boq" className="flex flex-col items-center justify-center p-6 bg-[#0D2137] text-white rounded-lg hover:bg-[#000917] transition-colors group text-center">
               <FilePlus className="w-6 h-6 mb-2 group-hover:scale-110 transition-transform" />
               <span className="text-xs font-bold">New BOQ</span>
               <span className="text-[10px] opacity-70">مقايسة جديدة</span>
@@ -315,6 +431,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
     </div>
   );
 }

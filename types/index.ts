@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════
 
 // ── Enums & Union Types ─────────────────────────
-export type UserRole = 'admin' | 'Sales Engineer' | 'Manager' | 'Telesales' | 'Call Center';
+export type UserRole = 'admin' | 'Sales Engineer' | 'Manager' | 'Telesales' | 'Call Center' | 'CS Team Leader' | 'Tech Team Leader';
 export type UserTeam = 'Tech Team' | 'Sales Team' | 'Management';
 export type CrmTeam = 'tech' | 'cs';
 export type LeadSource = 'WhatsApp' | 'Meta' | 'Direct' | 'Phone';
@@ -171,6 +171,23 @@ export interface TimeLog {
   // Joined
   profile?: Profile;
   lead?: Lead;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  assigned_to: string;
+  created_by: string;
+  lead_id?: string;
+  due_date?: string;
+  status: 'pending' | 'done';
+  priority: 'high' | 'medium' | 'low';
+  created_at: string;
+  completed_at?: string;
+  // Joined
+  assigned_user?: { id: string; name: string } | null;
+  lead?: Lead | null;
 }
 
 export interface ScoreEvent {

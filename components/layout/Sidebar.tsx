@@ -1,8 +1,10 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import { useState } from 'react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 import {
   LayoutDashboard,
   Users,
@@ -18,7 +20,6 @@ import {
   ChevronRight,
   BarChart2,
 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
 import { NAV_ITEMS } from '@/lib/constants';
 import { getInitials } from '@/lib/utils';
 import type { Profile } from '@/types';
@@ -43,19 +44,11 @@ interface SidebarProps {
   profile?: Profile | null;
   mobileMenuOpen: boolean;
   setMobileMenuOpen: (open: boolean) => void;
+  onLogout: () => void;
 }
 
-export default function Sidebar({ collapsed, onCollapse, lang, profile, mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
+export default function Sidebar({ collapsed, onCollapse, lang, profile, mobileMenuOpen, setMobileMenuOpen, onLogout }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
-  const supabase = createClient();
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push('/login');
-    router.refresh();
-  };
-
   return (
     <>
       {/* Mobile Overlay */}
@@ -175,9 +168,22 @@ export default function Sidebar({ collapsed, onCollapse, lang, profile, mobileMe
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                handleLogout();
+                onLogout();
               }}
               className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors shrink-0"
+              title={lang === 'ar' ? 'تسجيل الخروج' : 'Logout'}
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
+          {collapsed && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onLogout();
+              }}
+              className="w-full flex items-center justify-center p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
               title={lang === 'ar' ? 'تسجيل الخروج' : 'Logout'}
             >
               <LogOut className="w-4 h-4" />
