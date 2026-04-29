@@ -31,6 +31,24 @@ interface DailyReportRow {
   boqs_created: number;
 }
 
+interface MonthlyProgress {
+  leadsTarget: number | null;
+  actualLeads: number;
+  progress: number;
+}
+
+function progressColor(pct: number) {
+  if (pct >= 80) return 'bg-emerald-500';
+  if (pct >= 50) return 'bg-amber-400';
+  return 'bg-red-500';
+}
+
+function progressTextColor(pct: number) {
+  if (pct >= 80) return 'text-emerald-600';
+  if (pct >= 50) return 'text-amber-500';
+  return 'text-red-500';
+}
+
 export default function DashboardPage() {
   const supabase = createClient();
   const { isAdmin, isManager, isTeamLeader, user } = useAuth();
@@ -48,10 +66,15 @@ export default function DashboardPage() {
   const [leaderboard, setLeaderboard] = useState<{ id: string; name: string; score: number; avatar_url?: string; role: string }[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<{ id: string; name: string; stock_quantity: number }[]>([]);
   const [dailyReport, setDailyReport] = useState<DailyReportRow[]>([]);
+  const [monthlyProgress, setMonthlyProgress] = useState<Record<string, MonthlyProgress>>({});
 
   useEffect(() => {
     async function fetchDashboardData() {
       setLoading(true);
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+
       try {
         const [
           { count: totalLeads },
@@ -62,6 +85,8 @@ export default function DashboardPage() {
           { data: profiles },
           { data: lowStock },
           { data: reportData },
+          { data: targetsData },
+          { data: monthLeadsData },
         ] = await Promise.all([
           supabase.from('leads').select('*', { count: 'exact', head: true }),
           supabase.from('leads').select('*', { count: 'exact', head: true }).eq('status', 'New'),
@@ -71,6 +96,8 @@ export default function DashboardPage() {
           supabase.from('profiles').select('id, name, score, avatar_url, role').order('score', { ascending: false }).limit(5),
           supabase.from('products').select('id, name, stock_quantity').lt('stock_quantity', 5).limit(2),
           supabase.rpc('get_daily_activity_report'),
+          supabase.from('sales_targets').select('user_id, target_value').eq('target_type', 'leads').gte('period_start', monthStart.slice(0, 10)).lte('period_end', monthEnd.slice(0, 10)),
+          supabase.from('leads').select('assigned_to_user').gte('created_at', monthStart).lte('created_at', monthEnd).not('assigned_to_user', 'is', null),
         ]);
 
         const totalRevenue = wonBoqs?.reduce((acc, curr) => acc + Number(curr.grand_total), 0) || 0;
@@ -88,6 +115,27 @@ export default function DashboardPage() {
         // For non-privileged users, filter to show only own row
         const rows: DailyReportRow[] = (reportData as DailyReportRow[] | null) || [];
         setDailyReport(canSeeFullReport ? rows : rows.filter(r => r.user_id === user?.id));
+
+        // Build monthly progress map
+        const leadsTargetMap: Record<string, number> = {};
+        (targetsData || []).forEach((t: { user_id: string; target_value: number }) => {
+          leadsTargetMap[t.user_id] = Number(t.target_value);
+        });
+        const leadsCountMap: Record<string, number> = {};
+        (monthLeadsData || []).forEach((r: { assigned_to_user: string | null }) => {
+          if (r.assigned_to_user) {
+            leadsCountMap[r.assigned_to_user] = (leadsCountMap[r.assigned_to_user] || 0) + 1;
+          }
+        });
+        const progressMap: Record<string, MonthlyProgress> = {};
+        const allUserIds = new Set([...Object.keys(leadsTargetMap), ...Object.keys(leadsCountMap)]);
+        allUserIds.forEach(uid => {
+          const target = leadsTargetMap[uid] ?? null;
+          const actual = leadsCountMap[uid] || 0;
+          const pct = target ? Math.round((actual / target) * 100) : 0;
+          progressMap[uid] = { leadsTarget: target, actualLeads: actual, progress: pct };
+        });
+        setMonthlyProgress(progressMap);
 
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -305,6 +353,45 @@ export default function DashboardPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Monthly Progress Section */}
+          {dailyReport.some(r => monthlyProgress[r.user_id]?.leadsTarget) && (
+            <div className="px-6 py-5 border-t border-slate-100">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">التقدم نحو هدف الشهر</p>
+              <div className="space-y-4">
+                {dailyReport.map(row => {
+                  const prog = monthlyProgress[row.user_id];
+                  if (!prog || prog.leadsTarget === null) return null;
+                  const capped = Math.min(prog.progress, 100);
+                  return (
+                    <div key={row.user_id}>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-sm font-semibold text-[#0D2137]">{row.user_name}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-slate-500">{prog.actualLeads} / {prog.leadsTarget} ليد</span>
+                          <span className={`text-xs font-bold ${progressTextColor(prog.progress)}`}>{capped}%</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                        <div
+                          className={`h-3 rounded-full transition-all duration-700 ${progressColor(prog.progress)}`}
+                          style={{ width: `${capped}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-end mt-0.5">
+                        <span className={`text-[10px] font-bold uppercase tracking-wide ${
+                          prog.progress >= 80 ? 'text-emerald-600' :
+                          prog.progress >= 50 ? 'text-amber-500' : 'text-red-500'
+                        }`}>
+                          {prog.progress >= 80 ? 'على المسار' : prog.progress >= 50 ? 'متوسط' : 'يحتاج متابعة'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
