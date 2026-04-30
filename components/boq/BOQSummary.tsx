@@ -32,6 +32,7 @@ interface BOQSummaryProps {
   customer?: Lead;
   onSave?: () => void;
   isSaving?: boolean;
+  saveText?: string;
 }
 
 export function BOQSummary({
@@ -49,7 +50,8 @@ export function BOQSummary({
   onUpdateCustomerInfo,
   customer,
   onSave,
-  isSaving = false
+  isSaving = false,
+  saveText = "Save Draft"
 }: BOQSummaryProps) {
   
   const formatUSD = (val: number) => 
@@ -196,7 +198,7 @@ export function BOQSummary({
           onClick={onSave}
         >
           <Save className="mr-2 h-4 w-4" /> 
-          {isSaving ? "Saving..." : "Save Draft"}
+          {isSaving ? "Saving..." : saveText}
         </Button>
         <div className="flex w-full gap-2">
           <div className="flex-1">

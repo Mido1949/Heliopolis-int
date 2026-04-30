@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal, Form, Input, Select, DatePicker, Row, Col, message } from 'antd';
 import { createClient } from '@/lib/supabase/client';
 import { logLeadActivity } from '@/lib/supabase/activities';
@@ -13,16 +13,19 @@ const { TextArea } = Input;
 
 interface LeadFormModalProps {
   open: boolean;
-  lead: Lead | null; // null = create mode
+  lead: Lead | null;
   onClose: () => void;
   onSaved: () => void;
+  defaultRegion?: string;
 }
 
-export default function LeadFormModal({ open, lead, onClose, onSaved }: LeadFormModalProps) {
+export default function LeadFormModal({ open, lead, onClose, onSaved, defaultRegion }: LeadFormModalProps) {
   const { user } = useAuth();
   const [form] = Form.useForm();
   const supabase = createClient();
   const isEdit = !!lead;
+  const [submitting, setSubmitting] = useState(false);
+  const submitLock = useRef(false);
 
   useEffect(() => {
     if (open && lead) {
@@ -32,10 +35,16 @@ export default function LeadFormModal({ open, lead, onClose, onSaved }: LeadForm
       });
     } else if (open) {
       form.resetFields();
+      if (defaultRegion) {
+        form.setFieldsValue({ region: defaultRegion });
+      }
     }
-  }, [open, lead, form]);
+  }, [open, lead, form, defaultRegion]);
 
   const handleSubmit = async () => {
+    if (submitLock.current) return;
+    submitLock.current = true;
+    setSubmitting(true);
     try {
       const values = await form.validateFields();
       const payload = {
@@ -56,6 +65,16 @@ export default function LeadFormModal({ open, lead, onClose, onSaved }: LeadForm
         await logLeadActivity(lead!.id, 'edit', { 
           changes: Object.keys(values).filter(k => values[k] !== lead![k as keyof Lead]) 
         });
+
+        // Auto-log status change if status changed
+        if (lead && values.status !== lead.status) {
+          await supabase.from('lead_activities').insert({
+            lead_id: lead.id,
+            user_id: user?.id,
+            type: 'status_change',
+            body: `${lead.status} → ${values.status}`,
+          });
+        }
         
         message.success('تم تحديث العميل بنجاح (Lead updated)');
       } else {
@@ -76,8 +95,11 @@ export default function LeadFormModal({ open, lead, onClose, onSaved }: LeadForm
 
       onSaved();
     } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'errorFields' in err) return; // validation error
+      if (err && typeof err === 'object' && 'errorFields' in err) return;
       message.error('حدث خطأ أثناء الحفظ');
+    } finally {
+      submitLock.current = false;
+      setSubmitting(false);
     }
   };
 
@@ -89,7 +111,7 @@ export default function LeadFormModal({ open, lead, onClose, onSaved }: LeadForm
       onOk={handleSubmit}
       okText={isEdit ? 'تحديث (Update)' : 'إضافة (Add)'}
       cancelText="إلغاء (Cancel)"
-      okButtonProps={{ style: { backgroundColor: '#D72B2B', borderColor: '#D72B2B' } }}
+      okButtonProps={{ style: { backgroundColor: '#D72B2B', borderColor: '#D72B2B' }, loading: submitting, disabled: submitting }}
       width={640}
       destroyOnClose
     >

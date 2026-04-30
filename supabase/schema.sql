@@ -45,6 +45,12 @@ CREATE TABLE leads (
   notes TEXT,
   assigned_to UUID REFERENCES profiles(id),
   next_follow_up TIMESTAMPTZ,
+  fb1 BOOLEAN DEFAULT FALSE,
+  fb1_date TIMESTAMPTZ,
+  fb2 BOOLEAN DEFAULT FALSE,
+  fb2_date TIMESTAMPTZ,
+  fb3 BOOLEAN DEFAULT FALSE,
+  fb3_date TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -107,7 +113,23 @@ CREATE TABLE email_recipients (
   opened_at TIMESTAMPTZ
 );
 
+-- ──────────────────── CALL LOGS ────────────────────
+CREATE TABLE call_logs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  lead_id UUID REFERENCES leads(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES profiles(id),
+  call_type TEXT CHECK (call_type IN ('Inbound','Outbound')),
+  outcome TEXT CHECK (outcome IN (
+    'Answered','No Answer','Busy',
+    'Callback Requested','Wrong Number'
+  )),
+  duration_minutes INTEGER DEFAULT 1,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ──────────────────── TIME LOGS ────────────────────
+
 CREATE TABLE time_logs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
@@ -147,7 +169,24 @@ CREATE TABLE inventory_log (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- ──────────────────── NOTIFICATIONS ────────────────────
+CREATE TABLE notifications (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  body TEXT,
+  type TEXT CHECK (type IN (
+    'lead_assigned','boq_status','call_logged',
+    'low_stock','mention','system'
+  )),
+  reference_id UUID,
+  reference_type TEXT,
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ──────────────────── AI CHAT LOGS ────────────────────
+
 CREATE TABLE ai_logs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,

@@ -6,9 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { User, Mail, Shield, Users, Trophy, Clock, Camera, Save, Loader2, Phone } from 'lucide-react';
-import type { Profile } from '@/types';
+import type { Profile, CrmTeam } from '@/types';
 import { formatDuration, getInitials } from '@/lib/utils';
-import { App } from 'antd';
+import { App, Select } from 'antd';
 
 export default function SettingsPage() {
   const { message } = App.useApp();
@@ -19,6 +19,7 @@ export default function SettingsPage() {
   const [uploading, setUploading] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [crmTeam, setCrmTeam] = useState<CrmTeam | undefined>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
@@ -39,6 +40,7 @@ export default function SettingsPage() {
           setProfile(pData as Profile);
           setName(pData.name);
           setPhone(pData.phone || '');
+          setCrmTeam(pData.crm_team || undefined);
         }
 
         // Time Logs
@@ -67,18 +69,19 @@ export default function SettingsPage() {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ 
-          name, 
+        .update({
+          name,
           phone,
+          crm_team: crmTeam || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', profile.id);
 
       if (error) throw error;
-      
+
       message.success('Profile updated successfully');
       // Refresh local state if needed
-      setProfile({ ...profile, name, phone });
+      setProfile({ ...profile, name, phone, crm_team: crmTeam });
     } catch (err) {
       console.error('Update error:', err);
       message.error('Failed to update profile');
@@ -220,8 +223,8 @@ export default function SettingsPage() {
                   <label className="text-sm font-semibold text-slate-700">Display Name</label>
                   <div className="group relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#D72B2B] transition-colors" />
-                    <Input 
-                      value={name} 
+                    <Input
+                      value={name}
                       onChange={(e) => setName(e.target.value)}
                       className="pl-10 h-12 bg-slate-50 border-slate-200 focus:bg-white transition-all"
                       placeholder="Enter your name"
@@ -233,14 +236,31 @@ export default function SettingsPage() {
                   <label className="text-sm font-semibold text-slate-700">Phone Number</label>
                   <div className="group relative">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#D72B2B] transition-colors" />
-                    <Input 
-                      value={phone} 
+                    <Input
+                      value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       className="pl-10 h-12 bg-slate-50 border-slate-200 focus:bg-white transition-all"
                       placeholder="+20 1xx xxxx xxx"
                     />
                   </div>
                 </div>
+
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">CRM Team</label>
+                <Select
+                  value={crmTeam}
+                  onChange={(v) => setCrmTeam(v)}
+                  placeholder="اختر الفريق..."
+                  allowClear
+                  className="w-full"
+                  style={{ height: 48 }}
+                  options={[
+                    { value: 'tech', label: 'Tech Team' },
+                    { value: 'cs', label: 'CS Team' },
+                  ]}
+                />
               </div>
 
               <div className="flex justify-end pt-4 border-t border-slate-100">

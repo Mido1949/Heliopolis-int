@@ -1,6 +1,6 @@
 import { createClient } from './client';
 
-export type ActivityType = 'status_change' | 'note_added' | 'edit' | 'creation';
+export type ActivityType = 'status_change' | 'note_added' | 'edit' | 'creation' | 'call' | 'note' | 'assignment';
 
 export async function logLeadActivity(
   leadId: string,

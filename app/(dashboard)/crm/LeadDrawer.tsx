@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  Drawer, Descriptions, Tag, Space, Button, Timeline, Typography, Divider, Tooltip, Tabs, Form, Select, Input, InputNumber, message, Row, Col,
+  Drawer, Descriptions, Tag, Space, Button, Timeline, Typography, Divider, Tooltip, Tabs, Form, Select, Input, InputNumber, message, Row, Col, Checkbox,
 } from 'antd';
 import { WhatsAppOutlined, PhoneOutlined, MailOutlined, EditOutlined, FileTextOutlined, DownloadOutlined, PlusOutlined } from '@ant-design/icons';
 import { createClient } from '@/lib/supabase/client';
@@ -23,7 +23,9 @@ const { Text, Title } = Typography;
 interface Activity {
   id: string;
   type: string;
-  note: string;
+  body: string | null;
+  duration_seconds: number | null;
+  details: Record<string, unknown> | null;
   created_at: string;
   user_id: string;
 }
@@ -33,9 +35,10 @@ interface LeadDrawerProps {
   open: boolean;
   onClose: () => void;
   onEdit: (lead: Lead) => void;
+  onAssigned?: () => void;
 }
 
-export default function LeadDrawer({ lead, open, onClose, onEdit }: LeadDrawerProps) {
+export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: LeadDrawerProps) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [boqs, setBoqs] = useState<BOQ[]>([]);
   const [loadingBoqs, setLoadingBoqs] = useState(false);
@@ -45,6 +48,17 @@ export default function LeadDrawer({ lead, open, onClose, onEdit }: LeadDrawerPr
   const [form] = Form.useForm();
   const { user } = useAuth();
   const supabase = createClient();
+  const [assignTeam, setAssignTeam] = useState<string | undefined>();
+  const [assignUser, setAssignUser] = useState<string | undefined>();
+  const [teamUsers, setTeamUsers] = useState<{ id: string; name: string }[]>([]);
+  const [assigning, setAssigning] = useState(false);
+
+  // Activity tab state
+  const [activityTab, setActivityTab] = useState<'all' | 'call' | 'note'>('all');
+  const [activityForm] = Form.useForm();
+  const [profileMap, setProfileMap] = useState<Record<string, string>>({});
+  const [addingActivity, setAddingActivity] = useState(false);
+  const lastFetchRef = useRef<{ leadId: string; time: number } | null>(null);
 
   const fetchActivities = useCallback(async () => {
     if (!lead) return;
@@ -83,13 +97,67 @@ export default function LeadDrawer({ lead, open, onClose, onEdit }: LeadDrawerPr
     setLoadingCalls(false);
   }, [lead, supabase]);
 
+  const fetchProfileMap = useCallback(async () => {
+    const { data } = await supabase.from('profiles').select('id, name');
+    if (data) {
+      const map: Record<string, string> = {};
+      data.forEach(p => { map[p.id] = p.name; });
+      setProfileMap(map);
+    }
+  }, [supabase]);
+
+  const handleAddActivity = async (values: { type: 'call' | 'note'; body: string; duration_seconds?: number }) => {
+    if (!lead || !user) return;
+    const { error } = await supabase.from('lead_activities').insert({
+      lead_id: lead.id,
+      user_id: user.id,
+      type: values.type,
+      body: values.body,
+      duration_seconds: values.type === 'call' ? (values.duration_seconds ?? null) : null,
+    });
+    if (error) {
+      message.error('فشل إضافة النشاط');
+      return;
+    }
+    message.success('تم إضافة النشاط');
+    activityForm.resetFields();
+    setAddingActivity(false);
+    fetchActivities();
+  };
+
   useEffect(() => {
-    if (open && lead) {
+    if (!open || !lead) return;
+    const now = Date.now();
+    const cache = lastFetchRef.current;
+    const isCached = cache && cache.leadId === lead.id && now - cache.time < 60_000;
+    if (!isCached) {
+      lastFetchRef.current = { leadId: lead.id, time: now };
       fetchActivities();
       fetchBoqs();
       fetchCalls();
+      fetchProfileMap();
     }
-  }, [open, lead, fetchActivities, fetchBoqs, fetchCalls]);
+  }, [open, lead, fetchActivities, fetchBoqs, fetchCalls, fetchProfileMap]);
+
+  useEffect(() => {
+    if (open && lead) {
+      setAssignTeam(lead.assigned_to_team);
+      setAssignUser(lead.assigned_to_user);
+      if (lead.assigned_to_team) {
+        supabase
+          .from('profiles')
+          .select('id, name')
+          .eq('crm_team', lead.assigned_to_team)
+          .then(({ data }) => setTeamUsers((data || []) as { id: string; name: string }[]));
+      } else {
+        setTeamUsers([]);
+      }
+    } else {
+      setAssignTeam(undefined);
+      setAssignUser(undefined);
+      setTeamUsers([]);
+    }
+  }, [open, lead, supabase]);
 
   const handleLogCall = async (values: {
     call_type: CallType;
@@ -104,11 +172,21 @@ export default function LeadDrawer({ lead, open, onClose, onEdit }: LeadDrawerPr
         .from('call_logs')
         .insert({
           lead_id: lead.id,
-          created_by: user.id,
+          user_id: user.id,
           ...values
         });
 
       if (error) throw error;
+
+      // Auto-log call to lead_activities
+      const durationSec = (values.duration_minutes ?? 0) * 60;
+      await supabase.from('lead_activities').insert({
+        lead_id: lead.id,
+        user_id: user.id,
+        type: 'call',
+        body: `${values.outcome} — ${durationSec}ث`,
+        duration_seconds: durationSec || null,
+      });
 
       message.success('تم تسجيل المكالمة بنجاح');
       form.resetFields();
@@ -118,6 +196,91 @@ export default function LeadDrawer({ lead, open, onClose, onEdit }: LeadDrawerPr
     } catch (err) {
       console.error('Error logging call:', err);
       message.error('فشل تسجيل المكالمة');
+    }
+  };
+
+  const handleFBUpdate = async (level: 1 | 2 | 3, checked: boolean) => {
+    if (!lead || !user) return;
+    const dateField = `fb${level}_date`;
+    const fbField = `fb${level}`;
+    const dateVal = checked ? new Date().toISOString() : null;
+
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({
+          [fbField]: checked,
+          [dateField]: dateVal
+        })
+        .eq('id', lead.id);
+
+      if (error) throw error;
+
+      message.success(`تم تحديث المتابعة ${level}`);
+      // Optimistically update the lead prop if possible, or trigger a refresh callback.
+      // Since `lead` is passed as prop, we might just fetch Boqs & calls, but we also need the lead to update.
+      // For now we assume the parent refreshes on close, but we can trigger onEdit if we want to bubble the update.
+    } catch (err) {
+      console.error('Error updating FB:', err);
+      message.error('فشل تحديث المتابعة');
+    }
+  };
+
+  const handleTeamChange = async (team: string) => {
+    setAssignTeam(team);
+    setAssignUser(undefined);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, name')
+      .eq('crm_team', team);
+    if (error) {
+      message.error('فشل تحميل أعضاء الفريق');
+      return;
+    }
+    setTeamUsers((data || []) as { id: string; name: string }[]);
+  };
+
+  const handleAssign = async () => {
+    if (!lead || !assignTeam || !assignUser) return;
+    setAssigning(true);
+    try {
+      const { error: updateError } = await supabase
+        .from('leads')
+        .update({ assigned_to_team: assignTeam, assigned_to_user: assignUser })
+        .eq('id', lead.id);
+      if (updateError) throw updateError;
+
+      // Auto-log assignment to lead_activities
+      const assignedName = teamUsers.find(u => u.id === assignUser)?.name ?? assignUser;
+      await supabase.from('lead_activities').insert({
+        lead_id: lead.id,
+        user_id: user?.id,
+        type: 'assignment',
+        body: `تم التعيين لـ: ${assignedName}`,
+      });
+
+      console.log('[handleAssign] inserting notification for assignUser:', assignUser, 'lead:', lead.id);
+      const { error: notifError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: assignUser,
+          title: 'تم تعيين ليد جديد ليك',
+          type: 'lead_assigned',
+          reference_id: lead.id,
+          reference_type: 'lead',
+        });
+      if (notifError) {
+        console.error('[handleAssign] notification insert FAILED:', notifError.code, notifError.message, notifError.details, notifError.hint);
+        throw notifError;
+      }
+
+      message.success('تم تعيين الليد بنجاح');
+      onAssigned?.();
+    } catch (err) {
+      console.error('Assign error:', err);
+      message.error('فشل التعيين');
+    } finally {
+      setAssigning(false);
     }
   };
 
@@ -197,6 +360,12 @@ export default function LeadDrawer({ lead, open, onClose, onEdit }: LeadDrawerPr
             label: 'تفاصيل (Details)',
             children: (
               <>
+                {lead.assigned_user?.name && (
+                  <div className="flex items-center gap-2 mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <Tag color="blue" style={{ margin: 0 }}>المعين</Tag>
+                    <Text strong>{lead.assigned_user.name}</Text>
+                  </div>
+                )}
                 <Descriptions column={1} size="small" bordered className="mb-6">
                   <Descriptions.Item label="الحالة (Status)">
                     <Tag color={statusConfig?.color}>{statusConfig?.labelAr || lead.status}</Tag>
@@ -219,6 +388,61 @@ export default function LeadDrawer({ lead, open, onClose, onEdit }: LeadDrawerPr
                     </div>
                   </>
                 )}
+
+                <Divider>متابعات | Follow-ups</Divider>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <Checkbox defaultChecked={lead.fb1} onChange={(e) => handleFBUpdate(1, e.target.checked)}>
+                      FB1 — First Follow-up
+                    </Checkbox>
+                    {lead.fb1_date && <span className="text-xs text-gray-500">{formatDate(lead.fb1_date)}</span>}
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <Checkbox defaultChecked={lead.fb2} onChange={(e) => handleFBUpdate(2, e.target.checked)}>
+                      FB2 — Second Follow-up
+                    </Checkbox>
+                    {lead.fb2_date && <span className="text-xs text-gray-500">{formatDate(lead.fb2_date)}</span>}
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <Checkbox defaultChecked={lead.fb3} onChange={(e) => handleFBUpdate(3, e.target.checked)}>
+                      FB3 — Third Follow-up
+                    </Checkbox>
+                    {lead.fb3_date && <span className="text-xs text-gray-500">{formatDate(lead.fb3_date)}</span>}
+                  </div>
+                </div>
+
+                <Divider>تعيين (Assign To)</Divider>
+                <div className="flex flex-col gap-3">
+                  <Select
+                    placeholder="اختر الفريق (Select Team)"
+                    value={assignTeam}
+                    onChange={handleTeamChange}
+                    className="w-full"
+                    options={[
+                      { value: 'tech', label: 'Tech Team' },
+                      { value: 'cs', label: 'CS Team' },
+                    ]}
+                  />
+                  <Select
+                    placeholder="اختر المستخدم (Select User)"
+                    value={assignUser}
+                    onChange={(v: string) => setAssignUser(v)}
+                    className="w-full"
+                    disabled={!assignTeam || teamUsers.length === 0}
+                    options={teamUsers.map((u) => ({ value: u.id, label: u.name }))}
+                    notFoundContent="لا يوجد مستخدمون في هذا الفريق"
+                  />
+                  <Button
+                    type="primary"
+                    block
+                    loading={assigning}
+                    disabled={!assignTeam || !assignUser}
+                    onClick={handleAssign}
+                    style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}
+                  >
+                    تعيين (Assign)
+                  </Button>
+                </div>
               </>
             ),
           },
@@ -335,7 +559,7 @@ export default function LeadDrawer({ lead, open, onClose, onEdit }: LeadDrawerPr
                             </span>
                           </div>
                           <Space size="small">
-                            <Link href={`/boq?id=${boq.id}`}>
+                            <Link href={`/boq/${boq.id}`}>
                               <Button size="small">View</Button>
                             </Link>
                             <PDFDownloadButton 
@@ -361,29 +585,120 @@ export default function LeadDrawer({ lead, open, onClose, onEdit }: LeadDrawerPr
             key: '3',
             label: 'النشاط (Activity)',
             children: (
-              <Timeline
-                items={[
-                  ...activities.map(a => ({
-                    color: a.type === 'creation' ? 'green' : a.type === 'status_change' ? 'orange' : 'blue',
-                    children: (
-                      <div>
-                        <Text strong className="text-xs">
-                          {a.type === 'creation' ? 'تم إنشاء العميل' : 
-                           a.type === 'status_change' ? 'تغيير الحالة' : 
-                           a.type === 'edit' ? 'تحديث البيانات' : 'ملاحظة جديدة'}
-                        </Text>
-                        <Text type="secondary" className="block text-[10px]">
-                          {formatDate(a.created_at)}
-                        </Text>
-                      </div>
-                    )
-                  })),
-                  {
-                    color: 'gray',
-                    children: <Text type="secondary" className="text-[10px]">نهاية السجل</Text>
-                  }
-                ]}
-              />
+              <div className="space-y-3">
+                {/* Sub-tabs */}
+                <div className="flex gap-2 flex-wrap">
+                  {(['all', 'call', 'note'] as const).map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setActivityTab(tab)}
+                      className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                        activityTab === tab
+                          ? 'bg-[#D72B2B] text-white border-[#D72B2B]'
+                          : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+                      }`}
+                    >
+                      {tab === 'all' ? `الكل (${activities.length})` : tab === 'call' ? `مكالمات (${activities.filter(a => a.type === 'call').length})` : `ملاحظات (${activities.filter(a => a.type === 'note').length})`}
+                    </button>
+                  ))}
+                </div>
+                {/* Add Activity Button */}
+                <Button
+                  type="dashed"
+                  block
+                  icon={<PlusOutlined />}
+                  onClick={() => setAddingActivity(!addingActivity)}
+                >
+                  {addingActivity ? 'إلغاء' : '+ إضافة نشاط'}
+                </Button>
+                {/* Add Activity Form */}
+                {addingActivity && (
+                  <div className="bg-gray-50 p-3 rounded-lg border border-dashed border-gray-300">
+                    <Form form={activityForm} layout="vertical" size="small" onFinish={handleAddActivity}>
+                      <Form.Item name="type" label="النوع" rules={[{ required: true }]} initialValue="note">
+                        <Select options={[
+                          { value: 'note', label: '📝 ملاحظة' },
+                          { value: 'call', label: '📞 مكالمة' },
+                        ]} />
+                      </Form.Item>
+                      <Form.Item name="body" label="التفاصيل" rules={[{ required: true }]}>
+                        <Input.TextArea rows={2} placeholder="اكتب تفاصيل النشاط..." />
+                      </Form.Item>
+                      <Form.Item noStyle shouldUpdate={(prev, cur) => prev.type !== cur.type}>
+                        {({ getFieldValue }) =>
+                          getFieldValue('type') === 'call' ? (
+                            <Form.Item name="duration_seconds" label="المدة (ثوانٍ)">
+                              <InputNumber min={0} style={{ width: '100%' }} />
+                            </Form.Item>
+                          ) : null
+                        }
+                      </Form.Item>
+                      <Button type="primary" htmlType="submit" block style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}>
+                        حفظ
+                      </Button>
+                    </Form>
+                  </div>
+                )}
+                {/* Current Status Badge */}
+                <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
+                  <span className="text-[10px] text-gray-400 font-medium">الحالة الحالية:</span>
+                  <Tag color={LEAD_STATUSES.find(s => s.value === lead.status)?.color || '#8C8C8C'} style={{ margin: 0, fontSize: 11 }}>
+                    {LEAD_STATUSES.find(s => s.value === lead.status)?.labelAr || lead.status}
+                  </Tag>
+                </div>
+
+                {/* Activity Feed */}
+                {activities
+                  .filter(a => activityTab === 'all' || a.type === activityTab)
+                  .length === 0 ? (
+                  <Text type="secondary" className="block text-center py-4">لا يوجد نشاط حتى الآن</Text>
+                ) : (
+                  <div className="relative">
+                    {/* Vertical line */}
+                    <div className="absolute left-3 top-4 bottom-4 w-px bg-slate-200" />
+                    <div className="space-y-3">
+                    {activities
+                      .filter(a => activityTab === 'all' || a.type === activityTab)
+                      .map(a => {
+                        const userName = profileMap[a.user_id] || 'مستخدم';
+                        const initials = userName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+                        const typeConfig: Record<string, { icon: string; label: string; color: string }> = {
+                          creation:      { icon: '🟢', label: 'إنشاء الليد',     color: 'bg-green-100 border-green-200' },
+                          status_change: { icon: '🔄', label: 'تغيير الحالة',    color: 'bg-blue-50 border-blue-200' },
+                          assignment:    { icon: '👤', label: 'تعيين',            color: 'bg-purple-50 border-purple-200' },
+                          call:          { icon: '📞', label: 'مكالمة',           color: 'bg-amber-50 border-amber-200' },
+                          note:          { icon: '📝', label: 'ملاحظة',           color: 'bg-gray-50 border-gray-200' },
+                          note_added:    { icon: '📝', label: 'ملاحظة',           color: 'bg-gray-50 border-gray-200' },
+                          edit:          { icon: '✏️',  label: 'تعديل',            color: 'bg-slate-50 border-slate-200' },
+                        };
+                        const cfg = typeConfig[a.type] || { icon: '•', label: a.type, color: 'bg-gray-50 border-gray-200' };
+                        return (
+                          <div key={a.id} className="flex gap-3 items-start pl-1">
+                            <div className="w-7 h-7 rounded-full bg-[#0D2137] text-white text-[9px] font-bold flex items-center justify-center shrink-0 z-10 border-2 border-white">
+                              {initials}
+                            </div>
+                            <div className={`rounded-lg p-2.5 flex-1 border ${cfg.color}`}>
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-[11px] font-semibold text-gray-700">
+                                  {cfg.icon} {cfg.label}
+                                </span>
+                                <span className="text-[10px] text-gray-400">{formatDate(a.created_at)}</span>
+                              </div>
+                              <div className="text-[10px] text-gray-500 mb-0.5">{userName}</div>
+                              {a.body && (
+                                <p className="text-xs text-gray-800 mt-1 leading-relaxed">{a.body}</p>
+                              )}
+                              {a.duration_seconds && a.duration_seconds > 0 && (
+                                <span className="text-[10px] text-gray-400">⏱ {Math.floor(a.duration_seconds / 60)} دقيقة {a.duration_seconds % 60} ثانية</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             ),
           },
         ]}

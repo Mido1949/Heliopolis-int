@@ -41,7 +41,9 @@ export default function PDFDownloadButton({
     
     setLoading(true);
     try {
-      const fileName = `GCHV_BOQ_${props.customer?.name?.replace(/\s+/g, '_') || 'Draft'}.pdf`;
+      const custName = props.customer?.name?.replace(/\s+/g, '_') || props.customer?.company?.replace(/\s+/g, '_') || 'Draft';
+      const boqNum = boqNumber || 'New';
+      const fileName = `GCHV_BOQ_${custName}_${boqNum}.pdf`;
       const blob = await pdf(<BOQDocument {...props} grandTotalUSD={grandTotalUSD} dateCreated={dateCreated} boqNumber={boqNumber} vatPercent={vatPercent} />).toBlob();
       saveAs(blob, fileName);
     } catch (error) {

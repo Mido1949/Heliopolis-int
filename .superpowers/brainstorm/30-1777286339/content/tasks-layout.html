@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tasks Screen Layout</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:#fff; }
+
+.page-header { text-align:center; padding:16px; background:#1e293b; border-bottom:1px solid #334155; }
+.page-header h2 { font-size:16px; color:#f1f5f9; margin-bottom:3px; }
+.page-header p { font-size:12px; color:#94a3b8; }
+
+.panels { display:flex; gap:0; height:calc(100vh - 90px); }
+
+.panel {
+  flex:1; padding:20px; cursor:pointer; position:relative;
+  border:3px solid transparent; transition:border-color 0.3s; overflow-y:auto;
+}
+.panel:hover { border-color:#D72B2B; }
+.panel.selected { border-color:#D72B2B; }
+.panel-label {
+  font-size:10px; font-weight:700; letter-spacing:2px; color:#94a3b8;
+  text-transform:uppercase; background:#1e293b; padding:3px 10px; border-radius:20px;
+  display:inline-block; margin-bottom:14px;
+}
+.selected-badge {
+  display:none; position:absolute; top:14px; right:14px;
+  background:#D72B2B; color:#fff; font-size:11px; font-weight:700;
+  padding:3px 8px; border-radius:10px;
+}
+.panel.selected .selected-badge { display:block; }
+
+/* SHARED MOCK STYLES */
+.mock-app { background:#f4f6f8; border-radius:10px; overflow:hidden; border:1px solid #e2e8f0; }
+.mock-navbar { background:#fff; padding:10px 16px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; }
+.mock-navbar .title { font-size:13px; font-weight:700; color:#0D2137; }
+.mock-navbar .badge { background:#D72B2B; color:#fff; font-size:10px; font-weight:700; padding:2px 7px; border-radius:10px; }
+.mock-body { padding:12px; }
+
+/* OPTION A — Full Page */
+.panel-a { background:#0f172a; border-right:1px solid #1e293b; }
+
+.task-table { background:#fff; border-radius:8px; border:1px solid #e2e8f0; overflow:hidden; }
+.task-table-header { display:grid; grid-template-columns:2fr 1.5fr 1fr 1fr 1fr; gap:8px; padding:8px 12px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-size:10px; color:#64748b; font-weight:600; }
+.task-row { display:grid; grid-template-columns:2fr 1.5fr 1fr 1fr 1fr; gap:8px; padding:8px 12px; border-bottom:1px solid #f1f5f9; align-items:center; }
+.task-row:last-child { border:none; }
+.task-title { font-size:11px; color:#0D2137; font-weight:600; }
+.task-title .sub { font-size:9px; color:#94a3b8; font-weight:400; margin-top:2px; }
+.task-user { font-size:10px; color:#475569; display:flex; align-items:center; gap:4px; }
+.task-user .avatar { width:18px; height:18px; border-radius:50%; background:#0D2137; color:#fff; font-size:7px; display:flex; align-items:center; justify-content:center; }
+.badge-pending { background:#fef3c7; color:#92400e; font-size:9px; font-weight:700; padding:2px 6px; border-radius:8px; }
+.badge-done { background:#d1fae5; color:#065f46; font-size:9px; font-weight:700; padding:2px 6px; border-radius:8px; }
+.badge-overdue { background:#fee2e2; color:#991b1b; font-size:9px; font-weight:700; padding:2px 6px; border-radius:8px; }
+.priority-high { color:#D72B2B; font-size:9px; font-weight:700; }
+.priority-med { color:#f59e0b; font-size:9px; font-weight:700; }
+.priority-low { color:#10b981; font-size:9px; font-weight:700; }
+
+.filter-bar { display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+.filter-pill { background:#fff; border:1px solid #e2e8f0; border-radius:20px; padding:3px 10px; font-size:10px; color:#64748b; }
+.filter-pill.active { background:#0D2137; color:#fff; border-color:#0D2137; }
+
+.add-btn { background:#D72B2B; color:#fff; border:none; border-radius:6px; padding:5px 12px; font-size:10px; font-weight:700; cursor:pointer; }
+
+/* OPTION B — Split: My Tasks left, Admin right */
+.panel-b { background:#0f172a; }
+
+.split-layout { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.card { background:#fff; border-radius:8px; border:1px solid #e2e8f0; overflow:hidden; }
+.card-header { padding:8px 12px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center; }
+.card-header .card-title { font-size:11px; font-weight:700; color:#0D2137; }
+.card-body { padding:8px; }
+.task-item { padding:7px 8px; border-radius:6px; margin-bottom:5px; border:1px solid #f1f5f9; }
+.task-item:hover { background:#f8fafc; }
+.task-item .t-title { font-size:10px; font-weight:600; color:#0D2137; }
+.task-item .t-meta { font-size:9px; color:#94a3b8; margin-top:2px; }
+.task-item.done { opacity:0.5; }
+.task-item.done .t-title { text-decoration:line-through; }
+.checkbox-mock { width:12px; height:12px; border:1.5px solid #cbd5e1; border-radius:3px; display:inline-block; margin-left:6px; vertical-align:middle; }
+.checkbox-mock.checked { background:#10b981; border-color:#10b981; }
+.lead-link { font-size:9px; color:#D72B2B; }
+
+.stats-row { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:10px; }
+.stat-card { background:#fff; border-radius:6px; padding:8px; text-align:center; border:1px solid #e2e8f0; }
+.stat-num { font-size:18px; font-weight:900; color:#0D2137; }
+.stat-label { font-size:9px; color:#94a3b8; }
+</style>
+</head>
+<body>
+<div class="page-header">
+  <h2>شكل شاشة التاسكات — اختار التصميم</h2>
+  <p>كلاهما بيعمل نفس الوظيفة — الفرق في طريقة العرض</p>
+</div>
+
+<div class="panels">
+
+  <!-- OPTION A: Full management table -->
+  <div class="panel panel-a" onclick="sel('a',this)">
+    <div class="panel-label">Option A — جدول إدارة كامل</div>
+    <div class="selected-badge">✓ مختار</div>
+
+    <div class="mock-app">
+      <div class="mock-navbar">
+        <div class="title">📋 المهام (Tasks)</div>
+        <button class="add-btn">+ مهمة جديدة</button>
+      </div>
+      <div class="mock-body">
+        <!-- Stats -->
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-num" style="color:#D72B2B">8</div><div class="stat-label">معلقة</div></div>
+          <div class="stat-card"><div class="stat-num" style="color:#10b981">24</div><div class="stat-label">منتهية</div></div>
+          <div class="stat-card"><div class="stat-num" style="color:#f59e0b">3</div><div class="stat-label">متأخرة</div></div>
+        </div>
+        <!-- Filters -->
+        <div class="filter-bar">
+          <div class="filter-pill active">الكل</div>
+          <div class="filter-pill">معلقة</div>
+          <div class="filter-pill">منتهية</div>
+          <div class="filter-pill">متأخرة</div>
+          <div class="filter-pill">مرتبطة بليد</div>
+        </div>
+        <!-- Table -->
+        <div class="task-table">
+          <div class="task-table-header">
+            <span>المهمة</span><span>معين لـ</span><span>الموعد</span><span>الحالة</span><span>الأولوية</span>
+          </div>
+          <div class="task-row">
+            <div><div class="task-title">متابعة عرض السعر<div class="sub">🔗 عمرو مصطفى</div></div></div>
+            <div class="task-user"><div class="avatar">أم</div> أحمد محمد</div>
+            <div style="font-size:10px;color:#475569">اليوم</div>
+            <div><span class="badge-pending">معلقة</span></div>
+            <div><span class="priority-high">عالية</span></div>
+          </div>
+          <div class="task-row">
+            <div><div class="task-title">إرسال كتالوج VRF<div class="sub">🔗 أحمد حسين</div></div></div>
+            <div class="task-user"><div class="avatar">سم</div> سمر</div>
+            <div style="font-size:10px;color:#f59e0b">أمس ⚠</div>
+            <div><span class="badge-overdue">متأخرة</span></div>
+            <div><span class="priority-high">عالية</span></div>
+          </div>
+          <div class="task-row">
+            <div><div class="task-title">تأكيد موعد المعاينة</div></div>
+            <div class="task-user"><div class="avatar">طا</div> طارق</div>
+            <div style="font-size:10px;color:#475569">غداً</div>
+            <div><span class="badge-pending">معلقة</span></div>
+            <div><span class="priority-med">متوسطة</span></div>
+          </div>
+          <div class="task-row" style="opacity:0.5">
+            <div><div class="task-title" style="text-decoration:line-through">مراجعة عقد التوريد</div></div>
+            <div class="task-user"><div class="avatar">أم</div> أحمد</div>
+            <div style="font-size:10px;color:#10b981">✓ منتهية</div>
+            <div><span class="badge-done">منتهية</span></div>
+            <div><span class="priority-low">منخفضة</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:10px;color:#475569;text-align:center;max-width:240px">
+      جدول كامل مع فلاتر + إحصائيات · الأدمن يرى كل المهام · اليوزر يرى مهامه فقط
+    </div>
+  </div>
+
+  <!-- OPTION B: Split view -->
+  <div class="panel panel-b" onclick="sel('b',this)">
+    <div class="panel-label">Option B — عرض منقسم (مهامي + إدارة)</div>
+    <div class="selected-badge">✓ مختار</div>
+
+    <div class="mock-app">
+      <div class="mock-navbar">
+        <div class="title">📋 المهام <span class="badge">5</span></div>
+        <button class="add-btn">+ مهمة جديدة</button>
+      </div>
+      <div class="mock-body">
+        <div class="split-layout">
+          <!-- Left: My tasks -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">مهامي اليوم</span>
+              <span class="badge" style="background:#D72B2B;color:#fff;font-size:9px;padding:2px 6px;border-radius:8px;">3</span>
+            </div>
+            <div class="card-body">
+              <div class="task-item">
+                <span class="checkbox-mock"></span>
+                <span class="t-title">متابعة عرض السعر</span>
+                <div class="t-meta">🔗 <span class="lead-link">عمرو مصطفى</span> · اليوم</div>
+              </div>
+              <div class="task-item">
+                <span class="checkbox-mock"></span>
+                <span class="t-title">إرسال كتالوج VRF</span>
+                <div class="t-meta" style="color:#D72B2B">⚠ متأخرة — أمس</div>
+              </div>
+              <div class="task-item done">
+                <span class="checkbox-mock checked"></span>
+                <span class="t-title">مراجعة عقد التوريد</span>
+                <div class="t-meta">✓ تم اليوم 10:30ص</div>
+              </div>
+            </div>
+          </div>
+          <!-- Right: Admin view -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">إدارة المهام (أدمن)</span>
+            </div>
+            <div class="card-body">
+              <div class="stats-row" style="grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:8px">
+                <div class="stat-card"><div class="stat-num" style="font-size:14px;color:#D72B2B">8</div><div class="stat-label">معلقة</div></div>
+                <div class="stat-card"><div class="stat-num" style="font-size:14px;color:#10b981">24</div><div class="stat-label">منتهية</div></div>
+                <div class="stat-card"><div class="stat-num" style="font-size:14px;color:#f59e0b">3</div><div class="stat-label">متأخرة</div></div>
+              </div>
+              <div class="task-item">
+                <span class="t-title">تأكيد موعد المعاينة</span>
+                <div class="t-meta">👤 طارق · غداً</div>
+              </div>
+              <div class="task-item">
+                <span class="t-title">اتصال بعميل VIP</span>
+                <div class="t-meta" style="color:#D72B2B">👤 سمر · ⚠ متأخرة</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:10px;color:#475569;text-align:center;max-width:240px">
+      شاشة منقسمة: اليوزر يشوف مهامه يسار · الأدمن يشوف الكل يمين
+    </div>
+  </div>
+
+</div>
+
+<div style="text-align:center;padding:10px;font-size:11px;color:#64748b;background:#1e293b">
+  اضغط على التصميم اللي يعجبك ثم رد في الـ terminal
+</div>
+
+<script>
+function sel(c,el){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('selected'));
+  el.classList.add('selected');
+  try{ fetch('/events',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({type:'click',choice:c,text:'Option '+c.toUpperCase(),timestamp:Date.now()})
+  }); }catch(e){}
+}
+</script>
+</body>
+</html>

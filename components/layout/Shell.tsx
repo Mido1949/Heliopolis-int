@@ -1,42 +1,35 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import LookAgent from '@/components/agent/LookAgent';
+import NavigationLoader from './NavigationLoader';
+import { useAuth } from '@/context/AuthContext';
+import { useSessionManager } from '@/hooks/useSessionManager';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import type { Profile } from '@/types';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface ShellProps {
   children: React.ReactNode;
 }
 
-import { useLanguage } from '@/context/LanguageContext';
-
 export default function Shell({ children }: ShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { lang, toggleLanguage } = useLanguage();
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const { profile, user } = useAuth();
+  const router = useRouter();
   const supabase = createClient();
 
-  // Load current user profile
-  useEffect(() => {
-    const loadProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-        if (data) {
-          setProfile(data as Profile);
-        }
-      }
-    };
-    loadProfile();
-  }, [supabase]);
+  useSessionManager(user?.id ?? null);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  };
 
   const toggleLang = () => {
     toggleLanguage();
@@ -44,6 +37,7 @@ export default function Shell({ children }: ShellProps) {
 
   return (
     <div className="min-h-screen bg-[#F4F6F8] font-sans text-slate-900">
+      <NavigationLoader />
       <Sidebar
         collapsed={collapsed}
         onCollapse={setCollapsed}
@@ -51,6 +45,7 @@ export default function Shell({ children }: ShellProps) {
         profile={profile}
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
+        onLogout={handleLogout}
       />
       
       <Navbar

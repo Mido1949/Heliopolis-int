@@ -9,6 +9,7 @@ export const COMPANY_NAME = 'GCHV Egypt';
 export const NAV_ITEMS = [
   { key: 'dashboard', labelAr: 'لوحة التحكم', labelEn: 'Dashboard', icon: 'dashboard', path: '/dashboard' },
   { key: 'crm', labelAr: 'إدارة العملاء', labelEn: 'CRM', icon: 'contacts', path: '/crm' },
+  { key: 'crm-ksa', labelAr: 'CRM KSA', labelEn: 'CRM KSA', icon: 'contacts', path: '/crm-ksa' },
   { key: 'boq', labelAr: 'عروض الأسعار', labelEn: 'BOQ', icon: 'fileText', path: '/boq' },
   { key: 'email', labelAr: 'حملات البريد', labelEn: 'Email', icon: 'mail', path: '/email' },
   { key: 'inventory', labelAr: 'المخزون', labelEn: 'Inventory', icon: 'database', path: '/inventory' },
@@ -60,6 +61,8 @@ export const REGIONS = [
   { value: 'Jeddah', labelAr: 'جدة' },
   { value: 'Other', labelAr: 'أخرى' },
 ] as const;
+
+export const SAUDI_REGIONS = ['Riyadh', 'Jeddah'] as const;
 
 // Task Types
 export const TASK_TYPES = [

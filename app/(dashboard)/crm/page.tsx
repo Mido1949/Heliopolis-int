@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Table, Tag, Button, Input, Select, Space, Tooltip, Dropdown, Row, Col,
   Typography, message, Segmented,
@@ -10,7 +10,7 @@ import {
   MoreOutlined, FilterOutlined,
   EyeOutlined, EditOutlined, DeleteOutlined,
   TableOutlined, AppstoreOutlined, FileTextOutlined,
-  PhoneOutlined,
+  PhoneOutlined, ImportOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
@@ -22,12 +22,13 @@ import type { Lead } from '@/types';
 import LeadDrawer from './LeadDrawer';
 import LeadFormModal from './LeadFormModal';
 import KanbanView from './KanbanView';
+import ImportModal from './ImportModal';
 import { useAuth } from '@/context/AuthContext';
 
 const { Title, Text } = Typography;
 
 export default function CRMPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isManager, user } = useAuth();
   const supabase = createClient();
 
   // State
@@ -36,6 +37,7 @@ export default function CRMPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -48,6 +50,7 @@ export default function CRMPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [viewType, setViewType] = useState<'table' | 'kanban'>('table');
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   // Call stats
   const [callStats, setCallStats] = useState({ total: 0, today: 0, answered: 0 });
@@ -96,6 +99,11 @@ export default function CRMPage() {
       }
       if (statusFilter) query = query.eq('status', statusFilter);
       if (sourceFilter) query = query.eq('source', sourceFilter);
+
+      // Role-based filtering: non-admin/non-manager users only see their assigned leads
+      if (!isAdmin && !isManager && user) {
+        query = query.eq('assigned_to_user', user.id);
+      }
 
       const { data, count, error } = await query;
       if (error) throw error;
@@ -290,14 +298,22 @@ export default function CRMPage() {
           </Text>
         </Col>
         <Col>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => { setEditingLead(null); setModalOpen(true); }}
-            style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}
-          >
-            إضافة عميل (Add Lead)
-          </Button>
+          <Space>
+            <Button
+              icon={<ImportOutlined />}
+              onClick={() => setImportModalOpen(true)}
+            >
+              استيراد مجمع
+            </Button>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => { setEditingLead(null); setModalOpen(true); }}
+              style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}
+            >
+              إضافة عميل (Add Lead)
+            </Button>
+          </Space>
         </Col>
       </Row>
 
@@ -359,7 +375,15 @@ export default function CRMPage() {
                   prefix={<SearchOutlined />}
                   placeholder="بحث بالاسم، الشركة، أو الهاتف..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSearch(val);
+                    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                    searchDebounceRef.current = setTimeout(() => {
+                      setPage(1);
+                      fetchLeads(1);
+                    }, 300);
+                  }}
                   onPressEnter={() => { setPage(1); fetchLeads(1); }}
                   allowClear
                 />
@@ -428,6 +452,13 @@ export default function CRMPage() {
         lead={editingLead}
         onClose={() => { setModalOpen(false); setEditingLead(null); }}
         onSaved={() => { setModalOpen(false); setEditingLead(null); fetchLeads(); }}
+      />
+
+      {/* Import Modal */}
+      <ImportModal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onImportComplete={() => { setImportModalOpen(false); fetchLeads(); }}
       />
     </div>
   );

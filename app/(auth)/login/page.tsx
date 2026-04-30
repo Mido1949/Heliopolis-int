@@ -1,17 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Form, Input, Button, Typography, message, Space } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const { Title, Text } = Typography;
 
+const QUOTES = [
+  'النجاح يبدأ بخطوة واحدة',
+  'كل عميل هو فرصة جديدة',
+  'الإصرار هو مفتاح الإنجاز',
+  'تواصل، أقنع، انجز',
+  'فريق قوي يصنع نتائج استثنائية',
+  'السعى ليه وقت',
+  'صلى على محمد',
+  'الاملفى الداخل ينتظر الخروج',
+  'فى اختلافنا رحمة',
+  'مدد يا رب',
+];
+
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
+  const [quoteIndex, setQuoteIndex] = useState(0);
   const router = useRouter();
   const supabase = createClient();
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setQuoteIndex((i) => (i + 1) % QUOTES.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   const onFinish = async (values: { email: string; password: string }) => {
     setLoading(true);
@@ -38,7 +60,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Panel — Branding */}
+      {/* Left Panel — Animated Branding */}
       <div
         className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12"
         style={{
@@ -46,46 +68,65 @@ export default function LoginPage() {
         }}
       >
         <div>
-          <h1 className="text-white text-4xl font-heading font-bold tracking-tight">
+          <motion.h1
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-white text-4xl font-bold tracking-tight"
+          >
             LOOMARK
-          </h1>
-          <p className="text-white/60 mt-2 text-lg">GCHV Egypt</p>
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="mt-1 text-lg font-bold tracking-[4px] uppercase"
+            style={{ color: '#D72B2B' }}
+          >
+            GCHV EGYPT
+          </motion.p>
         </div>
 
         <div className="space-y-6">
-          <div className="bg-white/5 backdrop-blur-lg rounded-xl p-6 border border-white/10">
-            <h3 className="text-white/90 text-xl font-semibold mb-2">
-              نظام إدارة المبيعات الذكي
-            </h3>
-            <p className="text-white/50 leading-relaxed">
-              إدارة العملاء، عروض الأسعار، المخزون، وحملات البريد الإلكتروني — كل ذلك في مكان واحد مع مساعد ذكاء اصطناعي متكامل.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            {[
-              { label: 'VRF Systems', labelAr: 'أنظمة VRF' },
-              { label: 'Heat Pumps', labelAr: 'مضخات حرارية' },
-              { label: 'AC Solutions', labelAr: 'حلول تكييف' },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="bg-white/5 backdrop-blur rounded-lg p-3 text-center border border-white/10"
+          <div
+            className="rounded-xl p-6 border"
+            style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' }}
+          >
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={quoteIndex}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.5 }}
+                className="text-white/90 text-xl font-semibold leading-relaxed text-right"
+                dir="rtl"
               >
-                <p className="text-white/70 text-xs">{item.labelAr}</p>
-                <p className="text-white/40 text-[10px] mt-1">{item.label}</p>
-              </div>
-            ))}
+                &ldquo;{QUOTES[quoteIndex]}&rdquo;
+              </motion.p>
+            </AnimatePresence>
+
+            <div className="flex gap-1.5 mt-4 justify-end">
+              {QUOTES.map((_, i) => (
+                <motion.div
+                  key={i}
+                  animate={{
+                    width: i === quoteIndex ? 18 : 6,
+                    background: i === quoteIndex ? '#D72B2B' : '#334155',
+                  }}
+                  transition={{ duration: 0.3 }}
+                  className="h-1.5 rounded-full"
+                />
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="text-white/30 text-sm">
-          © {new Date().getFullYear()} GCHV Egypt — Powered by LOOMARK
-        </div>
+        <p className="text-white/20 text-xs">© 2026 GCHV Egypt. All rights reserved.</p>
       </div>
 
       {/* Right Panel — Login Form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-bg">
+      <div className="flex-1 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
@@ -164,7 +205,7 @@ export default function LoginPage() {
           </div>
 
           <p className="text-center text-gray-400 text-sm mt-6">
-            GCHV Egypt — VRF &amp; HVAC Solutions
+            GCHV Egypt — VRF & HVAC Solutions
           </p>
         </div>
       </div>

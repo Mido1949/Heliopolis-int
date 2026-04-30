@@ -8,7 +8,7 @@ import { DatePicker } from 'antd';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
-import { Download, Loader2, Target, TrendingUp, BarChart2 } from 'lucide-react';
+import { Download, Loader2, Target, TrendingUp, BarChart2, CheckSquare } from 'lucide-react';
 import dayjs from 'dayjs';
 import type { Profile } from '@/types';
 
@@ -36,6 +36,9 @@ interface MetaLead {
   form_id: string | null;
   created_at: string;
   assigned_to_user: string | null;
+  created_by: string | null;
+  creator_name?: string;
+  assignee_name?: string;
 }
 
 interface CampaignRow {
@@ -52,6 +55,14 @@ interface UserProgress {
   leadsTarget: number | null;
   actualLeads: number;
   progress: number;
+}
+
+interface UserTaskStats {
+  id: string;
+  name: string;
+  done: number;
+  pending: number;
+  total: number;
 }
 
 const CHART_COLORS = ['#D72B2B', '#0D2137', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6'];
@@ -105,6 +116,9 @@ export default function ReportsPage() {
   // Section 3 state
   const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
 
+  // Section 4 state (task stats)
+  const [userTaskStats, setUserTaskStats] = useState<UserTaskStats[]>([]);
+
   // ── Data Fetching ──────────────────────────────────────────────────────────
 
   const fetchAll = useCallback(async () => {
@@ -118,11 +132,12 @@ export default function ReportsPage() {
       { data: metaData },
       { data: targetsData },
       { data: monthLeadsData },
+      { data: tasksData },
     ] = await Promise.all([
       supabase.from('profiles').select('*').order('name'),
       supabase
         .from('leads')
-        .select('id, name, phone, source, status, form_id, created_at, assigned_to_user')
+        .select('id, name, phone, source, status, form_id, created_at, assigned_to_user, created_by')
         .eq('source', 'Meta')
         .gte('created_at', campaignRange[0].startOf('day').toISOString())
         .lte('created_at', campaignRange[1].endOf('day').toISOString()),
@@ -138,11 +153,22 @@ export default function ReportsPage() {
         .gte('created_at', monthStart)
         .lte('created_at', monthEnd)
         .not('assigned_to_user', 'is', null),
+      supabase
+        .from('tasks')
+        .select('assigned_to, status'),
     ]);
 
     const allProfiles = (profilesData as Profile[]) || [];
     setProfiles(allProfiles);
-    setMetaLeads((metaData as MetaLead[]) || []);
+    const metaLeadsRaw = (metaData as MetaLead[]) || [];
+    // Map creator/assignee IDs to names
+    const profileMap = new Map(allProfiles.map(p => [p.id, p.name]));
+    const metaLeadsWithNames = metaLeadsRaw.map(l => ({
+      ...l,
+      creator_name: l.created_by ? profileMap.get(l.created_by) || undefined : undefined,
+      assignee_name: l.assigned_to_user ? profileMap.get(l.assigned_to_user) || undefined : undefined,
+    }));
+    setMetaLeads(metaLeadsWithNames);
 
     const rawTargets = (targetsData || []) as SalesTarget[];
     setTargets(rawTargets);
@@ -168,6 +194,29 @@ export default function ReportsPage() {
     }).filter(p => p.leadsTarget !== null || p.actualLeads > 0);
 
     setUserProgress(progress);
+
+    // Build per-user task stats
+    const taskDoneMap: Record<string, number> = {};
+    const taskPendingMap: Record<string, number> = {};
+    (tasksData || []).forEach((t: { assigned_to: string; status: string }) => {
+      if (t.status === 'done') {
+        taskDoneMap[t.assigned_to] = (taskDoneMap[t.assigned_to] || 0) + 1;
+      } else {
+        taskPendingMap[t.assigned_to] = (taskPendingMap[t.assigned_to] || 0) + 1;
+      }
+    });
+    const taskStats: UserTaskStats[] = allProfiles
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        done: taskDoneMap[p.id] || 0,
+        pending: taskPendingMap[p.id] || 0,
+        total: (taskDoneMap[p.id] || 0) + (taskPendingMap[p.id] || 0),
+      }))
+      .filter(u => u.total > 0)
+      .sort((a, b) => b.done - a.done);
+    setUserTaskStats(taskStats);
+
     setLoading(false);
   }, [supabase, campaignRange]);
 
@@ -225,9 +274,18 @@ export default function ReportsPage() {
 
   const handleExport = () => {
     const rows: string[][] = [];
-    rows.push(['الاسم', 'الهاتف', 'المصدر', 'الحالة', 'معرف الحملة', 'تاريخ الإنشاء']);
+    rows.push(['الاسم', 'الهاتف', 'المصدر', 'الحالة', 'صاحب الليد', 'المعين له', 'معرف الحملة', 'تاريخ الإنشاء']);
     metaLeads.forEach(l => {
-      rows.push([l.name, l.phone, l.source, l.status, l.form_id || '', l.created_at]);
+      rows.push([
+        l.name,
+        l.phone,
+        l.source,
+        l.status,
+        l.creator_name || '',
+        l.assignee_name || '',
+        l.form_id || '',
+        l.created_at,
+      ]);
     });
     rows.push([]);
     rows.push(['المستخدم', 'نوع الهدف', 'قيمة الهدف', 'من', 'إلى']);
@@ -491,7 +549,83 @@ export default function ReportsPage() {
         )}
       </SectionCard>
 
-      {/* ── Section 4: Export ── */}
+      {/* ── Section 4: User Task Stats ── */}
+      <SectionCard
+        title="إنجاز المهام لكل موظف"
+        subtitle="Task Completion by User"
+        icon={<CheckSquare className="w-5 h-5" />}
+      >
+        {userTaskStats.length === 0 ? (
+          <p className="text-center text-sm text-slate-400 py-6">لا توجد مهام مسجلة بعد</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-xs text-slate-500 font-semibold">
+                  <th className="text-right py-2 pr-2">الموظف</th>
+                  <th className="text-center py-2">منجزة</th>
+                  <th className="text-center py-2">قيد التنفيذ</th>
+                  <th className="text-center py-2">الإجمالي</th>
+                  <th className="text-center py-2 pl-2">نسبة الإنجاز</th>
+                </tr>
+              </thead>
+              <tbody>
+                {userTaskStats.map(u => {
+                  const pct = u.total > 0 ? Math.round((u.done / u.total) * 100) : 0;
+                  return (
+                    <tr key={u.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                      <td className="py-3 pr-2 font-semibold text-[#0D2137]">{u.name}</td>
+                      <td className="text-center py-3">
+                        <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                          {u.done}
+                        </span>
+                      </td>
+                      <td className="text-center py-3">
+                        <span className="inline-flex items-center gap-1 text-amber-600 font-bold">
+                          <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
+                          {u.pending}
+                        </span>
+                      </td>
+                      <td className="text-center py-3 font-bold text-[#0D2137]">{u.total}</td>
+                      <td className="text-center py-3 pl-2">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-24 bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className={`h-2 rounded-full transition-all duration-700 ${progressColor(pct)}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className={`text-xs font-bold w-10 text-right ${progressTextColor(pct)}`}>
+                            {pct}%
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-slate-200 bg-slate-50">
+                  <td className="py-2.5 pr-2 text-xs font-bold text-slate-500">الإجمالي</td>
+                  <td className="text-center py-2.5 font-bold text-emerald-700">
+                    {userTaskStats.reduce((s, u) => s + u.done, 0)}
+                  </td>
+                  <td className="text-center py-2.5 font-bold text-amber-600">
+                    {userTaskStats.reduce((s, u) => s + u.pending, 0)}
+                  </td>
+                  <td className="text-center py-2.5 font-bold text-[#0D2137]">
+                    {userTaskStats.reduce((s, u) => s + u.total, 0)}
+                  </td>
+                  <td />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </SectionCard>
+
+      {/* ── Section 5: Export ── */}
       <SectionCard
         title="تصدير التقرير"
         subtitle="Export Report as CSV"
