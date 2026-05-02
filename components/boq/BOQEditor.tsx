@@ -166,7 +166,7 @@ export function BOQEditor({
                               />
                             </div>
                             <div>
-                              <label className="text-xs text-muted-foreground mb-1 block">Location / Room</label>
+                              <label className="text-xs text-muted-foreground mb-1 block">Zone / Room</label>
                               <Input
                                 placeholder="e.g. Master"
                                 value={item.location || ''}

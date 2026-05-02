@@ -21,17 +21,19 @@ const styles = StyleSheet.create({
   infoValue: { fontSize: 12, fontWeight: "bold", color: "#1a1a1a" },
   infoValueSmall: { fontSize: 10, color: "#4b5563", marginTop: 2 },
   table: { width: "100%", borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 4, overflow: "hidden", marginBottom: 20 },
-  tableHeader: { flexDirection: "row", backgroundColor: BLUE, paddingVertical: 10, paddingHorizontal: 8 },
-  tableHeaderText: { color: "#fff", fontWeight: "bold", fontSize: 9 },
-  tableRow: { flexDirection: "row", paddingVertical: 8, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: "#e5e7eb" },
+  tableHeader: { flexDirection: "row", backgroundColor: BLUE, paddingVertical: 8, paddingHorizontal: 6 },
+  tableHeaderText: { color: "#fff", fontWeight: "bold", fontSize: 8 },
+  tableRow: { flexDirection: "row", paddingVertical: 7, paddingHorizontal: 6, borderBottomWidth: 1, borderBottomColor: "#e5e7eb" },
   tableRowAlt: { backgroundColor: "#f9fafb" },
-  colNo:    { width: 25,  flexShrink: 0 },
-  colDesc:  { width: 185, flexShrink: 0 },
-  colModel: { width: 105, flexShrink: 0 },
-  colQty:   { width: 45,  flexShrink: 0, textAlign: "center" },
-  colPrice: { width: 85,  flexShrink: 0, textAlign: "right" },
-  colTotal: { width: 85,  flexShrink: 0, textAlign: "right" },
-  detailText: { fontSize: 7, color: "#6b7280", marginTop: 2 },
+  colZone:  { width: 75,  flexShrink: 0 },
+  colFloor: { width: 44,  flexShrink: 0 },
+  colArea:  { width: 34,  flexShrink: 0, textAlign: "center" },
+  colType:  { width: 55,  flexShrink: 0 },
+  colCap:   { width: 33,  flexShrink: 0, textAlign: "center" },
+  colModel: { width: 90,  flexShrink: 0 },
+  colQty:   { width: 30,  flexShrink: 0, textAlign: "center" },
+  colPrice: { width: 74,  flexShrink: 0, textAlign: "right" },
+  colTotal: { width: 74,  flexShrink: 0, textAlign: "right" },
   totalsSection: { flexDirection: "row", justifyContent: "flex-end" },
   totalsBox: { width: 200, backgroundColor: "#f9fafb", borderRadius: 6, padding: 12, borderWidth: 1, borderColor: "#e5e7eb" },
   totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
@@ -122,38 +124,33 @@ export function BOQDocument({ items, subtotal, discountPercent, grandTotal, date
         {/* Table */}
         <View style={styles.table}>
           <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderText, styles.colNo]}>#</Text>
-            <Text style={[styles.tableHeaderText, styles.colDesc]}>Description</Text>
+            <Text style={[styles.tableHeaderText, styles.colZone]}>Zone / Room</Text>
+            <Text style={[styles.tableHeaderText, styles.colFloor]}>Floor</Text>
+            <Text style={[styles.tableHeaderText, styles.colArea]}>Area m²</Text>
+            <Text style={[styles.tableHeaderText, styles.colType]}>Type</Text>
+            <Text style={[styles.tableHeaderText, styles.colCap]}>kW</Text>
             <Text style={[styles.tableHeaderText, styles.colModel]}>Model</Text>
             <Text style={[styles.tableHeaderText, styles.colQty]}>Qty</Text>
             <Text style={[styles.tableHeaderText, styles.colPrice]}>Unit Price</Text>
             <Text style={[styles.tableHeaderText, styles.colTotal]}>Total</Text>
           </View>
 
-          {items && items.length > 0 ? items.map((item, index) => {
-            const detailParts: string[] = [];
-            if (item.floor)       detailParts.push(item.floor);
-            if (item.location)    detailParts.push(item.location);
-            if (item.area)        detailParts.push(`${item.area} m²`);
-            if (item.unit_type)   detailParts.push(item.unit_type);
-            if (item.capacity_kw) detailParts.push(`${item.capacity_kw} kW`);
-            const detailLine = detailParts.join(" | ");
-
-            return (
-              <View key={index} style={index % 2 === 1 ? [styles.tableRow, styles.tableRowAlt] : styles.tableRow}>
-                <Text style={styles.colNo}>{index + 1}</Text>
-                <View style={styles.colDesc}>
-                  <Text style={{ fontWeight: "bold", fontSize: 9 }}>{item.product?.name || item.model || 'Product'}</Text>
-                  {item.product?.sku && <Text style={{ fontSize: 7, color: "#6b7280" }}>SKU: {item.product.sku}</Text>}
-                  {detailLine ? <Text style={styles.detailText}>{detailLine}</Text> : null}
-                </View>
-                <Text style={styles.colModel}>{item.model || '-'}</Text>
-                <Text style={styles.colQty}>{item.quantity || 0}</Text>
-                <Text style={styles.colPrice}>{fmt(item.unit_price || 0)}</Text>
-                <Text style={styles.colTotal}>{fmt(item.total || 0)}</Text>
+          {items && items.length > 0 ? items.map((item, index) => (
+            <View key={index} style={index % 2 === 1 ? [styles.tableRow, styles.tableRowAlt] : styles.tableRow}>
+              <View style={styles.colZone}>
+                <Text style={{ fontSize: 8, fontWeight: "bold" }}>{item.location || '-'}</Text>
+                {item.product?.name && <Text style={{ fontSize: 7, color: "#6b7280", marginTop: 1 }}>{item.product.name}</Text>}
               </View>
-            );
-          }) : (
+              <Text style={[styles.colFloor, { fontSize: 8 }]}>{item.floor || '-'}</Text>
+              <Text style={[styles.colArea,  { fontSize: 8 }]}>{item.area ? String(item.area) : '-'}</Text>
+              <Text style={[styles.colType,  { fontSize: 8 }]}>{item.unit_type || '-'}</Text>
+              <Text style={[styles.colCap,   { fontSize: 8 }]}>{item.capacity_kw ? String(item.capacity_kw) : '-'}</Text>
+              <Text style={[styles.colModel, { fontSize: 8 }]}>{item.model || '-'}</Text>
+              <Text style={[styles.colQty,   { fontSize: 8 }]}>{item.quantity || 0}</Text>
+              <Text style={[styles.colPrice, { fontSize: 8 }]}>{fmt(item.unit_price || 0)}</Text>
+              <Text style={[styles.colTotal, { fontSize: 8, fontWeight: "bold" }]}>{fmt(item.total || 0)}</Text>
+            </View>
+          )) : (
             <View style={styles.tableRow}>
               <Text style={{ textAlign: "center", padding: 20, color: "#999" }}>No items in this BOQ</Text>
             </View>
