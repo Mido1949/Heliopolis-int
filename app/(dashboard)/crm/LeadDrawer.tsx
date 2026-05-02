@@ -46,7 +46,10 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
   const [loadingCalls, setLoadingCalls] = useState(false);
   const [isLoggingCall, setIsLoggingCall] = useState(false);
   const [form] = Form.useForm();
-  const { user } = useAuth();
+  const { user, profile, isAdmin, isManager, isCSLead } = useAuth();
+  const isFullAdmin   = isAdmin || isManager;
+  const isCSTeam      = isCSLead || profile?.crm_team === 'cs';
+  const canSendToTech = isCSTeam || isFullAdmin;
   const supabase = createClient();
   const [assignTeam, setAssignTeam] = useState<string | undefined>();
   const [assignUser, setAssignUser] = useState<string | undefined>();
@@ -290,6 +293,27 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
     }
   };
 
+  const handleRandomAssignToTech = async () => {
+    if (!lead || !user) return;
+    setAssigning(true);
+    try {
+      const { data, error } = await supabase.rpc('assign_to_tech_team', {
+        p_lead_id: lead.id,
+        p_assigning_user_id: user.id,
+      });
+      if (error) throw error;
+      const result = data as { success: boolean; assigned_to_name?: string; error?: string };
+      if (!result.success) throw new Error(result.error || 'لا يوجد أعضاء في الفريق التقني');
+      message.success(`تم التحويل للفريق التقني ✓ — ${result.assigned_to_name}`);
+      onAssigned?.();
+    } catch (err) {
+      console.error('Random assign error:', err);
+      message.error('فشل التحويل للفريق التقني');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
   if (!lead) return null;
 
   const statusConfig = LEAD_STATUSES.find((s) => s.value === lead.status);
@@ -418,37 +442,67 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                 </div>
 
                 <Divider>تعيين (Assign To)</Divider>
-                <div className="flex flex-col gap-3">
-                  <Select
-                    placeholder="اختر الفريق (Select Team)"
-                    value={assignTeam}
-                    onChange={handleTeamChange}
-                    className="w-full"
-                    options={[
-                      { value: 'tech', label: 'Tech Team' },
-                      { value: 'cs', label: 'CS Team' },
-                    ]}
-                  />
-                  <Select
-                    placeholder="اختر المستخدم (Select User)"
-                    value={assignUser}
-                    onChange={(v: string) => setAssignUser(v)}
-                    className="w-full"
-                    disabled={!assignTeam || teamUsers.length === 0}
-                    options={teamUsers.map((u) => ({ value: u.id, label: u.name }))}
-                    notFoundContent="لا يوجد مستخدمون في هذا الفريق"
-                  />
+
+                {/* Current assignment badge */}
+                {lead.assigned_to_team && (
+                  <div className="mb-3 p-2 bg-gray-50 rounded-lg border border-gray-100 text-xs text-gray-500 flex items-center gap-2">
+                    <span>الفريق الحالي:</span>
+                    <Tag color={lead.assigned_to_team === 'tech' ? 'blue' : 'green'}>
+                      {lead.assigned_to_team === 'tech' ? 'Tech Team' : 'CS Team'}
+                    </Tag>
+                    {lead.assigned_user?.name && <span className="font-medium text-gray-700">{lead.assigned_user.name}</span>}
+                  </div>
+                )}
+
+                {/* CS Team or Admin → Send to Tech Team (random) */}
+                {canSendToTech && (
                   <Button
-                    type="primary"
                     block
                     loading={assigning}
-                    disabled={!assignTeam || !assignUser}
-                    onClick={handleAssign}
-                    style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}
+                    onClick={handleRandomAssignToTech}
+                    style={{ backgroundColor: '#1A6FD4', borderColor: '#1A6FD4', color: '#fff', marginBottom: 8 }}
                   >
-                    تعيين (Assign)
+                    إرسال للفريق التقني (عشوائي)
                   </Button>
-                </div>
+                )}
+
+                {/* Admin/Manager: full manual override */}
+                {isFullAdmin && (
+                  <details className="mt-1">
+                    <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600">تعيين يدوي (Admin)</summary>
+                    <div className="flex flex-col gap-2 mt-2">
+                      <Select
+                        placeholder="اختر الفريق"
+                        value={assignTeam}
+                        onChange={handleTeamChange}
+                        className="w-full"
+                        options={[
+                          { value: 'tech', label: 'Tech Team' },
+                          { value: 'cs',   label: 'CS Team'   },
+                        ]}
+                      />
+                      <Select
+                        placeholder="اختر المستخدم"
+                        value={assignUser}
+                        onChange={(v: string) => setAssignUser(v)}
+                        className="w-full"
+                        disabled={!assignTeam || teamUsers.length === 0}
+                        options={teamUsers.map((u) => ({ value: u.id, label: u.name }))}
+                        notFoundContent="لا يوجد مستخدمون في هذا الفريق"
+                      />
+                      <Button
+                        type="primary"
+                        block
+                        loading={assigning}
+                        disabled={!assignTeam || !assignUser}
+                        onClick={handleAssign}
+                        style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}
+                      >
+                        تعيين يدوي
+                      </Button>
+                    </div>
+                  </details>
+                )}
               </>
             ),
           },
