@@ -49,13 +49,16 @@ const styles = StyleSheet.create({
   validText: { fontSize: 8, color: "#6b7280", textAlign: "center", marginTop: 4 },
   preparedBy: { fontSize: 8, color: "#4b5563" },
   boqRef: { fontSize: 8, color: "#4b5563" },
-  conclusionSection: { marginTop: 14, marginBottom: 60 },
-  sectionTitle: { fontSize: 8, fontWeight: "bold", color: BLUE, textTransform: "uppercase", marginBottom: 5, marginTop: 10, borderBottomWidth: 1, borderBottomColor: "#e5e7eb", paddingBottom: 2 },
-  bulletItem: { fontSize: 8, color: "#374151", marginBottom: 3, paddingLeft: 8 },
-  sigRow: { flexDirection: "row", marginTop: 18, gap: 12 },
-  sigBox: { flex: 1, borderTopWidth: 1, borderTopColor: "#374151", paddingTop: 6, alignItems: "center" },
-  sigRole: { fontSize: 8, fontWeight: "bold", color: "#374151", marginBottom: 3 },
-  sigName: { fontSize: 8, color: "#6b7280" },
+  conclusionSection: { marginTop: 10, marginBottom: 55 },
+  conclusionCols: { flexDirection: "row", gap: 10 },
+  conclusionLeft: { flex: 5 },
+  conclusionRight: { flex: 6 },
+  sectionTitle: { fontSize: 7, fontWeight: "bold", color: BLUE, textTransform: "uppercase", marginBottom: 3, marginTop: 8, borderBottomWidth: 1, borderBottomColor: "#e5e7eb", paddingBottom: 1 },
+  bulletItem: { fontSize: 7, color: "#374151", marginBottom: 2, paddingLeft: 4 },
+  sigRow: { flexDirection: "row", marginTop: 14, gap: 10 },
+  sigBox: { flex: 1, borderTopWidth: 1, borderTopColor: "#374151", paddingTop: 5, alignItems: "center" },
+  sigRole: { fontSize: 7, fontWeight: "bold", color: "#374151", marginBottom: 2 },
+  sigName: { fontSize: 7, color: "#6b7280" },
 });
 
 interface BOQDocumentProps {
@@ -184,31 +187,41 @@ export function BOQDocument({ items, subtotal, discountPercent, grandTotal, date
           </View>
         </View>
 
-        {/* Conclusion */}
+        {/* Conclusion — two-column layout to fit on same page */}
         <View style={styles.conclusionSection}>
-          <Text style={styles.sectionTitle}>Notes</Text>
-          <Text style={styles.bulletItem}>• Commissioning and startup of the equipment.</Text>
-          <Text style={styles.bulletItem}>• Warranty for 3 years on the system.</Text>
-          <Text style={styles.bulletItem}>• Prices are based on the technical offer according to the site plan. A slight adjustment on unit capacities may apply after inspection, at the same prices.</Text>
+          <View style={styles.conclusionCols}>
 
-          <Text style={styles.sectionTitle}>This Offer Doesn't Include the Following</Text>
-          <Text style={styles.bulletItem}>• Any builders' work (ceiling openings, sleeves, concrete base for equipment, painting, and any other civil works such as breaking / making walls, slabs, pipe or cable trenches).</Text>
-          <Text style={styles.bulletItem}>• Supply and installation of copper pipes.</Text>
-          <Text style={styles.bulletItem}>• Power and water at site.</Text>
-          <Text style={styles.bulletItem}>• All electrical works such as main control panel, incoming cables to starters, power, and control cabling.</Text>
-          <Text style={styles.bulletItem}>• Drain water piping, valves, fittings, cable trays, etc.</Text>
-          <Text style={styles.bulletItem}>• A separate power supply with breaker for control circuit.</Text>
-          <Text style={styles.bulletItem}>• Maintenance contract and spare parts.</Text>
-          <Text style={styles.bulletItem}>• Any other items that are not explicitly mentioned in this offer.</Text>
-          <Text style={styles.bulletItem}>• All prices are based on current taxes, customs, and tariffs in accordance with applicable governmental law and are subject to change per new announcements.</Text>
+            {/* Left: Notes + Terms + Validity */}
+            <View style={styles.conclusionLeft}>
+              <Text style={styles.sectionTitle}>Notes</Text>
+              <Text style={styles.bulletItem}>• Commissioning and startup of the equipment.</Text>
+              <Text style={styles.bulletItem}>• Warranty for 3 years on the system.</Text>
+              <Text style={styles.bulletItem}>• Prices based on technical offer. A slight capacity adjustment may apply after site inspection at the same prices.</Text>
 
-          <Text style={styles.sectionTitle}>Terms &amp; Conditions</Text>
-          <Text style={styles.bulletItem}>• 10% Down Payment.</Text>
-          <Text style={styles.bulletItem}>• 90% Upon Delivery.</Text>
+              <Text style={styles.sectionTitle}>Terms &amp; Conditions</Text>
+              <Text style={styles.bulletItem}>• 10% Down Payment.</Text>
+              <Text style={styles.bulletItem}>• 90% Upon Delivery.</Text>
 
-          <Text style={styles.sectionTitle}>Validity</Text>
-          <Text style={styles.bulletItem}>• This offer is valid for 15 days from the date of issue.</Text>
+              <Text style={styles.sectionTitle}>Validity</Text>
+              <Text style={styles.bulletItem}>• This offer is valid for 15 days from the date of issue.</Text>
+            </View>
 
+            {/* Right: Exclusions */}
+            <View style={styles.conclusionRight}>
+              <Text style={styles.sectionTitle}>This Offer Doesn't Include</Text>
+              <Text style={styles.bulletItem}>• Any builders' work (ceiling openings, sleeves, concrete base, painting, civil works, walls, slabs, cable trenches).</Text>
+              <Text style={styles.bulletItem}>• Supply and installation of copper pipes.</Text>
+              <Text style={styles.bulletItem}>• Power and water at site.</Text>
+              <Text style={styles.bulletItem}>• Electrical works (main control panel, incoming cables, power and control cabling).</Text>
+              <Text style={styles.bulletItem}>• Drain water piping, valves, fittings, cable trays, etc.</Text>
+              <Text style={styles.bulletItem}>• Separate power supply with breaker for control circuit.</Text>
+              <Text style={styles.bulletItem}>• Maintenance contract and spare parts.</Text>
+              <Text style={styles.bulletItem}>• Any items not explicitly mentioned in this offer.</Text>
+              <Text style={styles.bulletItem}>• Prices subject to change per current taxes, customs, tariffs, and governmental law.</Text>
+            </View>
+          </View>
+
+          {/* Signatures */}
           <View style={styles.sigRow}>
             <View style={styles.sigBox}>
               <Text style={styles.sigRole}>Sales Engineer</Text>
