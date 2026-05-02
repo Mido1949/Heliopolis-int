@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ProductCatalog } from "@/components/boq/ProductCatalog";
 import { BOQEditor } from "@/components/boq/BOQEditor";
@@ -57,17 +57,26 @@ export default function BOQPage({ params }: { params: { id: string } }) {
   }, [user?.id, supabase]);
 
   const fetchAllBOQs = useCallback(async () => {
+    if (!user?.id) return;
     setLoadingBOQs(true);
     try {
       const { data, error } = await supabase
         .from("boqs")
-        .select("*, lead:leads(name), boq_items(*, product:products(*))")
-        .order("created_at", { ascending: false });
+        .select("id, boq_number, boq_serial, customer_name, customer_phone, customer_address, grand_total, subtotal, discount_percent, status, created_at, created_by, lead:leads(name), boq_items(id, boq_id, model, quantity, unit_price, location, floor, area, unit_type, capacity_kw)")
+        .eq("created_by", user.id)
+        .order("created_at", { ascending: false })
+        .limit(100);
 
       if (error) {
         setFetchError(error.message);
       } else if (data) {
-        setAllBOQs(data);
+        setAllBOQs(data.map(boq => ({
+          ...boq,
+          boq_items: (boq.boq_items || []).map((item: BOQItem) => ({
+            ...item,
+            total: item.quantity * item.unit_price,
+          })),
+        })));
         setFetchError(null);
       }
     } catch (err) {
@@ -75,7 +84,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
     } finally {
       setLoadingBOQs(false);
     }
-  }, [supabase]);
+  }, [supabase, user?.id]);
 
   const handleOpenBOQ = useCallback(async (boq: BOQ) => {
     setCurrentBoqId(boq.id);
@@ -115,8 +124,27 @@ export default function BOQPage({ params }: { params: { id: string } }) {
   }, [supabase]);
 
   useEffect(() => {
-    if (activeTab === "list") fetchAllBOQs();
-  }, [activeTab, fetchAllBOQs]);
+    if (activeTab === "list" && user?.id) fetchAllBOQs();
+  }, [activeTab, user?.id, fetchAllBOQs]);
+
+  // Keep a stable ref so the realtime callback always calls the latest fetchAllBOQs
+  const fetchAllBOQsRef = useRef(fetchAllBOQs);
+  useEffect(() => { fetchAllBOQsRef.current = fetchAllBOQs; }, [fetchAllBOQs]);
+
+  // Realtime subscription — instantly reflects saves/updates for this user
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`boqs_${user.id}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "boqs",
+        filter: `created_by=eq.${user.id}`,
+      }, () => { fetchAllBOQsRef.current(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [supabase, user?.id]);
 
   useEffect(() => {
     async function fetchData() {
