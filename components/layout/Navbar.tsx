@@ -12,6 +12,28 @@ import { formatDistanceToNow } from 'date-fns';
 
 const { Text } = Typography;
 
+function playNotificationSound() {
+  try {
+    const ctx = new AudioContext();
+    const t = ctx.currentTime;
+    // First tone — A5 (880 Hz)
+    const o1 = ctx.createOscillator(); const g1 = ctx.createGain();
+    o1.connect(g1); g1.connect(ctx.destination);
+    o1.type = 'sine'; o1.frequency.value = 880;
+    g1.gain.setValueAtTime(0.25, t);
+    g1.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    o1.start(t); o1.stop(t + 0.25);
+    // Second tone — C#6 (1109 Hz), slight delay
+    const o2 = ctx.createOscillator(); const g2 = ctx.createGain();
+    o2.connect(g2); g2.connect(ctx.destination);
+    o2.type = 'sine'; o2.frequency.value = 1109;
+    g2.gain.setValueAtTime(0, t + 0.15);
+    g2.gain.setValueAtTime(0.2, t + 0.15);
+    g2.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+    o2.start(t + 0.15); o2.stop(t + 0.5);
+  } catch { /* browser blocked audio — silently ignore */ }
+}
+
 interface Notification {
   id: string;
   user_id: string;
@@ -80,6 +102,7 @@ export default function Navbar({ lang, onToggleLang, collapsed, onToggleMobileMe
       }, (payload) => {
         setNotifications(prev => [payload.new as Notification, ...prev]);
         setUnreadCount(prev => prev + 1);
+        playNotificationSound();
       })
       .subscribe();
 
