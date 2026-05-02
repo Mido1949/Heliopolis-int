@@ -101,6 +101,7 @@ export interface InventoryLog {
 export interface BOQ {
   id: string;
   boq_number: string;
+  boq_serial?: number;
   lead_id?: string;
   customer_name?: string;
   customer_phone?: string;
@@ -117,6 +118,7 @@ export interface BOQ {
   created_at: string;
   updated_at: string;
   created_by?: string;
+  created_by_name?: string;
   // Joined
   lead?: Lead;
   boq_items?: BOQItem[];
@@ -130,6 +132,12 @@ export interface BOQItem {
   quantity: number;
   unit_price: number;
   total: number;
+  // Detail fields matching commercial offer
+  location?: string;
+  floor?: string;
+  area?: number;
+  unit_type?: string;
+  capacity_kw?: number;
   product?: Product;
 }
 

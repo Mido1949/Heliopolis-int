@@ -13,6 +13,8 @@ interface PDFDownloadButtonProps {
   grandTotal: number;
   dateCreated?: string;
   boqNumber?: string;
+  boqSerial?: number;
+  createdBy?: string;
   customer?: Lead;
   variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
   size?: "default" | "sm" | "lg" | "icon";
@@ -20,26 +22,35 @@ interface PDFDownloadButtonProps {
   label?: string;
 }
 
-export default function PDFDownloadButton({ 
-  variant = "default", 
-  size = "default", 
-  className = "w-full h-10", 
-  label = "Export Pdf",
+export default function PDFDownloadButton({
+  variant = "default",
+  size = "default",
+  className = "w-full h-10",
+  label = "Export PDF",
   dateCreated,
   boqNumber,
-  ...props 
+  boqSerial,
+  createdBy,
+  ...props
 }: PDFDownloadButtonProps) {
   const [loading, setLoading] = useState(false);
 
   const handleDownload = async () => {
     if (props.items.length === 0) return;
-    
     setLoading(true);
     try {
       const custName = props.customer?.name?.replace(/\s+/g, '_') || props.customer?.company?.replace(/\s+/g, '_') || 'Draft';
-      const boqNum = boqNumber || 'New';
-      const fileName = `Heliomax_BOQ_${custName}_${boqNum}.pdf`;
-      const blob = await pdf(<BOQDocument {...props} dateCreated={dateCreated} boqNumber={boqNumber} />).toBlob();
+      const ref = boqSerial ? `HLX-${boqSerial}` : (boqNumber || 'New');
+      const fileName = `Heliomax_BOQ_${ref}_${custName}.pdf`;
+      const blob = await pdf(
+        <BOQDocument
+          {...props}
+          dateCreated={dateCreated}
+          boqNumber={boqNumber}
+          boqSerial={boqSerial}
+          createdBy={createdBy}
+        />
+      ).toBlob();
       saveAs(blob, fileName);
     } catch (error) {
       console.error("PDF generation failed:", error);
@@ -51,7 +62,7 @@ export default function PDFDownloadButton({
   };
 
   return (
-    <Button 
+    <Button
       variant={variant}
       size={size}
       className={className}

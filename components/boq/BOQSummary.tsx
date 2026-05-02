@@ -25,6 +25,10 @@ interface BOQSummaryProps {
   customerInfo: { name: string; phone: string; address: string };
   onUpdateCustomerInfo: (info: { name: string; phone: string; address: string }) => void;
   customer?: Lead;
+  boqSerial?: number;
+  boqNumber?: string;
+  createdBy?: string;
+  dateCreated?: string;
   onSave?: () => void;
   isSaving?: boolean;
   saveText?: string;
@@ -39,6 +43,10 @@ export function BOQSummary({
   customerInfo,
   onUpdateCustomerInfo,
   customer,
+  boqSerial,
+  boqNumber,
+  createdBy,
+  dateCreated,
   onSave,
   isSaving = false,
   saveText = "Save Draft"
@@ -149,12 +157,16 @@ export function BOQSummary({
                 <Download className="mr-2 h-4 w-4 shrink-0" /> PDF
               </Button>
             ) : (
-              <PDFDownloadButton 
+              <PDFDownloadButton
                 items={items}
                 subtotal={subtotal}
                 discountPercent={discountPercent}
                 grandTotal={grandTotal}
                 customer={customer}
+                boqSerial={boqSerial}
+                boqNumber={boqNumber}
+                createdBy={createdBy}
+                dateCreated={dateCreated}
               />
             )}
           </div>
