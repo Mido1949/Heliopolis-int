@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { LEAD_STATUSES, LEAD_SOURCES } from '@/lib/constants';
 import { formatDate, getWhatsAppUrl } from '@/lib/utils';
-import type { Lead, BOQ, CallLog, CallType, CallOutcome } from '@/types';
+import type { Lead, BOQ, BOQItem, CallLog, CallType, CallOutcome } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import dynamic from 'next/dynamic';
 
@@ -76,11 +76,17 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
     setLoadingBoqs(true);
     const { data } = await supabase
       .from('boqs')
-      .select('*, boq_items(*, product(*))')
+      .select('id, boq_number, boq_serial, customer_name, grand_total, subtotal, discount_percent, status, created_at, created_by, boq_items(id, model, quantity, unit_price, location, floor, area, unit_type, capacity_kw)')
       .eq('lead_id', lead.id)
       .order('created_at', { ascending: false });
-    
-    setBoqs((data || []) as BOQ[]);
+
+    setBoqs((data || []).map((b: BOQ) => ({
+      ...b,
+      boq_items: (b.boq_items || []).map((item: BOQItem) => ({
+        ...item,
+        total: item.quantity * item.unit_price,
+      })),
+    })) as BOQ[]);
     setLoadingBoqs(false);
   }, [lead, supabase]);
 

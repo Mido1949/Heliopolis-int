@@ -319,6 +319,16 @@ export default function BOQPage({ params }: { params: { id: string } }) {
       const { error: itemsError } = await supabase.from("boq_items").insert(itemsToInsert);
       if (itemsError) throw new Error(`BOQ items save failed: ${itemsError.message}`);
 
+      // Log BOQ creation as a CRM lead activity so it appears in the lead's Activity tab
+      if (currentLeadId && !boqId) {
+        await supabase.from("lead_activities").insert({
+          lead_id: currentLeadId,
+          user_id: profileId,
+          type: "note",
+          body: `📋 مقايسة جديدة: HLX-${savedSerial} — إجمالي: $${grandTotal.toFixed(0)}`,
+        });
+      }
+
       alert(`✅ BOQ Saved! Reference: HLX-${savedSerial}`);
       setActiveItems([]);
       setSelectedCustomer("");
