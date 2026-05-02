@@ -4,12 +4,12 @@ import { BOQItem, Lead } from "@/types";
 
 const styles = StyleSheet.create({
   page: { padding: 30, fontFamily: "Helvetica", fontSize: 10, color: "#1a1a1a", backgroundColor: "#fff" },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, paddingBottom: 10, borderBottomWidth: 2, borderBottomColor: "#dc2626" },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, paddingBottom: 10, borderBottomWidth: 2, borderBottomColor: "#1A6FD4" },
   logoContainer: { flexDirection: "row", alignItems: "center", gap: 8 },
-  logoBox: { width: 40, height: 40, backgroundColor: "#dc2626", borderRadius: 6, alignItems: "center", justifyContent: "center" },
+  logoBox: { width: 40, height: 40, backgroundColor: "#0D52A8", borderRadius: 6, alignItems: "center", justifyContent: "center" },
   logoText: { fontSize: 12, fontWeight: "bold", color: "#fff" },
   companyInfo: { alignItems: "flex-end" },
-  companyName: { fontSize: 14, fontWeight: "bold", color: "#dc2626" },
+  companyName: { fontSize: 14, fontWeight: "bold", color: "#1A6FD4" },
   companyContact: { fontSize: 8, color: "#666", marginTop: 2, textAlign: "right" },
   title: { fontSize: 20, fontWeight: "bold", marginBottom: 20, color: "#1a1a1a", textAlign: "center" },
   infoRow: { flexDirection: "row", marginBottom: 15, gap: 12 },
@@ -18,24 +18,24 @@ const styles = StyleSheet.create({
   infoValue: { fontSize: 12, fontWeight: "bold", color: "#1a1a1a" },
   infoValueSmall: { fontSize: 10, color: "#4b5563", marginTop: 2 },
   table: { width: "100%", borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 4, overflow: "hidden", marginBottom: 20 },
-  tableHeader: { flexDirection: "row", backgroundColor: "#dc2626", paddingVertical: 10, paddingHorizontal: 8 },
+  tableHeader: { flexDirection: "row", backgroundColor: "#0D52A8", paddingVertical: 10, paddingHorizontal: 8 },
   tableHeaderText: { color: "#fff", fontWeight: "bold", fontSize: 9 },
   tableRow: { flexDirection: "row", paddingVertical: 10, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: "#e5e7eb" },
   tableRowAlt: { backgroundColor: "#f9fafb" },
   colNo: { width: 30 },
-  colDesc: { width: 160 },
-  colModel: { width: 70 },
-  colQty: { width: 40, textAlign: "center" },
-  colPrice: { width: 65, textAlign: "right" },
-  colTotal: { width: 65, textAlign: "right" },
+  colDesc: { width: 185 },
+  colModel: { width: 105 },
+  colQty: { width: 45, textAlign: "center" },
+  colPrice: { width: 85, textAlign: "right" },
+  colTotal: { width: 85, textAlign: "right" },
   totalsSection: { flexDirection: "row", justifyContent: "flex-end" },
   totalsBox: { width: 200, backgroundColor: "#f9fafb", borderRadius: 6, padding: 12, borderWidth: 1, borderColor: "#e5e7eb" },
   totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
   totalLabel: { fontSize: 10, color: "#4b5563" },
   totalValue: { fontSize: 10, fontWeight: "bold" },
-  grandTotalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 8, marginTop: 4, borderTopWidth: 2, borderTopColor: "#dc2626" },
-  grandTotalLabel: { fontSize: 14, fontWeight: "bold", color: "#dc2626" },
-  grandTotalValue: { fontSize: 14, fontWeight: "bold", color: "#dc2626" },
+  grandTotalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 8, marginTop: 4, borderTopWidth: 2, borderTopColor: "#1A6FD4" },
+  grandTotalLabel: { fontSize: 14, fontWeight: "bold", color: "#1A6FD4" },
+  grandTotalValue: { fontSize: 14, fontWeight: "bold", color: "#1A6FD4" },
   footer: { position: "absolute", bottom: 25, left: 30, right: 30, paddingTop: 15, borderTopWidth: 1, borderTopColor: "#e5e7eb" },
   footerText: { fontSize: 8, color: "#9ca3af", textAlign: "center" },
   thankYou: { fontSize: 10, fontWeight: "bold", color: "#1a1a1a", textAlign: "center", marginBottom: 4 },
@@ -46,12 +46,9 @@ interface BOQDocumentProps {
   items: BOQItem[];
   subtotal: number;
   discountPercent: number;
-  vatAmount: number;
   grandTotal: number;
-  grandTotalUSD?: number;
   dateCreated?: string;
   boqNumber?: string;
-  vatPercent?: number;
   customer?: Lead & {
     customer_name?: string;
     customer_phone?: string;
@@ -60,7 +57,7 @@ interface BOQDocumentProps {
 }
 
 export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grandTotal, grandTotalUSD, dateCreated, boqNumber, vatPercent = 14, customer }: BOQDocumentProps) {
-  const formatCurrency = (val: number) => new Intl.NumberFormat('en-EG', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(val);
+  const formatCurrency = (val: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(val);
   const formatCurrencyUSD = (val?: number) => val !== undefined && val !== null ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val) : '';
   const formatDate = (dateStr?: string) => dateStr ? new Date(dateStr).toLocaleDateString('en-GB') : '';
 
@@ -71,18 +68,18 @@ export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grand
         <View style={styles.header}>
           <View style={styles.logoContainer}>
             <View style={styles.logoBox}>
-              <Text style={styles.logoText}>GCHV</Text>
+              <Text style={styles.logoText}>HM</Text>
             </View>
             <View>
-              <Text style={{ fontSize: 16, fontWeight: "bold", color: "#dc2626" }}>GCHV Egypt</Text>
+              <Text style={{ fontSize: 16, fontWeight: "bold", color: "#1A6FD4" }}>Heliomax</Text>
               <Text style={{ fontSize: 8, color: "#666" }}>Premium HVAC Solutions</Text>
             </View>
           </View>
           <View style={styles.companyInfo}>
-            <Text style={styles.companyName}>GCHV Egypt</Text>
+            <Text style={styles.companyName}>Heliomax</Text>
             <Text style={styles.companyContact}>Cairo, Egypt</Text>
-            <Text style={styles.companyContact}>+20 100 123 4567</Text>
-            <Text style={styles.companyContact}>contact@gchvegypt.com</Text>
+            <Text style={styles.companyContact}>+201006600259</Text>
+            <Text style={styles.companyContact}>contact@heliomax.com</Text>
           </View>
         </View>
 
@@ -144,28 +141,24 @@ export function BOQDocument({ items, subtotal, discountPercent, vatAmount, grand
           <View style={styles.totalsBox}>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Subtotal</Text>
-              <Text style={styles.totalValue}>{formatCurrency(subtotal)} EGP {grandTotalUSD ? `| ${formatCurrencyUSD(grandTotalUSD / (1 + vatPercent/100) * (1 - discountPercent/100))}` : ''}</Text>
+              <Text style={styles.totalValue}>{formatCurrency(subtotal)}</Text>
             </View>
             {discountPercent > 0 && (
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Discount ({discountPercent}%)</Text>
-                <Text style={[styles.totalValue, { color: "#dc2626" }]}>-{formatCurrency(subtotal * (discountPercent/100))} EGP</Text>
+                <Text style={[styles.totalValue, { color: "#1A6FD4" }]}>-{formatCurrency(subtotal * (discountPercent/100))}</Text>
               </View>
             )}
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>VAT 14%</Text>
-              <Text style={styles.totalValue}>{formatCurrency(vatAmount)} EGP</Text>
-            </View>
             <View style={styles.grandTotalRow}>
               <Text style={styles.grandTotalLabel}>Grand Total</Text>
-              <Text style={styles.grandTotalValue}>{formatCurrency(grandTotal)} EGP {grandTotalUSD ? `| ${formatCurrencyUSD(grandTotalUSD)}` : ''}</Text>
+              <Text style={styles.grandTotalValue}>{formatCurrency(grandTotal)}</Text>
             </View>
           </View>
         </View>
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.thankYou}>Thank you for choosing GCHV Egypt</Text>
+          <Text style={styles.thankYou}>Thank you for choosing Heliomax</Text>
           <Text style={styles.validText}>This quotation is valid for 15 days</Text>
         </View>
       </Page>

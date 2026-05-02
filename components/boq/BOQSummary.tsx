@@ -21,12 +21,7 @@ interface BOQSummaryProps {
   subtotal: number;
   discountPercent: number;
   onUpdateDiscount: (val: number) => void;
-  vatPercent: number;
-  onUpdateVat: (val: number) => void;
-  vatAmount: number;
   grandTotal: number;
-  exchangeRate: number;
-  onUpdateExchangeRate: (val: number) => void;
   customerInfo: { name: string; phone: string; address: string };
   onUpdateCustomerInfo: (info: { name: string; phone: string; address: string }) => void;
   customer?: Lead;
@@ -40,12 +35,7 @@ export function BOQSummary({
   subtotal,
   discountPercent,
   onUpdateDiscount,
-  vatPercent,
-  onUpdateVat,
-  vatAmount,
   grandTotal,
-  exchangeRate,
-  onUpdateExchangeRate,
   customerInfo,
   onUpdateCustomerInfo,
   customer,
@@ -57,17 +47,12 @@ export function BOQSummary({
   const formatUSD = (val: number) => 
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
 
-  const formatEGP = (val: number) => 
-    new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP' }).format(val);
-
-  const grandTotalEGP = grandTotal * exchangeRate;
-
   const handleWhatsApp = () => {
     if (!customerInfo.phone) {
       alert("Please enter a phone number to send via WhatsApp.");
       return;
     }
-    const text = `Hello ${customerInfo.name || 'valued customer'},\n\nHere is the summary of your quotation from GCHV Egypt:\n\n- Subtotal: ${formatUSD(subtotal)}\n- Discount: ${discountPercent}%\n- VAT: ${vatPercent}%\n\n*Grand Total: ${formatUSD(grandTotal)}*\n*Total in EGP: ${formatEGP(grandTotalEGP)}*\n(Rate: 1 USD = ${exchangeRate} EGP)\n\nPlease let us know if you have any questions.\n\nThank you!`;
+    const text = `Hello ${customerInfo.name || 'valued customer'},\n\nHere is the summary of your quotation from Heliomax:\n\n- Subtotal: ${formatUSD(subtotal)}\n- Discount: ${discountPercent}%\n\n*Grand Total: ${formatUSD(grandTotal)}*\n\nPlease let us know if you have any questions.\n\nThank you!`;
     const url = `https://wa.me/${customerInfo.phone.replace(/[^0-9+]/g, '')}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
@@ -132,58 +117,15 @@ export function BOQSummary({
             </span>
           </div>
 
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground flex items-center gap-2">
-              VAT
-              <Input 
-                type="number" 
-                min="0" 
-                max="100" 
-                value={vatPercent} 
-                onChange={(e) => onUpdateVat(parseFloat(e.target.value) || 0)}
-                className="w-16 h-7 text-xs px-2 bg-background" 
-              />
-              %
-            </span>
-            <span className="font-medium">{formatUSD(vatAmount)}</span>
-          </div>
-
-          <Separator className="bg-primary/20" />
-
-          {/* Exchange Rate Input */}
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground flex items-center gap-1">
-              1 USD =
-              <Input 
-                type="number" 
-                min="0" 
-                step="0.1"
-                value={exchangeRate} 
-                onChange={(e) => onUpdateExchangeRate(parseFloat(e.target.value) || 0)}
-                className="w-20 h-7 text-xs px-2 bg-background" 
-              />
-              EGP
-            </span>
-          </div>
-
           <Separator className="bg-primary/20" />
 
           <div className="space-y-2">
             <div className="flex items-end justify-between">
               <div>
                 <span className="text-base font-bold">Total (USD)</span>
-                <p className="text-[10px] text-muted-foreground leading-none">incl. VAT</p>
               </div>
               <span className="text-2xl font-bold text-primary">
                 {formatUSD(grandTotal)}
-              </span>
-            </div>
-            <div className="flex items-end justify-between">
-              <div>
-                <span className="text-sm font-semibold text-muted-foreground">Total (EGP)</span>
-              </div>
-              <span className="text-lg font-bold text-muted-foreground">
-                {formatEGP(grandTotalEGP)}
               </span>
             </div>
           </div>
@@ -211,7 +153,6 @@ export function BOQSummary({
                 items={items}
                 subtotal={subtotal}
                 discountPercent={discountPercent}
-                vatAmount={vatAmount}
                 grandTotal={grandTotal}
                 customer={customer}
               />

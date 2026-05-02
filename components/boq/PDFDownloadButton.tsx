@@ -10,12 +10,9 @@ interface PDFDownloadButtonProps {
   items: BOQItem[];
   subtotal: number;
   discountPercent: number;
-  vatAmount: number;
   grandTotal: number;
-  grandTotalUSD?: number;
   dateCreated?: string;
   boqNumber?: string;
-  vatPercent?: number;
   customer?: Lead;
   variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
   size?: "default" | "sm" | "lg" | "icon";
@@ -28,10 +25,8 @@ export default function PDFDownloadButton({
   size = "default", 
   className = "w-full h-10", 
   label = "Export Pdf",
-  grandTotalUSD,
   dateCreated,
   boqNumber,
-  vatPercent,
   ...props 
 }: PDFDownloadButtonProps) {
   const [loading, setLoading] = useState(false);
@@ -43,8 +38,8 @@ export default function PDFDownloadButton({
     try {
       const custName = props.customer?.name?.replace(/\s+/g, '_') || props.customer?.company?.replace(/\s+/g, '_') || 'Draft';
       const boqNum = boqNumber || 'New';
-      const fileName = `GCHV_BOQ_${custName}_${boqNum}.pdf`;
-      const blob = await pdf(<BOQDocument {...props} grandTotalUSD={grandTotalUSD} dateCreated={dateCreated} boqNumber={boqNumber} vatPercent={vatPercent} />).toBlob();
+      const fileName = `Heliomax_BOQ_${custName}_${boqNum}.pdf`;
+      const blob = await pdf(<BOQDocument {...props} dateCreated={dateCreated} boqNumber={boqNumber} />).toBlob();
       saveAs(blob, fileName);
     } catch (error) {
       console.error("PDF generation failed:", error);

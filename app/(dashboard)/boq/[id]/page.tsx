@@ -33,8 +33,6 @@ export default function BOQPage({ params }: { params: { id: string } }) {
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const [customerInfo, setCustomerInfo] = useState({ name: "", phone: "", address: "" });
   const [discountPercent, setDiscountPercent] = useState(0);
-  const [vatPercent, setVatPercent] = useState(14);
-  const [exchangeRate, setExchangeRate] = useState(50);
 
   const [allBOQs, setAllBOQs] = useState<BOQ[]>([]);
   const [loadingBOQs, setLoadingBOQs] = useState(false);
@@ -42,9 +40,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
 
   const subtotal = activeItems.reduce((acc, item) => acc + item.total, 0);
   const discountAmount = subtotal * (discountPercent / 100);
-  const taxableAmount = subtotal - discountAmount;
-  const vatAmount = taxableAmount * (vatPercent / 100);
-  const grandTotal = taxableAmount + vatAmount;
+  const grandTotal = subtotal - discountAmount;
 
   const [isSaving, setIsSaving] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -81,8 +77,6 @@ export default function BOQPage({ params }: { params: { id: string } }) {
       address: boq.customer_address || ""
     });
     setDiscountPercent(boq.discount_percent || 0);
-    setVatPercent(boq.vat_percent || 14);
-    setExchangeRate(boq.exchange_rate || 50.5);
 
     const { data: itemsData } = await supabase
       .from("boq_items")
@@ -112,10 +106,24 @@ export default function BOQPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     async function fetchData() {
+      // Show cached products immediately while fetching fresh data
+      const cached = localStorage.getItem("boq_products_cache");
+      if (cached) {
+        try {
+          const { data, ts } = JSON.parse(cached);
+          // Use cache if less than 10 minutes old
+          if (Date.now() - ts < 10 * 60 * 1000 && data.length > 0) {
+            setProducts(data);
+            setLoadingProducts(false);
+          }
+        } catch { /* ignore bad cache */ }
+      }
+
       setLoadingProducts(true);
       const { data: pData } = await supabase.from("products").select("*").order("category");
       if (pData && pData.length > 0) {
         setProducts(pData);
+        localStorage.setItem("boq_products_cache", JSON.stringify({ data: pData, ts: Date.now() }));
       }
 
       const { data: cData } = await supabase.from("leads").select("*").order("name");
@@ -248,7 +256,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
 
       let boqId = currentBoqId;
 
-      if (boqId) {
+if (boqId) {
         console.log("💾 Updating BOQ record...");
         const { error: boqError } = await supabase
           .from("boqs")
@@ -260,20 +268,18 @@ export default function BOQPage({ params }: { params: { id: string } }) {
             subtotal,
             discount_percent: discountPercent,
             discount_amount: discountAmount,
-            vat_percent: vatPercent,
-            vat_amount: vatAmount,
             grand_total: grandTotal,
-            exchange_rate: exchangeRate,
             updated_at: new Date().toISOString()
           })
           .eq("id", boqId);
-          
+           
         if (boqError) throw new Error(`BOQ update failed: ${boqError.message}`);
         
         await supabase.from("boq_items").delete().eq("boq_id", boqId);
         
       } else {
-        const boqNumber = `BOQ-${Date.now()}`;
+        const now = new Date();
+        const boqNumber = `HLX-${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
         console.log("📊 Generated BOQ number:", boqNumber);
         
         console.log("💾 Inserting BOQ record...");
@@ -290,10 +296,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
             subtotal,
             discount_percent: discountPercent,
             discount_amount: discountAmount,
-            vat_percent: vatPercent,
-            vat_amount: vatAmount,
             grand_total: grandTotal,
-            exchange_rate: exchangeRate,
           })
           .select("id")
           .single();
@@ -392,8 +395,34 @@ export default function BOQPage({ params }: { params: { id: string } }) {
             />
           </div>
 
-          <div className="lg:col-span-6 h-[500px] lg:h-full lg:overflow-hidden">
-            <BOQEditor 
+          <div className="lg:col-span-6 h-[500px] lg:h-full lg:overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-2 shrink-0">
+              <h2 className="text-sm font-semibold">BOQ Items</h2>
+              <button
+                onClick={() => {
+                  const existing = activeItems.find(i => i.model === "Y-Branch");
+                  if (existing) {
+                    handleUpdateQuantity(existing.id, existing.quantity + 1);
+                  } else {
+                    setActiveItems(prev => [...prev, {
+                      id: Math.random().toString(36).substring(7),
+                      boq_id: "draft",
+                      product_id: null,
+                      model: "Y-Branch",
+                      quantity: 1,
+                      unit_price: 60,
+                      total: 60,
+                      product: null
+                    }]);
+                  }
+                }}
+                className="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-md font-medium"
+              >
+                + Add Y-Branch ($60)
+              </button>
+            </div>
+            <div className="flex-1 min-h-0">
+            <BOQEditor
               items={activeItems}
               customers={customers}
               selectedCustomer={selectedCustomer}
@@ -407,6 +436,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
               onUpdateQuantity={handleUpdateQuantity}
               onRemoveItem={handleRemoveItem}
             />
+            </div>
           </div>
 
           <div className="lg:col-span-3 h-[500px] lg:h-full lg:overflow-hidden">
@@ -415,12 +445,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
               subtotal={subtotal}
               discountPercent={discountPercent}
               onUpdateDiscount={setDiscountPercent}
-              vatPercent={vatPercent}
-              onUpdateVat={setVatPercent}
-              vatAmount={vatAmount}
               grandTotal={grandTotal}
-              exchangeRate={exchangeRate}
-              onUpdateExchangeRate={setExchangeRate}
               customerInfo={customerInfo}
               onUpdateCustomerInfo={setCustomerInfo}
               customer={{...customers[0], name: customerInfo.name, phone: customerInfo.phone, company: customerInfo.address, id: "manual"} as Lead}
@@ -504,12 +529,9 @@ export default function BOQPage({ params }: { params: { id: string } }) {
                             items={boq.boq_items || []}
                             subtotal={Number(boq.subtotal) || 0}
                             discountPercent={Number(boq.discount_percent) || 0}
-                            vatAmount={Number(boq.vat_amount) || 0}
                             grandTotal={Number(boq.grand_total) || 0}
-                            grandTotalUSD={Number(boq.grand_total) / (Number(boq.exchange_rate) || 50)}
                             dateCreated={boq.created_at || new Date().toISOString()}
                             boqNumber={boq.boq_number}
-                            vatPercent={Number(boq.vat_percent) || 14}
                             customer={Object.assign({}, boq.lead, { 
                               name: boq.customer_name || boq.lead?.name || "Client",
                               phone: boq.customer_phone || boq.lead?.phone || "",
