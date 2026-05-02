@@ -46,10 +46,12 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
   const [loadingCalls, setLoadingCalls] = useState(false);
   const [isLoggingCall, setIsLoggingCall] = useState(false);
   const [form] = Form.useForm();
-  const { user, profile, isAdmin, isManager, isCSLead } = useAuth();
-  const isFullAdmin   = isAdmin || isManager;
-  const isCSTeam      = isCSLead || profile?.crm_team === 'cs';
-  const canSendToTech = isCSTeam || isFullAdmin;
+  const { user, profile, isAdmin, isManager, isCSLead, isTechLead } = useAuth();
+  const isFullAdmin    = isAdmin || isManager;
+  const isCSTeam       = isCSLead  || profile?.crm_team === 'cs';
+  const isTechTeam     = isTechLead || profile?.crm_team === 'tech';
+  const canSendToTech  = isCSTeam   || isFullAdmin;
+  const canSendToCS    = isTechTeam || isFullAdmin;
   const supabase = createClient();
   const [assignTeam, setAssignTeam] = useState<string | undefined>();
   const [assignUser, setAssignUser] = useState<string | undefined>();
@@ -314,6 +316,27 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
     }
   };
 
+  const handleRandomAssignToCS = async () => {
+    if (!lead || !user) return;
+    setAssigning(true);
+    try {
+      const { data, error } = await supabase.rpc('assign_to_cs_team', {
+        p_lead_id: lead.id,
+        p_assigning_user_id: user.id,
+      });
+      if (error) throw error;
+      const result = data as { success: boolean; assigned_to_name?: string; error?: string };
+      if (!result.success) throw new Error(result.error || 'لا يوجد أعضاء في الفريق التجاري');
+      message.success(`تم التحويل للفريق التجاري ✓ — ${result.assigned_to_name}`);
+      onAssigned?.();
+    } catch (err) {
+      console.error('CS assign error:', err);
+      message.error('فشل التحويل للفريق التجاري');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
   if (!lead) return null;
 
   const statusConfig = LEAD_STATUSES.find((s) => s.value === lead.status);
@@ -463,6 +486,18 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                     style={{ backgroundColor: '#1A6FD4', borderColor: '#1A6FD4', color: '#fff', marginBottom: 8 }}
                   >
                     إرسال للفريق التقني (عشوائي)
+                  </Button>
+                )}
+
+                {/* Tech Team or Admin → Send back to CS Team (random) */}
+                {canSendToCS && (
+                  <Button
+                    block
+                    loading={assigning}
+                    onClick={handleRandomAssignToCS}
+                    style={{ backgroundColor: '#16a34a', borderColor: '#16a34a', color: '#fff', marginBottom: 8 }}
+                  >
+                    إرسال للفريق التجاري (عشوائي)
                   </Button>
                 )}
 
