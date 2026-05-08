@@ -2,18 +2,14 @@
 
 import { Select } from 'antd';
 import { useOrg } from '@/context/OrgContext';
-import { useRouter } from 'next/navigation';
 
 export default function OrgSwitcher() {
   const { isSuperAdmin, allOrgs, currentOrgId, switchOrg, isLoading } = useOrg();
-  const router = useRouter();
 
   if (!isSuperAdmin || allOrgs.length === 0) return null;
 
   const handleChange = async (orgId: string) => {
     await switchOrg(orgId);
-    router.push('/dashboard');
-    router.refresh();
   };
 
   return (

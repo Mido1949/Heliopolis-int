@@ -42,6 +42,8 @@ export function OrgProvider({ children }: { children: ReactNode }) {
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
 
+  const SELECTED_ORG_KEY = 'loomark_selected_org';
+
   const loadOrgModules = async (orgId: string) => {
     const { data: modules, error } = await supabase
       .from('organization_modules')
@@ -89,16 +91,17 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     }
 
     // 3. Resolve which org to load
-    // Super admin: use passed targetOrgId, or first org
+    // Super admin: use passed targetOrgId, then localStorage, then first org
     // Regular user: use their membership org
     let resolvedOrgId: string | null = targetOrgId ?? null;
     let resolvedOrg: Organization | null = null;
 
     if (!resolvedOrgId) {
       if (isAdmin && orgs.length > 0) {
-        // Default to first org (Heliomax)
-        resolvedOrgId = orgs[0].id;
-        resolvedOrg = orgs[0];
+        const savedId = typeof window !== 'undefined' ? localStorage.getItem(SELECTED_ORG_KEY) : null;
+        const savedOrg = savedId ? orgs.find(o => o.id === savedId) : null;
+        resolvedOrgId = savedOrg?.id ?? orgs[0].id;
+        resolvedOrg = savedOrg ?? orgs[0];
       } else {
         // Regular user — get from membership (use limit(1) since super_admin may have many)
         const { data: memberships, error: memberError } = await supabase
@@ -149,6 +152,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     orgModules.some(m => m.module.name === moduleName && m.enabled);
 
   const switchOrg = async (orgId: string) => {
+    if (typeof window !== 'undefined') localStorage.setItem(SELECTED_ORG_KEY, orgId);
     await loadOrg(orgId);
   };
 
