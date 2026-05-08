@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { formatCurrency } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { useOrg } from '@/context/OrgContext';
 import DashboardCharts from './DashboardCharts';
 import {
   Users,
@@ -52,6 +53,7 @@ function progressTextColor(pct: number) {
 export default function DashboardPage() {
   const supabase = createClient();
   const { isAdmin, isManager, isTeamLeader, user } = useAuth();
+  const { currentOrgId } = useOrg();
   const canSeeFullReport = isAdmin || isManager || isTeamLeader;
 
   const [loading, setLoading] = useState(true);
@@ -70,6 +72,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function fetchDashboardData() {
+      if (!currentOrgId) return;
       setLoading(true);
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -88,16 +91,16 @@ export default function DashboardPage() {
           { data: targetsData },
           { data: monthLeadsData },
         ] = await Promise.all([
-          supabase.from('leads').select('*', { count: 'exact', head: true }),
-          supabase.from('leads').select('*', { count: 'exact', head: true }).eq('status', 'New'),
-          supabase.from('boqs').select('grand_total').eq('status', 'Paid'),
-          supabase.from('boqs').select('*', { count: 'exact', head: true }).neq('status', 'Draft'),
-          supabase.from('leads').select('id, name, source, status, created_at').order('created_at', { ascending: false }).limit(3),
-          supabase.from('profiles').select('id, name, score, avatar_url, role').order('score', { ascending: false }).limit(5),
-          supabase.from('products').select('id, name, stock_quantity').lt('stock_quantity', 5).limit(2),
+          supabase.from('leads').select('*', { count: 'exact', head: true }).eq('org_id', currentOrgId),
+          supabase.from('leads').select('*', { count: 'exact', head: true }).eq('org_id', currentOrgId).eq('status', 'New'),
+          supabase.from('boqs').select('grand_total').eq('org_id', currentOrgId).eq('status', 'Paid'),
+          supabase.from('boqs').select('*', { count: 'exact', head: true }).eq('org_id', currentOrgId).neq('status', 'Draft'),
+          supabase.from('leads').select('id, name, source, status, created_at').eq('org_id', currentOrgId).order('created_at', { ascending: false }).limit(3),
+          supabase.from('profiles').select('id, name, score, avatar_url, role').eq('org_id', currentOrgId).order('score', { ascending: false }).limit(5),
+          supabase.from('products').select('id, name, stock_quantity').eq('org_id', currentOrgId).lt('stock_quantity', 5).limit(2),
           supabase.rpc('get_daily_activity_report'),
-          supabase.from('sales_targets').select('user_id, target_value').eq('target_type', 'leads').gte('period_start', monthStart.slice(0, 10)).lte('period_end', monthEnd.slice(0, 10)),
-          supabase.from('leads').select('assigned_to_user').gte('created_at', monthStart).lte('created_at', monthEnd).not('assigned_to_user', 'is', null),
+          supabase.from('sales_targets').select('user_id, target_value').eq('org_id', currentOrgId).eq('target_type', 'leads').gte('period_start', monthStart.slice(0, 10)).lte('period_end', monthEnd.slice(0, 10)),
+          supabase.from('leads').select('assigned_to_user').eq('org_id', currentOrgId).gte('created_at', monthStart).lte('created_at', monthEnd).not('assigned_to_user', 'is', null),
         ]);
 
         const totalRevenue = wonBoqs?.reduce((acc, curr) => acc + Number(curr.grand_total), 0) || 0;
@@ -145,7 +148,7 @@ export default function DashboardPage() {
     }
 
     fetchDashboardData();
-  }, [supabase, isAdmin, isManager, isTeamLeader, user, canSeeFullReport]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentOrgId, isAdmin, isManager, isTeamLeader, user, canSeeFullReport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const topPerformer = leaderboard.length > 0 ? leaderboard[0] : null;
 
