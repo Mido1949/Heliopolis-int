@@ -44,7 +44,6 @@ const NAV_MODULE_MAP: Record<string, string | null> = {
   boq:          'boq_builder',
   email:        'email_campaigns',
   inventory:    'inventory',
-  'time-tracker': null,
   scraper:      'maps_scraper',
   calls:        'calls_meetings',
   'ai-assistant': 'ai_assistant',

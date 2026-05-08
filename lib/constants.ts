@@ -13,7 +13,6 @@ export const NAV_ITEMS = [
   { key: 'boq', labelAr: 'عروض الأسعار', labelEn: 'BOQ', icon: 'fileText', path: '/boq' },
   { key: 'email', labelAr: 'حملات البريد', labelEn: 'Email', icon: 'mail', path: '/email' },
   { key: 'inventory', labelAr: 'المخزون', labelEn: 'Inventory', icon: 'database', path: '/inventory' },
-  { key: 'time-tracker', labelAr: 'تتبع الوقت', labelEn: 'Time Tracker', icon: 'clock', path: '/time-tracker' },
   { key: 'scraper', labelAr: 'استخراج البيانات', labelEn: 'Scraper', icon: 'search', path: '/scraper' },
   { key: 'calls', labelAr: 'المكالمات', labelEn: 'Calls', icon: 'phone', path: '/calls' },
   { key: 'ai-assistant', labelAr: 'المساعد الذكي', labelEn: 'AI Assistant', icon: 'robot', path: '/ai-assistant' },
