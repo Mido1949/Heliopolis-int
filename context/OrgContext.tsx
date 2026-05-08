@@ -58,6 +58,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError) console.error('[OrgContext] getUser error:', userError);
+    console.log('[OrgContext] user:', user?.email ?? 'none');
     if (!user) { setIsLoading(false); return; }
 
     // 1. Check platform_admins
@@ -67,9 +68,11 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       .eq('user_id', user.id)
       .maybeSingle();
 
+    console.log('[OrgContext] platformAdmin:', platformAdmin, 'error:', adminError);
     if (adminError) console.error('[OrgContext] platform_admins error:', adminError);
 
     const isAdmin = !!platformAdmin;
+    console.log('[OrgContext] isSuperAdmin:', isAdmin);
     setIsSuperAdmin(isAdmin);
 
     // 2. Fetch all orgs for super_admin
