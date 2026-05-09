@@ -7,6 +7,7 @@ import { logLeadActivity } from '@/lib/supabase/activities';
 import { LEAD_STATUSES, LEAD_SOURCES, REGIONS } from '@/lib/constants';
 import type { Lead } from '@/types';
 import { useAuth } from '@/context/AuthContext';
+import { useOrg } from '@/context/OrgContext';
 import dayjs from 'dayjs';
 
 const { TextArea } = Input;
@@ -21,6 +22,7 @@ interface LeadFormModalProps {
 
 export default function LeadFormModal({ open, lead, onClose, onSaved, defaultRegion }: LeadFormModalProps) {
   const { user } = useAuth();
+  const { currentOrgId } = useOrg();
   const [form] = Form.useForm();
   const supabase = createClient();
   const isEdit = !!lead;
@@ -80,7 +82,7 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
       } else {
         const { data, error } = await supabase
           .from('leads')
-          .insert({ ...payload, assigned_to: user?.id })
+          .insert({ ...payload, org_id: currentOrgId, assigned_to_user: user?.id, created_by: user?.id })
           .select()
           .single();
         if (error) throw error;
