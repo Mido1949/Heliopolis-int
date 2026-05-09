@@ -28,7 +28,7 @@ import { useAuth } from '@/context/AuthContext';
 const { Title, Text } = Typography;
 
 export default function CRMPage() {
-  const { isAdmin, isManager, user } = useAuth();
+  const { isAdmin, isManager, isTeamLeader, user } = useAuth();
   const supabase = createClient();
 
   // State
@@ -100,8 +100,8 @@ export default function CRMPage() {
       if (statusFilter) query = query.eq('status', statusFilter);
       if (sourceFilter) query = query.eq('source', sourceFilter);
 
-      // Role-based filtering: non-admin/non-manager users only see their assigned leads
-      if (!isAdmin && !isManager && user) {
+      // Team leaders, managers and admins see all org leads; regular staff see only their own
+      if (!isAdmin && !isManager && !isTeamLeader && user) {
         query = query.eq('assigned_to_user', user.id);
       }
 

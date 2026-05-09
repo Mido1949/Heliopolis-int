@@ -20,7 +20,7 @@ import dayjs from 'dayjs';
 const { Title, Text } = Typography;
 
 export default function TasksPage() {
-  const { isAdmin, isManager, user } = useAuth();
+  const { isAdmin, isManager, isTeamLeader, isStaff, user, profile } = useAuth();
   const supabase = createClient();
 
   const [myTasks, setMyTasks] = useState<Task[]>([]);
@@ -39,7 +39,7 @@ export default function TasksPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [leadDrawerOpen, setLeadDrawerOpen] = useState(false);
 
-  const canManage = isAdmin || isManager;
+  const canManage = isStaff;
 
   const fetchProfiles = useCallback(async () => {
     const { data } = await supabase.from('profiles').select('id, name, role').order('name');
@@ -68,7 +68,7 @@ export default function TasksPage() {
             .eq('assigned_to', user.id)
             .eq('status', 'pending'),
           supabase.rpc('get_daily_tasks', {
-            p_user_id: (isAdmin || isManager) ? null : user.id,
+            p_user_id: isStaff ? null : user.id,
           }),
         ]);
         setMyTasks((myData || []) as Task[]);
@@ -247,8 +247,48 @@ export default function TasksPage() {
     overdue: allTasks.filter((t) => t.status === 'pending' && t.due_date && new Date(t.due_date) < new Date()).length,
   };
 
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h >= 5 && h < 12) return 'صباح الخير';
+    if (h >= 12 && h < 17) return 'مساء النور';
+    return 'مساء الخير';
+  })();
+
   return (
     <div className="space-y-4">
+      {/* AI Greeting Banner */}
+      {profile && (
+        <div className="flex items-center gap-4 bg-gradient-to-l from-[#0D2137] to-[#1a3a5c] rounded-xl px-5 py-4 text-white shadow-md">
+          <span className="text-3xl">👋</span>
+          <div>
+            <p className="font-bold text-base leading-tight">
+              {greeting}، {profile.name}!
+            </p>
+            <p className="text-sm text-white/75 mt-0.5">
+              {dailyLeads.length > 0
+                ? `عندك النهارده ${dailyLeads.length} متابعة — تحب نتابعهم سوا؟`
+                : pendingCount > 0
+                ? `عندك ${pendingCount} مهمة معلقة — يلا نخلصهم!`
+                : 'كل المهام تمام 🎉 يوم موفق!'}
+            </p>
+          </div>
+          {(dailyLeads.length > 0 || pendingCount > 0) && (
+            <div className="mr-auto flex gap-2">
+              {dailyLeads.length > 0 && (
+                <span className="bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+                  {dailyLeads.length} فولو آب
+                </span>
+              )}
+              {pendingCount > 0 && (
+                <span className="bg-amber-400 text-[#0D2137] text-xs font-bold px-2.5 py-1 rounded-full">
+                  {pendingCount} معلقة
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Header */}
       <Row justify="space-between" align="middle">
         <Col>

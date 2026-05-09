@@ -19,6 +19,7 @@ const MODULE_ROUTES: Record<string, string> = {
   '/brand': 'brand_assets',
   '/scraper': 'maps_scraper',
   '/files': 'files',
+  '/after-sales': 'after_sales',
 };
 
 export async function middleware(request: NextRequest) {

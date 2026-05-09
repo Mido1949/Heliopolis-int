@@ -17,6 +17,9 @@ import {
   ChevronLeft,
   ChevronRight,
   BarChart2,
+  Building2,
+  CheckSquare,
+  Wrench,
 } from 'lucide-react';
 import { NAV_ITEMS } from '@/lib/constants';
 import { getInitials } from '@/lib/utils';
@@ -25,6 +28,7 @@ import type { Profile } from '@/types';
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   dashboard: <LayoutDashboard className="w-5 h-5" />,
+  hub: <Building2 className="w-5 h-5" />,
   contacts: <Users className="w-5 h-5" />,
   fileText: <FileText className="w-5 h-5" />,
   mail: <Mail className="w-5 h-5" />,
@@ -34,11 +38,14 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   robot: <Bot className="w-5 h-5" />,
   phone: <Phone className="w-5 h-5" />,
   barChart: <BarChart2 className="w-5 h-5" />,
+  tasks: <CheckSquare className="w-5 h-5" />,
+  wrench: <Wrench className="w-5 h-5" />,
 };
 
 // Maps NAV_ITEMS key → module name in the DB (null = always visible)
 const NAV_MODULE_MAP: Record<string, string | null> = {
   dashboard:    null,
+  hub:          'company_hub',
   crm:          'crm',
   'crm-ksa':    'crm',
   boq:          'boq_builder',
@@ -46,6 +53,8 @@ const NAV_MODULE_MAP: Record<string, string | null> = {
   inventory:    'inventory',
   scraper:      'maps_scraper',
   calls:        'calls_meetings',
+  tasks:        null,
+  'after-sales': 'after_sales',
   'ai-assistant': 'ai_assistant',
   reports:      'analytics',
 };
