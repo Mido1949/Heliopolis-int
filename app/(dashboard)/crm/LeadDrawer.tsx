@@ -308,9 +308,10 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
       if (!result.success) throw new Error(result.error || 'لا يوجد أعضاء في الفريق التقني');
       message.success(`تم التحويل للفريق التقني ✓ — ${result.assigned_to_name}`);
       onAssigned?.();
-    } catch (err) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'خطأ غير معروف';
       console.error('Random assign error:', err);
-      message.error('فشل التحويل للفريق التقني');
+      message.error(`فشل التحويل للفريق التقني: ${msg}`, 8);
     } finally {
       setAssigning(false);
     }
@@ -329,9 +330,10 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
       if (!result.success) throw new Error(result.error || 'لا يوجد أعضاء في الفريق التجاري');
       message.success(`تم التحويل للفريق التجاري ✓ — ${result.assigned_to_name}`);
       onAssigned?.();
-    } catch (err) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'خطأ غير معروف';
       console.error('CS assign error:', err);
-      message.error('فشل التحويل للفريق التجاري');
+      message.error(`فشل التحويل للفريق التجاري: ${msg}`, 8);
     } finally {
       setAssigning(false);
     }

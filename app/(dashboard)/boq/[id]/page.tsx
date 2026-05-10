@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Download, Eye } from "lucide-react";
 import { lazy } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useOrg } from "@/context/OrgContext";
 
 const PDFDownloadButton = lazy(() => import("@/components/boq/PDFDownloadButton"));
 
@@ -22,6 +23,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
   const leadId = searchParams.get("leadId");
   const boqIdParam = params.id;
   const { user } = useAuth();
+  const { currentOrgId } = useOrg();
 
   const [activeTab, setActiveTab] = useState<"new" | "list">("new");
   const [products, setProducts] = useState<Product[]>([]);
@@ -165,7 +167,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
         setProducts(pData);
         localStorage.setItem("boq_products_cache", JSON.stringify({ data: pData, ts: Date.now() }));
       }
-      const { data: cData } = await supabase.from("leads").select("*").order("name");
+      const { data: cData } = await supabase.from("leads").select("id, name, phone, company, region").order("name").limit(500);
       if (cData && cData.length > 0) setCustomers(cData);
       setLoadingProducts(false);
     }
@@ -249,7 +251,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
       if (!currentLeadId) {
         const { data: newLead, error: leadError } = await supabase
           .from("leads")
-          .insert({ name: customerName, phone: customerPhone, company: customerAddress, source: "Direct", assigned_to: profileId })
+          .insert({ name: customerName, phone: customerPhone, company: customerAddress, source: "Direct", assigned_to: profileId, assigned_to_user: profileId, created_by: profileId, org_id: currentOrgId })
           .select("id").single();
         if (leadError) throw new Error(`Lead creation failed: ${leadError.message}`);
         if (!newLead?.id) throw new Error("No lead ID returned");
@@ -258,6 +260,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
 
       let boqId = currentBoqId;
       let savedSerial = currentBoqSerial;
+      const isNewBoq = !boqId;
 
       if (boqId) {
         const { error: boqError } = await supabase.from("boqs").update({
@@ -289,6 +292,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
           customer_phone: customerPhone,
           customer_address: customerAddress,
           created_by: profileId,
+          org_id: currentOrgId,
           status: "Draft",
           subtotal,
           discount_percent: discountPercent,
@@ -314,13 +318,14 @@ export default function BOQPage({ params }: { params: { id: string } }) {
         area: item.area || null,
         unit_type: item.unit_type || null,
         capacity_kw: item.capacity_kw || null,
+        org_id: currentOrgId,
       }));
 
       const { error: itemsError } = await supabase.from("boq_items").insert(itemsToInsert);
       if (itemsError) throw new Error(`BOQ items save failed: ${itemsError.message}`);
 
       // Log BOQ creation as a CRM lead activity so it appears in the lead's Activity tab
-      if (currentLeadId && !boqId) {
+      if (currentLeadId && isNewBoq) {
         await supabase.from("lead_activities").insert({
           lead_id: currentLeadId,
           user_id: profileId,
@@ -336,8 +341,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
       setCurrentBoqId(null);
       setCurrentBoqSerial(null);
       setCurrentBoqNumber(null);
-      setActiveTab("list");
-      await fetchAllBOQs();
+      setActiveTab("list"); // triggers fetchAllBOQs via useEffect
 
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
