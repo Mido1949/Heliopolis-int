@@ -11,6 +11,7 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { useOrg } from '@/context/OrgContext';
 
 const { Title, Text } = Typography;
 const { Dragger } = Upload;
@@ -40,6 +41,7 @@ interface ImportModalProps {
 
 export default function ImportModal({ open, onClose, onImportComplete }: ImportModalProps) {
   const { user } = useAuth();
+  const { currentOrgId } = useOrg();
   const supabase = createClient();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -214,6 +216,8 @@ const parseFile = useCallback(async (uploadedFile: File) => {
           notes: row.notes || null,
           next_follow_up: row.next_follow_up || null,
           assigned_to_user: user.id,
+          created_by: user.id,
+          org_id: currentOrgId,
         });
         added++;
       }

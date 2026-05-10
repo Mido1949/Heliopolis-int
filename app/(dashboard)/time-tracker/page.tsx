@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { createClient } from '@/lib/supabase/client';
+import { useOrg } from '@/context/OrgContext';
 import { TASK_TYPES } from '@/lib/constants';
 import { formatDuration } from '@/lib/utils';
 
@@ -45,6 +46,7 @@ interface TeamMember {
 
 export default function TimeTrackerPage() {
   const supabase = createClient();
+  const { currentOrgId } = useOrg();
   const [logs, setLogs] = useState<TimeLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [leads, setLeads] = useState<LeadOption[]>([]);
@@ -177,6 +179,7 @@ export default function TimeTrackerPage() {
       lead_id: selectedLead || null,
       started_at: now.toISOString(),
       duration_seconds: 0,
+      org_id: currentOrgId,
     }).select().single();
 
     if (error) { message.error('Failed to start timer'); return; }

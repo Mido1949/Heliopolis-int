@@ -11,6 +11,7 @@ import { LEAD_STATUSES, LEAD_SOURCES } from '@/lib/constants';
 import { formatDate, getWhatsAppUrl } from '@/lib/utils';
 import type { Lead, BOQ, BOQItem, CallLog, CallType, CallOutcome } from '@/types';
 import { useAuth } from '@/context/AuthContext';
+import { useOrg } from '@/context/OrgContext';
 import dynamic from 'next/dynamic';
 
 const PDFDownloadButton = dynamic(() => import('@/components/boq/PDFDownloadButton'), {
@@ -47,6 +48,7 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
   const [isLoggingCall, setIsLoggingCall] = useState(false);
   const [form] = Form.useForm();
   const { user, profile, isAdmin, isManager, isCSLead, isTechLead } = useAuth();
+  const { currentOrgId } = useOrg();
   const isFullAdmin    = isAdmin || isManager;
   const isCSTeam       = isCSLead  || profile?.crm_team === 'cs';
   const isTechTeam     = isTechLead || profile?.crm_team === 'tech';
@@ -125,6 +127,7 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
       type: values.type,
       body: values.body,
       duration_seconds: values.type === 'call' ? (values.duration_seconds ?? null) : null,
+      org_id: currentOrgId,
     });
     if (error) {
       message.error('فشل إضافة النشاط');
@@ -184,6 +187,7 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
         .insert({
           lead_id: lead.id,
           user_id: user.id,
+          org_id: currentOrgId,
           ...values
         });
 
@@ -197,6 +201,7 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
         type: 'call',
         body: `${values.outcome} — ${durationSec}ث`,
         duration_seconds: durationSec || null,
+        org_id: currentOrgId,
       });
 
       message.success('تم تسجيل المكالمة بنجاح');
@@ -268,6 +273,7 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
         user_id: user?.id,
         type: 'assignment',
         body: `تم التعيين لـ: ${assignedName}`,
+        org_id: currentOrgId,
       });
 
       console.log('[handleAssign] inserting notification for assignUser:', assignUser, 'lead:', lead.id);
@@ -279,6 +285,7 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
           type: 'lead_assigned',
           reference_id: lead.id,
           reference_type: 'lead',
+          org_id: currentOrgId,
         });
       if (notifError) {
         console.error('[handleAssign] notification insert FAILED:', notifError.code, notifError.message, notifError.details, notifError.hint);

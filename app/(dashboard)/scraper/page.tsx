@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { createClient } from '@/lib/supabase/client';
+import { useOrg } from '@/context/OrgContext';
 import { formatDate } from '@/lib/utils';
 
 const { Title, Text } = Typography;
@@ -31,6 +32,7 @@ interface ScrapedLead {
 
 export default function ScraperPage() {
   const supabase = createClient();
+  const { currentOrgId } = useOrg();
   const [leads, setLeads] = useState<ScrapedLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
@@ -61,8 +63,11 @@ export default function ScraperPage() {
       source: 'Direct',
       status: 'New',
       assigned_to: user.id,
+      assigned_to_user: user.id,
+      created_by: user.id,
       company: lead.business_name,
       notes: `Scraped from ${lead.source_location || 'Google Maps'}. Rating: ${lead.rating || 'N/A'}`,
+      org_id: currentOrgId,
     });
 
     if (insertError) { message.error('فشل الإضافة'); return; }

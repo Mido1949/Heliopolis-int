@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { useOrg } from '@/context/OrgContext';
 import { Form, Select, InputNumber, Button, message, Tag } from 'antd';
 import { DatePicker } from 'antd';
 import {
@@ -99,6 +100,7 @@ const SectionCard = ({ title, subtitle, icon, children }: {
 export default function ReportsPage() {
   const supabase = createClient();
   const { isAdmin, user } = useAuth();
+  const { currentOrgId } = useOrg();
   const [loading, setLoading] = useState(true);
 
   // Section 1 state
@@ -252,6 +254,7 @@ export default function ReportsPage() {
       period_start: values.period[0].format('YYYY-MM-DD'),
       period_end: values.period[1].format('YYYY-MM-DD'),
       created_by: user?.id,
+      org_id: currentOrgId,
     });
     setSavingTarget(false);
     if (error) {

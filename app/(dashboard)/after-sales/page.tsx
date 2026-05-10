@@ -14,6 +14,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { useOrg } from '@/context/OrgContext';
 import { formatDate } from '@/lib/utils';
 import dayjs from 'dayjs';
 
@@ -52,6 +53,7 @@ function computeStatus(next: string | null): AfterSalesRecord['status'] {
 
 export default function AfterSalesPage() {
   const { isStaff, user } = useAuth();
+  const { currentOrgId } = useOrg();
   const supabase = createClient();
 
   const [records, setRecords] = useState<AfterSalesRecord[]>([]);
@@ -113,6 +115,7 @@ export default function AfterSalesPage() {
       notes: values.notes || null,
       status: computeStatus(nextDate),
       created_by: user?.id,
+      org_id: currentOrgId,
     };
 
     let error;
