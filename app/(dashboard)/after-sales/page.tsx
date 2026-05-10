@@ -115,7 +115,6 @@ export default function AfterSalesPage() {
       notes: values.notes || null,
       status: computeStatus(nextDate),
       created_by: user?.id,
-      org_id: currentOrgId,
     };
 
     let error;
