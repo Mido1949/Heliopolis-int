@@ -74,26 +74,35 @@ export async function middleware(request: NextRequest) {
   const moduleName = MODULE_ROUTES[routePrefix];
 
   if (moduleName) {
-    const { data: membership } = await supabase
-      .from('organization_members')
-      .select('org_id')
+    // Super admins (platform_admins) are not in organization_members — skip guard.
+    const { data: platformAdmin } = await supabase
+      .from('platform_admins')
+      .select('user_id')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (!membership) {
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
+    if (!platformAdmin) {
+      const { data: membership } = await supabase
+        .from('organization_members')
+        .select('org_id')
+        .eq('user_id', user.id)
+        .single();
 
-    const { data: orgModule } = await supabase
-      .from('organization_modules')
-      .select('enabled, module_id, modules!inner(name)')
-      .eq('org_id', membership.org_id)
-      .eq('enabled', true)
-      .eq('modules.name', moduleName)
-      .single();
+      if (!membership) {
+        return NextResponse.redirect(new URL('/login', request.url));
+      }
 
-    if (!orgModule) {
-      return NextResponse.redirect(new URL('/dashboard?module_disabled=1', request.url));
+      const { data: orgModule } = await supabase
+        .from('organization_modules')
+        .select('enabled, module_id, modules!inner(name)')
+        .eq('org_id', membership.org_id)
+        .eq('enabled', true)
+        .eq('modules.name', moduleName)
+        .single();
+
+      if (!orgModule) {
+        return NextResponse.redirect(new URL('/dashboard?module_disabled=1', request.url));
+      }
     }
   }
 
