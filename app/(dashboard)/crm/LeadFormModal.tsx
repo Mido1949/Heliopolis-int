@@ -62,10 +62,10 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
           .update(payload)
           .eq('id', lead!.id);
         if (error) throw error;
-        
+
         // Log update
-        await logLeadActivity(lead!.id, 'edit', { 
-          changes: Object.keys(values).filter(k => values[k] !== lead![k as keyof Lead]) 
+        await logLeadActivity(lead!.id, 'edit', {
+          changes: Object.keys(values).filter(k => values[k] !== lead![k as keyof Lead])
         });
 
         // Auto-log status change if status changed
@@ -75,11 +75,13 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
             user_id: user?.id,
             type: 'status_change',
             body: `${lead.status} → ${values.status}`,
+            org_id: currentOrgId,
           });
         }
-        
+
         message.success('تم تحديث العميل بنجاح (Lead updated)');
       } else {
+        if (!currentOrgId) throw new Error('org_id missing');
         const { data, error } = await supabase
           .from('leads')
           .insert({ ...payload, org_id: currentOrgId, assigned_to_user: user?.id, created_by: user?.id })

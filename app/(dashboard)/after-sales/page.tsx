@@ -102,7 +102,13 @@ export default function AfterSalesPage() {
     notes?: string;
   }) => {
     const nextDate = values.next_maintenance_date?.format('YYYY-MM-DD') ?? null;
+    if (!currentOrgId) {
+      message.error('لم يتم تحديد المؤسسة، يرجى إعادة تحميل الصفحة');
+      return;
+    }
+
     const payload = {
+      org_id: currentOrgId,
       customer_name: values.customer_name,
       customer_phone: values.customer_phone || null,
       customer_address: values.customer_address || null,
