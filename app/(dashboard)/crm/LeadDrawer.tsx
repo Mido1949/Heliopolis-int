@@ -186,7 +186,7 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
         .from('call_logs')
         .insert({
           lead_id: lead.id,
-          user_id: user.id,
+          created_by: user.id,
           org_id: currentOrgId,
           ...values
         });
