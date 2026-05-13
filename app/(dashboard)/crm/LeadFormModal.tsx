@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Modal, Form, Input, Select, DatePicker, Row, Col, message } from 'antd';
 import { createClient } from '@/lib/supabase/client';
 import { logLeadActivity } from '@/lib/supabase/activities';
-import { LEAD_STATUSES, LEAD_SOURCES, REGIONS } from '@/lib/constants';
+import { LEAD_STATUSES, LEAD_SOURCES, REGIONS, LEAD_CLIENT_TYPES } from '@/lib/constants';
 import type { Lead } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
@@ -138,6 +138,24 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
           <Col span={12}>
             <Form.Item name="company" label="الشركة (Company)">
               <Input placeholder="اسم الشركة" />
+            </Form.Item>
+          </Col>
+        </Row>
+
+        <Row gutter={16}>
+          <Col span={24}>
+            <Form.Item
+              name="client_type"
+              label="نوع العميل (Client Type)"
+              rules={[{ required: true, message: 'نوع العميل مطلوب' }]}
+            >
+              <Select
+                placeholder="اختر نوع العميل"
+                options={LEAD_CLIENT_TYPES.map((t) => ({
+                  value: t.value,
+                  label: t.labelAr,
+                }))}
+              />
             </Form.Item>
           </Col>
         </Row>

@@ -55,6 +55,14 @@ export const PRODUCT_CATEGORIES = [
   { value: 'Controller', labelAr: 'جهاز تحكم' },
 ] as const;
 
+// Lead Client Types
+export const LEAD_CLIENT_TYPES = [
+  { value: 'موزع', labelAr: 'موزع' },
+  { value: 'شركة تكييف', labelAr: 'شركة تكييف' },
+  { value: 'مقاول', labelAr: 'مقاول' },
+  { value: 'عميل منفرد', labelAr: 'عميل منفرد' },
+] as const;
+
 // Regions
 export const REGIONS = [
   { value: 'Cairo', labelAr: 'القاهرة' },
