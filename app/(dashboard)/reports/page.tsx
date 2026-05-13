@@ -4,12 +4,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
-import { Form, Select, InputNumber, Button, message, Tag } from 'antd';
+import { Form, Select, InputNumber, Button, message, Tag, Tabs } from 'antd';
 import { DatePicker } from 'antd';
+import DailyReport from './DailyReport';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+  PieChart, Pie, Legend,
 } from 'recharts';
-import { Download, Loader2, Target, TrendingUp, BarChart2, CheckSquare } from 'lucide-react';
+import { Download, Loader2, Target, TrendingUp, BarChart2, CheckSquare, Users, Wrench, FileText } from 'lucide-react';
 import dayjs from 'dayjs';
 import type { Profile } from '@/types';
 
@@ -42,6 +44,52 @@ interface MetaLead {
   assignee_name?: string;
 }
 
+interface AllLead {
+  id: string;
+  name: string;
+  phone: string;
+  company: string | null;
+  email: string | null;
+  source: string;
+  status: string;
+  client_type: string | null;
+  region: string | null;
+  notes: string | null;
+  created_at: string;
+  assigned_to_user: string | null;
+  assignee_name?: string;
+}
+
+interface AfterSalesRow {
+  id: string;
+  customer_name: string;
+  customer_phone: string | null;
+  customer_address: string | null;
+  installation_date: string;
+  system_description: string | null;
+  unit_count: number;
+  technician_name: string | null;
+  status: string;
+  next_maintenance_date: string | null;
+  last_maintenance_date: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+interface BOQRow {
+  id: string;
+  boq_number: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  status: string;
+  subtotal: number;
+  discount_amount: number;
+  vat_amount: number;
+  grand_total: number;
+  created_at: string;
+  profile?: { name: string } | null;
+}
+
 interface CampaignRow {
   form_id: string;
   label: string;
@@ -67,6 +115,22 @@ interface UserTaskStats {
 }
 
 const CHART_COLORS = ['#D72B2B', '#0D2137', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6'];
+
+const STATUS_COLORS: Record<string, string> = {
+  New: '#3B82F6',
+  Interested: '#F59E0B',
+  'Quote Sent': '#8B5CF6',
+  Won: '#10B981',
+  Lost: '#EF4444',
+  Draft: '#8C8C8C',
+  Sent: '#1890FF',
+  Paid: '#52C41A',
+  Cancelled: '#FF4D4F',
+  active: '#10B981',
+  maintenance_due: '#F59E0B',
+  overdue: '#EF4444',
+  inactive: '#8C8C8C',
+};
 
 function progressColor(pct: number) {
   if (pct >= 80) return 'bg-emerald-500';
@@ -102,6 +166,7 @@ export default function ReportsPage() {
   const { isAdmin, user } = useAuth();
   const { currentOrgId } = useOrg();
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   // Section 1 state
   const [metaLeads, setMetaLeads] = useState<MetaLead[]>([]);
@@ -121,6 +186,12 @@ export default function ReportsPage() {
   // Section 4 state (task stats)
   const [userTaskStats, setUserTaskStats] = useState<UserTaskStats[]>([]);
 
+  // Overview chart states
+  const [leadsByStatus, setLeadsByStatus] = useState<{ name: string; value: number; fill: string }[]>([]);
+  const [boqByStatus, setBoqByStatus] = useState<{ name: string; value: number; fill: string }[]>([]);
+  const [afterSalesByStatus, setAfterSalesByStatus] = useState<{ name: string; value: number; fill: string }[]>([]);
+  const [leadsBySource, setLeadsBySource] = useState<{ name: string; value: number }[]>([]);
+
   // ── Data Fetching ──────────────────────────────────────────────────────────
 
   const fetchAll = useCallback(async () => {
@@ -135,6 +206,9 @@ export default function ReportsPage() {
       { data: targetsData },
       { data: monthLeadsData },
       { data: tasksData },
+      { data: allLeadsData },
+      { data: boqData },
+      { data: afterSalesData },
     ] = await Promise.all([
       supabase.from('profiles').select('*').order('name'),
       supabase
@@ -155,69 +229,90 @@ export default function ReportsPage() {
         .gte('created_at', monthStart)
         .lte('created_at', monthEnd)
         .not('assigned_to_user', 'is', null),
-      supabase
-        .from('tasks')
-        .select('assigned_to, status'),
+      supabase.from('tasks').select('assigned_to, status'),
+      supabase.from('leads').select('status, source'),
+      supabase.from('boqs').select('status'),
+      supabase.from('after_sales_service').select('status'),
     ]);
 
     const allProfiles = (profilesData as Profile[]) || [];
     setProfiles(allProfiles);
-    const metaLeadsRaw = (metaData as MetaLead[]) || [];
-    // Map creator/assignee IDs to names
     const profileMap = new Map(allProfiles.map(p => [p.id, p.name]));
-    const metaLeadsWithNames = metaLeadsRaw.map(l => ({
+
+    const metaLeadsRaw = (metaData as MetaLead[]) || [];
+    setMetaLeads(metaLeadsRaw.map(l => ({
       ...l,
       creator_name: l.created_by ? profileMap.get(l.created_by) || undefined : undefined,
       assignee_name: l.assigned_to_user ? profileMap.get(l.assigned_to_user) || undefined : undefined,
-    }));
-    setMetaLeads(metaLeadsWithNames);
+    })));
 
     const rawTargets = (targetsData || []) as SalesTarget[];
     setTargets(rawTargets);
 
-    // Build user progress
+    // User progress
     const leadsCountMap: Record<string, number> = {};
     (monthLeadsData || []).forEach((r: { assigned_to_user: string | null }) => {
-      if (r.assigned_to_user) {
-        leadsCountMap[r.assigned_to_user] = (leadsCountMap[r.assigned_to_user] || 0) + 1;
-      }
+      if (r.assigned_to_user) leadsCountMap[r.assigned_to_user] = (leadsCountMap[r.assigned_to_user] || 0) + 1;
     });
-
     const leadsTargetMap: Record<string, number> = {};
     rawTargets.filter(t => t.target_type === 'leads').forEach(t => {
       leadsTargetMap[t.user_id] = Number(t.target_value);
     });
-
-    const progress: UserProgress[] = allProfiles.map(p => {
+    setUserProgress(allProfiles.map(p => {
       const actual = leadsCountMap[p.id] || 0;
       const target = leadsTargetMap[p.id] ?? null;
       const pct = target ? Math.round((actual / target) * 100) : 0;
       return { id: p.id, name: p.name, leadsTarget: target, actualLeads: actual, progress: pct };
-    }).filter(p => p.leadsTarget !== null || p.actualLeads > 0);
+    }).filter(p => p.leadsTarget !== null || p.actualLeads > 0));
 
-    setUserProgress(progress);
-
-    // Build per-user task stats
+    // Task stats
     const taskDoneMap: Record<string, number> = {};
     const taskPendingMap: Record<string, number> = {};
     (tasksData || []).forEach((t: { assigned_to: string; status: string }) => {
-      if (t.status === 'done') {
-        taskDoneMap[t.assigned_to] = (taskDoneMap[t.assigned_to] || 0) + 1;
-      } else {
-        taskPendingMap[t.assigned_to] = (taskPendingMap[t.assigned_to] || 0) + 1;
-      }
+      if (t.status === 'done') taskDoneMap[t.assigned_to] = (taskDoneMap[t.assigned_to] || 0) + 1;
+      else taskPendingMap[t.assigned_to] = (taskPendingMap[t.assigned_to] || 0) + 1;
     });
-    const taskStats: UserTaskStats[] = allProfiles
+    setUserTaskStats(allProfiles
       .map(p => ({
-        id: p.id,
-        name: p.name,
+        id: p.id, name: p.name,
         done: taskDoneMap[p.id] || 0,
         pending: taskPendingMap[p.id] || 0,
         total: (taskDoneMap[p.id] || 0) + (taskPendingMap[p.id] || 0),
       }))
       .filter(u => u.total > 0)
-      .sort((a, b) => b.done - a.done);
-    setUserTaskStats(taskStats);
+      .sort((a, b) => b.done - a.done));
+
+    // Overview charts: leads by status
+    const statusCount: Record<string, number> = {};
+    const sourceCount: Record<string, number> = {};
+    (allLeadsData || []).forEach((l: { status: string; source: string }) => {
+      statusCount[l.status] = (statusCount[l.status] || 0) + 1;
+      sourceCount[l.source] = (sourceCount[l.source] || 0) + 1;
+    });
+    setLeadsByStatus(Object.entries(statusCount).map(([name, value]) => ({
+      name, value, fill: STATUS_COLORS[name] || '#8C8C8C',
+    })));
+    setLeadsBySource(Object.entries(sourceCount).map(([name, value], i) => ({
+      name, value, fill: CHART_COLORS[i % CHART_COLORS.length],
+    })));
+
+    // BOQ by status
+    const boqCount: Record<string, number> = {};
+    (boqData || []).forEach((b: { status: string }) => {
+      boqCount[b.status] = (boqCount[b.status] || 0) + 1;
+    });
+    setBoqByStatus(Object.entries(boqCount).map(([name, value]) => ({
+      name, value, fill: STATUS_COLORS[name] || '#8C8C8C',
+    })));
+
+    // After Sales by status
+    const asCount: Record<string, number> = {};
+    (afterSalesData || []).forEach((a: { status: string }) => {
+      asCount[a.status] = (asCount[a.status] || 0) + 1;
+    });
+    setAfterSalesByStatus(Object.entries(asCount).map(([name, value]) => ({
+      name, value, fill: STATUS_COLORS[name] || '#8C8C8C',
+    })));
 
     setLoading(false);
   }, [supabase, campaignRange]);
@@ -273,43 +368,138 @@ export default function ReportsPage() {
     setTargets(prev => prev.filter(t => t.id !== id));
   };
 
-  // ── CSV Export ────────────────────────────────────────────────────────────
+  // ── Full CSV Export ────────────────────────────────────────────────────────
 
-  const handleExport = () => {
-    const rows: string[][] = [];
-    rows.push(['الاسم', 'الهاتف', 'المصدر', 'الحالة', 'صاحب الليد', 'المعين له', 'معرف الحملة', 'تاريخ الإنشاء']);
-    metaLeads.forEach(l => {
-      rows.push([
-        l.name,
-        l.phone,
-        l.source,
-        l.status,
-        l.creator_name || '',
-        l.assignee_name || '',
-        l.form_id || '',
-        l.created_at,
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const [
+        { data: allLeads },
+        { data: afterSales },
+        { data: boqs },
+        { data: allProfiles },
+        { data: allTasks },
+      ] = await Promise.all([
+        supabase.from('leads').select('id, name, phone, company, email, source, status, client_type, region, notes, created_at, assigned_to_user').order('created_at', { ascending: false }),
+        supabase.from('after_sales_service').select('*').order('created_at', { ascending: false }),
+        supabase.from('boqs').select('*, profile:created_by(name)').order('created_at', { ascending: false }),
+        supabase.from('profiles').select('id, name, role'),
+        supabase.from('tasks').select('assigned_to, status, title, due_date, priority, created_at'),
       ]);
-    });
-    rows.push([]);
-    rows.push(['المستخدم', 'نوع الهدف', 'قيمة الهدف', 'من', 'إلى']);
-    targets.forEach(t => {
-      rows.push([
-        t.profile?.name || t.user_id,
-        t.target_type === 'leads' ? 'ليدات' : 'إيراد',
-        String(t.target_value),
-        t.period_start,
-        t.period_end,
-      ]);
-    });
 
-    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `loomark-report-${dayjs().format('YYYY-MM-DD')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+      const profileMap = new Map(((allProfiles || []) as { id: string; name: string }[]).map(p => [p.id, p.name]));
+
+      const rows: string[][] = [];
+
+      // ── Section: CRM Leads ──
+      rows.push(['=== CRM - كل الليدات ===']);
+      rows.push(['الاسم', 'الهاتف', 'الشركة', 'البريد', 'المصدر', 'الحالة', 'نوع العميل', 'المنطقة', 'المسؤول', 'ملاحظات', 'تاريخ الإنشاء']);
+      (allLeads || []).forEach((l: AllLead) => {
+        rows.push([
+          l.name,
+          l.phone,
+          l.company || '',
+          l.email || '',
+          l.source,
+          l.status,
+          l.client_type || '',
+          l.region || '',
+          l.assigned_to_user ? profileMap.get(l.assigned_to_user) || '' : '',
+          l.notes || '',
+          dayjs(l.created_at).format('YYYY-MM-DD'),
+        ]);
+      });
+
+      rows.push([]);
+
+      // ── Section: After Sales ──
+      rows.push(['=== ما بعد البيع - After Sales ===']);
+      rows.push(['اسم العميل', 'الهاتف', 'العنوان', 'تاريخ التركيب', 'وصف النظام', 'عدد الوحدات', 'الفني', 'الحالة', 'تاريخ الصيانة القادمة', 'آخر صيانة', 'ملاحظات']);
+      (afterSales || []).forEach((a: AfterSalesRow) => {
+        rows.push([
+          a.customer_name,
+          a.customer_phone || '',
+          a.customer_address || '',
+          a.installation_date ? dayjs(a.installation_date).format('YYYY-MM-DD') : '',
+          a.system_description || '',
+          String(a.unit_count),
+          a.technician_name || '',
+          a.status,
+          a.next_maintenance_date ? dayjs(a.next_maintenance_date).format('YYYY-MM-DD') : '',
+          a.last_maintenance_date ? dayjs(a.last_maintenance_date).format('YYYY-MM-DD') : '',
+          a.notes || '',
+        ]);
+      });
+
+      rows.push([]);
+
+      // ── Section: BOQ ──
+      rows.push(['=== عروض الأسعار - BOQ ===']);
+      rows.push(['رقم BOQ', 'اسم العميل', 'هاتف العميل', 'الحالة', 'الإجمالي', 'الخصم', 'الضريبة', 'الإجمالي النهائي', 'أنشأه', 'تاريخ الإنشاء']);
+      (boqs || []).forEach((b: BOQRow) => {
+        rows.push([
+          b.boq_number,
+          b.customer_name || '',
+          b.customer_phone || '',
+          b.status,
+          String(b.subtotal),
+          String(b.discount_amount),
+          String(b.vat_amount),
+          String(b.grand_total),
+          b.profile?.name || '',
+          dayjs(b.created_at).format('YYYY-MM-DD'),
+        ]);
+      });
+
+      rows.push([]);
+
+      // ── Section: User Task Detail ──
+      rows.push(['=== تفاصيل مهام الموظفين - User Tasks ===']);
+      rows.push(['الموظف', 'عنوان المهمة', 'الحالة', 'الأولوية', 'تاريخ الاستحقاق', 'تاريخ الإنشاء']);
+      (allTasks || []).forEach((t: { assigned_to: string; status: string; title: string; due_date: string | null; priority: string; created_at: string }) => {
+        rows.push([
+          profileMap.get(t.assigned_to) || t.assigned_to,
+          t.title,
+          t.status === 'done' ? 'منجزة' : 'قيد التنفيذ',
+          t.priority,
+          t.due_date ? dayjs(t.due_date).format('YYYY-MM-DD') : '',
+          dayjs(t.created_at).format('YYYY-MM-DD'),
+        ]);
+      });
+
+      rows.push([]);
+
+      // ── Section: User Summary ──
+      rows.push(['=== ملخص أداء الموظفين ===']);
+      rows.push(['الموظف', 'الدور', 'ليدات هذا الشهر', 'الهدف', '% التحقيق', 'مهام منجزة', 'مهام معلقة']);
+      (allProfiles || []).forEach((p: { id: string; name: string; role: string }) => {
+        const up = userProgress.find(u => u.id === p.id);
+        const ts = userTaskStats.find(u => u.id === p.id);
+        rows.push([
+          p.name,
+          p.role,
+          String(up?.actualLeads || 0),
+          String(up?.leadsTarget || '—'),
+          up?.leadsTarget ? `${Math.min(up.progress, 100)}%` : '—',
+          String(ts?.done || 0),
+          String(ts?.pending || 0),
+        ]);
+      });
+
+      const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `heliomax-full-report-${dayjs().format('YYYY-MM-DD')}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      message.success('تم تصدير التقرير الشامل بنجاح');
+    } catch {
+      message.error('حدث خطأ أثناء التصدير');
+    } finally {
+      setExporting(false);
+    }
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -326,6 +516,13 @@ export default function ReportsPage() {
   }
 
   return (
+    <Tabs
+      defaultActiveKey="reports"
+      items={[
+        {
+          key: 'reports',
+          label: 'التقارير العامة',
+          children: (
     <div className="space-y-8 pb-12 animate-in fade-in duration-500">
       {/* Page Header */}
       <div className="bg-[#0D2137] p-8 rounded-2xl text-white shadow-xl relative overflow-hidden">
@@ -337,6 +534,94 @@ export default function ReportsPage() {
           <p className="text-slate-300 mt-2 text-sm">أداء الحملات، الأهداف الشهرية، ونسب التحويل</p>
         </div>
       </div>
+
+      {/* ── Overview Charts ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* CRM Leads by Status */}
+        <div className="bg-white rounded-lg border border-slate-100 shadow-sm p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Users className="w-4 h-4 text-[#0D2137]" />
+            <h3 className="text-sm font-bold text-[#0D2137]">توزيع الليدات</h3>
+          </div>
+          {leadsByStatus.length === 0 ? (
+            <p className="text-xs text-slate-400 text-center py-8">لا توجد بيانات</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie data={leadsByStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} label={({ name, value }) => `${name}: ${value}`} labelLine={false} fontSize={10}>
+                  {leadsByStatus.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* BOQ by Status */}
+        <div className="bg-white rounded-lg border border-slate-100 shadow-sm p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <FileText className="w-4 h-4 text-[#0D2137]" />
+            <h3 className="text-sm font-bold text-[#0D2137]">عروض الأسعار (BOQ)</h3>
+          </div>
+          {boqByStatus.length === 0 ? (
+            <p className="text-xs text-slate-400 text-center py-8">لا توجد بيانات</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={boqByStatus} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="value" name="عدد" radius={[4, 4, 0, 0]}>
+                  {boqByStatus.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* After Sales by Status */}
+        <div className="bg-white rounded-lg border border-slate-100 shadow-sm p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Wrench className="w-4 h-4 text-[#0D2137]" />
+            <h3 className="text-sm font-bold text-[#0D2137]">ما بعد البيع</h3>
+          </div>
+          {afterSalesByStatus.length === 0 ? (
+            <p className="text-xs text-slate-400 text-center py-8">لا توجد بيانات</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie data={afterSalesByStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} label={({ name, value }) => `${value}`} labelLine={false} fontSize={10}>
+                  {afterSalesByStatus.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                </Pie>
+                <Tooltip formatter={(v, n) => [v, n]} />
+                <Legend iconSize={8} wrapperStyle={{ fontSize: 10 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+
+      {/* Leads by Source chart */}
+      {leadsBySource.length > 0 && (
+        <div className="bg-white rounded-lg border border-slate-100 shadow-sm p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart2 className="w-4 h-4 text-[#0D2137]" />
+            <h3 className="text-sm font-bold text-[#0D2137]">الليدات حسب المصدر</h3>
+          </div>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={leadsBySource} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+              <Tooltip />
+              <Bar dataKey="value" name="عدد الليدات" radius={[4, 4, 0, 0]}>
+                {leadsBySource.map((entry, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* ── Section 1: Campaign Performance ── */}
       <SectionCard
@@ -358,7 +643,6 @@ export default function ReportsPage() {
           <p className="text-center text-sm text-slate-400 py-8">لا توجد ليدات من Meta في هذه الفترة</p>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Table */}
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -388,7 +672,6 @@ export default function ReportsPage() {
               </table>
             </div>
 
-            {/* Bar chart */}
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={campaignRows} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
@@ -410,19 +693,13 @@ export default function ReportsPage() {
         subtitle="Sales Targets"
         icon={<Target className="w-5 h-5" />}
       >
-        {/* Admin: Create Target Form */}
         {isAdmin && (
           <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
             <h3 className="text-sm font-bold text-[#0D2137] mb-4">إضافة هدف جديد</h3>
             <Form form={targetForm} layout="inline" onFinish={handleCreateTarget} className="flex flex-wrap gap-2">
               <Form.Item name="user_id" rules={[{ required: true, message: 'اختر مستخدم' }]} className="mb-2">
-                <Select
-                  placeholder="المستخدم"
-                  showSearch
-                  optionFilterProp="label"
-                  style={{ width: 160 }}
-                  options={profiles.map(p => ({ value: p.id, label: p.name }))}
-                />
+                <Select placeholder="المستخدم" showSearch optionFilterProp="label" style={{ width: 160 }}
+                  options={profiles.map(p => ({ value: p.id, label: p.name }))} />
               </Form.Item>
               <Form.Item name="target_type" rules={[{ required: true }]} className="mb-2">
                 <Select placeholder="نوع الهدف" style={{ width: 140 }} options={[
@@ -437,12 +714,8 @@ export default function ReportsPage() {
                 <RangePicker size="middle" />
               </Form.Item>
               <Form.Item className="mb-2">
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={savingTarget}
-                  style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}
-                >
+                <Button type="primary" htmlType="submit" loading={savingTarget}
+                  style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}>
                   حفظ الهدف
                 </Button>
               </Form.Item>
@@ -450,7 +723,6 @@ export default function ReportsPage() {
           </div>
         )}
 
-        {/* Targets Table */}
         {targets.length === 0 ? (
           <p className="text-center text-sm text-slate-400 py-6">لا توجد أهداف مسجلة لهذا الشهر</p>
         ) : (
@@ -469,29 +741,21 @@ export default function ReportsPage() {
               <tbody>
                 {targets.map(t => (
                   <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                    <td className="py-2.5 pr-2 font-semibold text-[#0D2137]">
-                      {t.profile?.name || '—'}
-                    </td>
+                    <td className="py-2.5 pr-2 font-semibold text-[#0D2137]">{t.profile?.name || '—'}</td>
                     <td className="text-center py-2.5">
                       <Tag color={t.target_type === 'leads' ? 'blue' : 'green'}>
                         {t.target_type === 'leads' ? 'ليدات' : 'إيراد'}
                       </Tag>
                     </td>
                     <td className="text-center py-2.5 font-bold text-[#0D2137]">
-                      {t.target_type === 'leads'
-                        ? t.target_value
-                        : `${Number(t.target_value).toLocaleString()} EGP`}
+                      {t.target_type === 'leads' ? t.target_value : `${Number(t.target_value).toLocaleString()} EGP`}
                     </td>
                     <td className="text-center py-2.5 text-slate-500 text-xs">{t.period_start}</td>
                     <td className="text-center py-2.5 text-slate-500 text-xs">{t.period_end}</td>
                     {isAdmin && (
                       <td className="text-center py-2.5">
-                        <button
-                          onClick={() => handleDeleteTarget(t.id)}
-                          className="text-xs text-red-500 hover:text-red-700 font-medium"
-                        >
-                          حذف
-                        </button>
+                        <button onClick={() => handleDeleteTarget(t.id)}
+                          className="text-xs text-red-500 hover:text-red-700 font-medium">حذف</button>
                       </td>
                     )}
                   </tr>
@@ -502,7 +766,7 @@ export default function ReportsPage() {
         )}
       </SectionCard>
 
-      {/* ── Section 3: Target Progress Dashboard ── */}
+      {/* ── Section 3: Target Progress ── */}
       <SectionCard
         title="لوحة التقدم نحو الأهداف"
         subtitle="Target Progress Dashboard — هذا الشهر"
@@ -517,9 +781,7 @@ export default function ReportsPage() {
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-semibold text-[#0D2137]">{u.name}</span>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-slate-500">
-                      {u.actualLeads} / {u.leadsTarget ?? '—'} ليد
-                    </span>
+                    <span className="text-xs text-slate-500">{u.actualLeads} / {u.leadsTarget ?? '—'} ليد</span>
                     <span className={`text-xs font-bold ${progressTextColor(u.progress)}`}>
                       {u.leadsTarget ? `${Math.min(u.progress, 100)}%` : '—'}
                     </span>
@@ -527,10 +789,8 @@ export default function ReportsPage() {
                 </div>
                 <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
                   {u.leadsTarget ? (
-                    <div
-                      className={`h-3 rounded-full transition-all duration-700 ${progressColor(u.progress)}`}
-                      style={{ width: `${Math.min(u.progress, 100)}%` }}
-                    />
+                    <div className={`h-3 rounded-full transition-all duration-700 ${progressColor(u.progress)}`}
+                      style={{ width: `${Math.min(u.progress, 100)}%` }} />
                   ) : (
                     <div className="h-3 bg-slate-200 rounded-full w-full" />
                   )}
@@ -580,28 +840,22 @@ export default function ReportsPage() {
                       <td className="py-3 pr-2 font-semibold text-[#0D2137]">{u.name}</td>
                       <td className="text-center py-3">
                         <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                          {u.done}
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />{u.done}
                         </span>
                       </td>
                       <td className="text-center py-3">
                         <span className="inline-flex items-center gap-1 text-amber-600 font-bold">
-                          <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
-                          {u.pending}
+                          <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />{u.pending}
                         </span>
                       </td>
                       <td className="text-center py-3 font-bold text-[#0D2137]">{u.total}</td>
                       <td className="text-center py-3 pl-2">
                         <div className="flex items-center justify-center gap-2">
                           <div className="w-24 bg-slate-100 rounded-full h-2 overflow-hidden">
-                            <div
-                              className={`h-2 rounded-full transition-all duration-700 ${progressColor(pct)}`}
-                              style={{ width: `${pct}%` }}
-                            />
+                            <div className={`h-2 rounded-full transition-all duration-700 ${progressColor(pct)}`}
+                              style={{ width: `${pct}%` }} />
                           </div>
-                          <span className={`text-xs font-bold w-10 text-right ${progressTextColor(pct)}`}>
-                            {pct}%
-                          </span>
+                          <span className={`text-xs font-bold w-10 text-right ${progressTextColor(pct)}`}>{pct}%</span>
                         </div>
                       </td>
                     </tr>
@@ -611,15 +865,9 @@ export default function ReportsPage() {
               <tfoot>
                 <tr className="border-t-2 border-slate-200 bg-slate-50">
                   <td className="py-2.5 pr-2 text-xs font-bold text-slate-500">الإجمالي</td>
-                  <td className="text-center py-2.5 font-bold text-emerald-700">
-                    {userTaskStats.reduce((s, u) => s + u.done, 0)}
-                  </td>
-                  <td className="text-center py-2.5 font-bold text-amber-600">
-                    {userTaskStats.reduce((s, u) => s + u.pending, 0)}
-                  </td>
-                  <td className="text-center py-2.5 font-bold text-[#0D2137]">
-                    {userTaskStats.reduce((s, u) => s + u.total, 0)}
-                  </td>
+                  <td className="text-center py-2.5 font-bold text-emerald-700">{userTaskStats.reduce((s, u) => s + u.done, 0)}</td>
+                  <td className="text-center py-2.5 font-bold text-amber-600">{userTaskStats.reduce((s, u) => s + u.pending, 0)}</td>
+                  <td className="text-center py-2.5 font-bold text-[#0D2137]">{userTaskStats.reduce((s, u) => s + u.total, 0)}</td>
                   <td />
                 </tr>
               </tfoot>
@@ -628,34 +876,34 @@ export default function ReportsPage() {
         )}
       </SectionCard>
 
-      {/* ── Section 5: Export ── */}
+      {/* ── Section 5: Full Export ── */}
       <SectionCard
-        title="تصدير التقرير"
-        subtitle="Export Report as CSV"
+        title="تصدير التقرير الشامل"
+        subtitle="Export Full Report as CSV"
         icon={<Download className="w-5 h-5" />}
       >
-        <p className="text-sm text-slate-600 mb-4">
-          تصدير بيانات الليدات من Meta مع بيانات الأهداف الشهرية كملف CSV.
+        <p className="text-sm text-slate-600 mb-2">
+          تصدير شامل يتضمن: كل الليدات (CRM) · ما بعد البيع · عروض الأسعار (BOQ) · تفاصيل مهام كل موظف
         </p>
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#0D2137] text-white rounded-lg text-sm font-semibold hover:bg-[#1a3a5c] transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            تحميل CSV
-          </button>
-          <div className="text-xs text-slate-400 flex items-center">
-            {metaLeads.length} ليد من Meta · {targets.length} هدف مسجل
-          </div>
-        </div>
+        <p className="text-xs text-slate-400 mb-4">الملف مقسّم بأقسام واضحة بحيث يمكن فتحه في Excel أو Google Sheets.</p>
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="flex items-center gap-2 px-5 py-2.5 bg-[#D72B2B] text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-60"
+        >
+          {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+          {exporting ? 'جاري التصدير...' : 'تحميل التقرير الشامل CSV'}
+        </button>
       </SectionCard>
-
-      {/* Migration notice */}
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-        <p className="font-bold mb-1">⚠️ تذكير: تشغيل Migration</p>
-        <p>إذا لم تشغّل ملف <code className="bg-amber-100 px-1 rounded">20260419_reports.sql</code> بعد، قم بتشغيله في Supabase SQL Editor لإنشاء جدول الأهداف وإضافة عمود form_id للليدات.</p>
-      </div>
     </div>
+          ),
+        },
+        {
+          key: 'daily',
+          label: '📊 النشاط اليومي',
+          children: <DailyReport />,
+        },
+      ]}
+    />
   );
 }
