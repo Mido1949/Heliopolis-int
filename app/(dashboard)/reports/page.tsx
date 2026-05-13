@@ -167,6 +167,17 @@ export default function ReportsPage() {
   const { currentOrgId } = useOrg();
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [exportRange, setExportRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
+    dayjs().startOf('month'), dayjs(),
+  ]);
+  const [exportPreset, setExportPreset] = useState<'today' | 'week' | 'month' | 'custom'>('month');
+
+  const applyExportPreset = (preset: 'today' | 'week' | 'month') => {
+    setExportPreset(preset);
+    if (preset === 'today') setExportRange([dayjs().startOf('day'), dayjs().endOf('day')]);
+    else if (preset === 'week') setExportRange([dayjs().startOf('week'), dayjs().endOf('week')]);
+    else setExportRange([dayjs().startOf('month'), dayjs().endOf('month')]);
+  };
 
   // Global date range filter
   const [globalRange, setGlobalRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
@@ -403,6 +414,9 @@ export default function ReportsPage() {
   const handleExport = async () => {
     setExporting(true);
     try {
+      const expStart = exportRange[0].startOf('day').toISOString();
+      const expEnd = exportRange[1].endOf('day').toISOString();
+
       const [
         { data: allLeads },
         { data: afterSales },
@@ -410,11 +424,11 @@ export default function ReportsPage() {
         { data: allProfiles },
         { data: allTasks },
       ] = await Promise.all([
-        supabase.from('leads').select('id, name, phone, company, email, source, status, client_type, region, notes, created_at, assigned_to_user').order('created_at', { ascending: false }),
-        supabase.from('after_sales_service').select('*').order('created_at', { ascending: false }),
-        supabase.from('boqs').select('*, profile:created_by(name)').order('created_at', { ascending: false }),
+        supabase.from('leads').select('id, name, phone, company, email, source, status, client_type, region, notes, created_at, assigned_to_user').gte('created_at', expStart).lte('created_at', expEnd).order('created_at', { ascending: false }),
+        supabase.from('after_sales_service').select('*').gte('created_at', expStart).lte('created_at', expEnd).order('created_at', { ascending: false }),
+        supabase.from('boqs').select('*, profile:created_by(name)').gte('created_at', expStart).lte('created_at', expEnd).order('created_at', { ascending: false }),
         supabase.from('profiles').select('id, name, role'),
-        supabase.from('tasks').select('assigned_to, status, title, due_date, priority, created_at'),
+        supabase.from('tasks').select('assigned_to, status, title, due_date, priority, created_at').gte('created_at', expStart).lte('created_at', expEnd),
       ]);
 
       const profileMap = new Map(((allProfiles || []) as { id: string; name: string }[]).map(p => [p.id, p.name]));
@@ -521,7 +535,7 @@ export default function ReportsPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `heliomax-report-${globalRange[0].format('YYYY-MM-DD')}_${globalRange[1].format('YYYY-MM-DD')}.csv`;
+      a.download = `heliomax-report-${exportRange[0].format('YYYY-MM-DD')}_${exportRange[1].format('YYYY-MM-DD')}.csv`;
       a.click();
       URL.revokeObjectURL(url);
       message.success('تم تصدير التقرير الشامل بنجاح');
@@ -953,10 +967,47 @@ export default function ReportsPage() {
         subtitle="Export Full Report as CSV"
         icon={<Download className="w-5 h-5" />}
       >
-        <p className="text-sm text-slate-600 mb-2">
+        <p className="text-sm text-slate-600 mb-4">
           تصدير شامل يتضمن: كل الليدات (CRM) · ما بعد البيع · عروض الأسعار (BOQ) · تفاصيل مهام كل موظف
         </p>
-        <p className="text-xs text-slate-400 mb-4">الملف مقسّم بأقسام واضحة بحيث يمكن فتحه في Excel أو Google Sheets.</p>
+
+        {/* Export date filter */}
+        <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 mb-4">
+          <p className="text-xs font-bold text-slate-500 mb-3">اختر الفترة للتصدير:</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {([
+              { key: 'today', label: 'اليوم' },
+              { key: 'week', label: 'هذا الأسبوع' },
+              { key: 'month', label: 'هذا الشهر' },
+            ] as const).map(p => (
+              <button
+                key={p.key}
+                onClick={() => applyExportPreset(p.key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  exportPreset === p.key
+                    ? 'bg-[#0D2137] text-white'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+            <RangePicker
+              value={exportRange}
+              onChange={(v) => {
+                if (v?.[0] && v?.[1]) {
+                  setExportRange([v[0], v[1]]);
+                  setExportPreset('custom');
+                }
+              }}
+              size="small"
+            />
+            <span className="text-xs text-slate-400 mr-1">
+              {exportRange[0].format('DD/MM/YYYY')} — {exportRange[1].format('DD/MM/YYYY')}
+            </span>
+          </div>
+        </div>
+
         <button
           onClick={handleExport}
           disabled={exporting}
