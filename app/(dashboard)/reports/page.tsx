@@ -11,7 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Legend,
 } from 'recharts';
-import { Download, Loader2, Target, TrendingUp, BarChart2, CheckSquare, Users, Wrench, FileText } from 'lucide-react';
+import { Download, Loader2, Target, TrendingUp, BarChart2, CheckSquare, Users, Wrench, FileText, Calendar } from 'lucide-react';
 import dayjs from 'dayjs';
 import type { Profile } from '@/types';
 
@@ -168,6 +168,19 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 
+  // Global date range filter
+  const [globalRange, setGlobalRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
+    dayjs().startOf('month'), dayjs(),
+  ]);
+  const [activePreset, setActivePreset] = useState<'today' | 'week' | 'month' | 'custom'>('month');
+
+  const applyPreset = (preset: 'today' | 'week' | 'month') => {
+    setActivePreset(preset);
+    if (preset === 'today') setGlobalRange([dayjs().startOf('day'), dayjs().endOf('day')]);
+    else if (preset === 'week') setGlobalRange([dayjs().startOf('week'), dayjs().endOf('week')]);
+    else setGlobalRange([dayjs().startOf('month'), dayjs().endOf('month')]);
+  };
+
   // Section 1 state
   const [metaLeads, setMetaLeads] = useState<MetaLead[]>([]);
   const [campaignRange, setCampaignRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
@@ -196,9 +209,10 @@ export default function ReportsPage() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+    const rangeStart = globalRange[0].startOf('day').toISOString();
+    const rangeEnd = globalRange[1].endOf('day').toISOString();
+    const rangeStartDate = globalRange[0].format('YYYY-MM-DD');
+    const rangeEndDate = globalRange[1].format('YYYY-MM-DD');
 
     const [
       { data: profilesData },
@@ -220,19 +234,35 @@ export default function ReportsPage() {
       supabase
         .from('sales_targets')
         .select('*, profile:user_id(name)')
-        .gte('period_start', monthStart.slice(0, 10))
-        .lte('period_end', monthEnd.slice(0, 10))
+        .gte('period_start', rangeStartDate)
+        .lte('period_end', rangeEndDate)
         .order('created_at', { ascending: false }),
       supabase
         .from('leads')
         .select('assigned_to_user')
-        .gte('created_at', monthStart)
-        .lte('created_at', monthEnd)
+        .gte('created_at', rangeStart)
+        .lte('created_at', rangeEnd)
         .not('assigned_to_user', 'is', null),
-      supabase.from('tasks').select('assigned_to, status'),
-      supabase.from('leads').select('status, source'),
-      supabase.from('boqs').select('status'),
-      supabase.from('after_sales_service').select('status'),
+      supabase
+        .from('tasks')
+        .select('assigned_to, status')
+        .gte('created_at', rangeStart)
+        .lte('created_at', rangeEnd),
+      supabase
+        .from('leads')
+        .select('status, source')
+        .gte('created_at', rangeStart)
+        .lte('created_at', rangeEnd),
+      supabase
+        .from('boqs')
+        .select('status')
+        .gte('created_at', rangeStart)
+        .lte('created_at', rangeEnd),
+      supabase
+        .from('after_sales_service')
+        .select('status')
+        .gte('created_at', rangeStart)
+        .lte('created_at', rangeEnd),
     ]);
 
     const allProfiles = (profilesData as Profile[]) || [];
@@ -315,7 +345,7 @@ export default function ReportsPage() {
     })));
 
     setLoading(false);
-  }, [supabase, campaignRange]);
+  }, [supabase, campaignRange, globalRange]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -491,7 +521,7 @@ export default function ReportsPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `heliomax-full-report-${dayjs().format('YYYY-MM-DD')}.csv`;
+      a.download = `heliomax-report-${globalRange[0].format('YYYY-MM-DD')}_${globalRange[1].format('YYYY-MM-DD')}.csv`;
       a.click();
       URL.revokeObjectURL(url);
       message.success('تم تصدير التقرير الشامل بنجاح');
@@ -532,6 +562,47 @@ export default function ReportsPage() {
             التقارير والأهداف <span className="block md:inline mt-1 md:mt-0 font-arabic text-xl opacity-80">Reports & Targets</span>
           </h1>
           <p className="text-slate-300 mt-2 text-sm">أداء الحملات، الأهداف الشهرية، ونسب التحويل</p>
+        </div>
+      </div>
+
+      {/* ── Global Date Filter ── */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 text-[#0D2137]">
+          <Calendar className="w-4 h-4" />
+          <span className="text-sm font-bold">الفترة الزمنية:</span>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {([
+            { key: 'today', label: 'اليوم' },
+            { key: 'week', label: 'هذا الأسبوع' },
+            { key: 'month', label: 'هذا الشهر' },
+          ] as const).map(p => (
+            <button
+              key={p.key}
+              onClick={() => applyPreset(p.key)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                activePreset === p.key
+                  ? 'bg-[#D72B2B] text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+          <RangePicker
+            value={globalRange}
+            onChange={(v) => {
+              if (v?.[0] && v?.[1]) {
+                setGlobalRange([v[0], v[1]]);
+                setActivePreset('custom');
+              }
+            }}
+            size="small"
+            className="text-xs"
+          />
+        </div>
+        <div className="mr-auto text-xs text-slate-400">
+          {globalRange[0].format('DD/MM/YYYY')} — {globalRange[1].format('DD/MM/YYYY')}
         </div>
       </div>
 
