@@ -41,6 +41,7 @@ export interface Lead {
   phone: string;
   company?: string;
   email?: string;
+  org_id?: string;
   source: LeadSource;
   status: LeadStatus;
   assigned_to?: string;

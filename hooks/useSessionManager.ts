@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
-export function useSessionManager(userId: string | null) {
+export function useSessionManager(userId: string | null, orgId: string | null = null) {
   const router = useRouter();
   const supabase = createClient();
   const logIdRef = useRef<string | null>(null);
@@ -14,7 +14,7 @@ export function useSessionManager(userId: string | null) {
 
   // ── Session timer ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !orgId) return;
 
     let logId: string | null = null;
 
@@ -23,6 +23,7 @@ export function useSessionManager(userId: string | null) {
         .from('time_logs')
         .insert({
           user_id: userId,
+          org_id: orgId,
           task_type: 'Other',
           description: 'Auto Session',
           duration_seconds: 0,

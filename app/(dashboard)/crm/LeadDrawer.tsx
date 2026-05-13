@@ -127,7 +127,7 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
       type: values.type,
       body: values.body,
       duration_seconds: values.type === 'call' ? (values.duration_seconds ?? null) : null,
-      org_id: currentOrgId,
+      org_id: lead.org_id ?? currentOrgId,
     });
     if (error) {
       message.error('فشل إضافة النشاط');
@@ -181,34 +181,38 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
   }) => {
     if (!lead || !user) return;
 
+    const orgId = lead.org_id ?? currentOrgId;
+
     try {
       const { error } = await supabase
         .from('call_logs')
         .insert({
           lead_id: lead.id,
           created_by: user.id,
-          org_id: currentOrgId,
+          org_id: orgId,
           ...values
         });
 
       if (error) throw error;
 
-      // Auto-log call to lead_activities
+      message.success('تم تسجيل المكالمة بنجاح');
+      form.resetFields();
+      setIsLoggingCall(false);
+      fetchCalls();
+
+      // Non-blocking activity log — doesn't affect call success
       const durationSec = (values.duration_minutes ?? 0) * 60;
-      await supabase.from('lead_activities').insert({
+      supabase.from('lead_activities').insert({
         lead_id: lead.id,
         user_id: user.id,
         type: 'call',
         body: `${values.outcome} — ${durationSec}ث`,
         duration_seconds: durationSec || null,
-        org_id: currentOrgId,
+        org_id: orgId,
+      }).then(({ error: actErr }) => {
+        if (actErr) console.error('lead_activities log failed:', actErr.message);
+        else fetchActivities();
       });
-
-      message.success('تم تسجيل المكالمة بنجاح');
-      form.resetFields();
-      setIsLoggingCall(false);
-      fetchCalls();
-      fetchActivities();
     } catch (err) {
       console.error('Error logging call:', err);
       message.error('فشل تسجيل المكالمة');
@@ -266,6 +270,8 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
         .eq('id', lead.id);
       if (updateError) throw updateError;
 
+      const orgId = lead.org_id ?? currentOrgId;
+
       // Auto-log assignment to lead_activities
       const assignedName = teamUsers.find(u => u.id === assignUser)?.name ?? assignUser;
       await supabase.from('lead_activities').insert({
@@ -273,7 +279,7 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
         user_id: user?.id,
         type: 'assignment',
         body: `تم التعيين لـ: ${assignedName}`,
-        org_id: currentOrgId,
+        org_id: orgId,
       });
 
       console.log('[handleAssign] inserting notification for assignUser:', assignUser, 'lead:', lead.id);
@@ -285,7 +291,7 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
           type: 'lead_assigned',
           reference_id: lead.id,
           reference_type: 'lead',
-          org_id: currentOrgId,
+          org_id: orgId,
         });
       if (notifError) {
         console.error('[handleAssign] notification insert FAILED:', notifError.code, notifError.message, notifError.details, notifError.hint);

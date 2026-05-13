@@ -7,6 +7,7 @@ import LookAgent from '@/components/agent/LookAgent';
 import NavigationLoader from './NavigationLoader';
 import { useAuth } from '@/context/AuthContext';
 import { useSessionManager } from '@/hooks/useSessionManager';
+import { useOrg } from '@/context/OrgContext';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useLanguage } from '@/context/LanguageContext';
@@ -20,10 +21,11 @@ export default function Shell({ children }: ShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { lang, toggleLanguage } = useLanguage();
   const { profile, user } = useAuth();
+  const { currentOrgId } = useOrg();
   const router = useRouter();
   const supabase = createClient();
 
-  useSessionManager(user?.id ?? null);
+  useSessionManager(user?.id ?? null, currentOrgId);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
