@@ -9,8 +9,13 @@ import { BOQItem, Lead } from "@/types";
 interface PDFDownloadButtonProps {
   items: BOQItem[];
   subtotal: number;
-  discountPercent: number;
+  yBranchQty?: number;
+  yBranchUnitPrice?: number;
+  yBranchTotal?: number;
   grandTotal: number;
+  discountPercent: number;
+  discountAmount?: number;
+  discountedTotal?: number;
   dateCreated?: string;
   boqNumber?: string;
   boqSerial?: number;

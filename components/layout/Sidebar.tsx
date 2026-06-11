@@ -48,7 +48,7 @@ const NAV_MODULE_MAP: Record<string, string | null> = {
   hub:          'company_hub',
   crm:          'crm',
   'crm-ksa':    'crm',
-  boq:          'boq_builder',
+  boq:          null,
   email:        'email_campaigns',
   inventory:    'inventory',
   scraper:      'maps_scraper',
@@ -75,7 +75,7 @@ export default function Sidebar({ collapsed, onCollapse, lang, profile, mobileMe
 
   const primaryColor = org?.brand_colors?.primary ?? '#D72B2B';
   const logoUrl = org?.logo_url || '/logo.png';
-  const orgName = org?.name ?? 'Loomark';
+  const orgName = org?.name ?? 'HelioMax';
 
   const enabledModuleNames = new Set(orgModules.map(m => m.module.name));
 

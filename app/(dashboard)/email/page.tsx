@@ -229,7 +229,7 @@ export default function EmailPage() {
           rowKey="id" 
           loading={loading}
           scroll={{ x: 1000 }}
-          className="loomark-table"
+          className="heliomax-table"
           pagination={{ 
             pageSize: 10,
             showTotal: (total) => `إجمالي ${total} حملة`,

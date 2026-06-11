@@ -10,13 +10,13 @@ import {
   MoreOutlined, FilterOutlined,
   EyeOutlined, EditOutlined, DeleteOutlined,
   TableOutlined, AppstoreOutlined, FileTextOutlined,
-  PhoneOutlined, ImportOutlined,
+  PhoneOutlined, ImportOutlined, UserOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { LEAD_STATUSES, LEAD_SOURCES } from '@/lib/constants';
+import { LEAD_STATUSES, LEAD_SOURCES, PIPELINE_STAGES } from '@/lib/constants';
 import { formatDate, getWhatsAppUrl } from '@/lib/utils';
 import type { Lead } from '@/types';
 import LeadDrawer from './LeadDrawer';
@@ -42,6 +42,7 @@ export default function CRMPage() {
   // Filters
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
+  const [pipelineFilter, setPipelineFilter] = useState<string | undefined>();
   const [sourceFilter] = useState<string | undefined>();
 
   // Drawer & Modal
@@ -90,20 +91,28 @@ export default function CRMPage() {
     try {
       let query = supabase
         .from('leads')
-        .select('*, assigned_user:profiles!leads_assigned_to_user_fkey(id, name)', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range((p - 1) * pageSize, p * pageSize - 1);
+        .select('*, assigned_user:profiles!leads_assigned_to_user_fkey(id, name)', { count: 'exact' });
 
       if (search) {
         query = query.or(`name.ilike.%${search}%,company.ilike.%${search}%,phone.ilike.%${search}%`);
       }
       if (statusFilter) query = query.eq('status', statusFilter);
+      if (pipelineFilter) query = query.eq('pipeline_stage', pipelineFilter);
       if (sourceFilter) query = query.eq('source', sourceFilter);
 
       // Team leaders, managers and admins see all org leads; regular staff see only their own
       if (!isAdmin && !isManager && !isTeamLeader && user) {
         query = query.eq('assigned_to_user', user.id);
       }
+
+      // Order by pipeline_stage for kanban/grouping, else by updated_at
+      if (pipelineFilter || viewType === 'kanban') {
+        query = query.order('pipeline_stage', { ascending: true }).order('updated_at', { ascending: false });
+      } else {
+        query = query.order('updated_at', { ascending: false });
+      }
+
+      query = query.range((p - 1) * pageSize, p * pageSize - 1);
 
       const { data, count, error } = await query;
       if (error) throw error;
@@ -299,6 +308,11 @@ export default function CRMPage() {
         </Col>
         <Col>
           <Space>
+            <Link href="/crm/my-crm">
+              <Button icon={<UserOutlined />}>
+                عملائي (My CRM)
+              </Button>
+            </Link>
             <Button
               icon={<ImportOutlined />}
               onClick={() => setImportModalOpen(true)}
@@ -390,12 +404,22 @@ export default function CRMPage() {
               </Col>
               <Col xs={12} md={7}>
                 <Select
-                  placeholder="الحالة (Status)"
+                  placeholder="الحالة القديمة (Status)"
                   value={statusFilter}
                   onChange={(v) => { setStatusFilter(v); setPage(1); setTimeout(() => fetchLeads(1), 0); }}
                   allowClear
                   className="w-full"
                   options={LEAD_STATUSES.map((s) => ({ value: s.value, label: `${s.labelAr} (${s.value})` }))}
+                />
+              </Col>
+              <Col xs={12} md={7}>
+                <Select
+                  placeholder="مرحلة القمع (Pipeline Stage)"
+                  value={pipelineFilter}
+                  onChange={(v) => { setPipelineFilter(v); setPage(1); setTimeout(() => fetchLeads(1), 0); }}
+                  allowClear
+                  className="w-full"
+                  options={PIPELINE_STAGES.map((s) => ({ value: s.value, label: s.labelAr }))}
                 />
               </Col>
               <Col xs={12} md={7}>

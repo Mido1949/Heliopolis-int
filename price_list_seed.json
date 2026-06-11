@@ -1,0 +1,578 @@
+[
+  {
+    "model": "GCHV-D22G/HR1-GSB",
+    "capacity_kw": 2.2,
+    "description": "Wall mounted type Indoor, D/C fan motor, 220-240V/1PH/50Hz, with remoted contorller",
+    "price_usd": 462.0
+  },
+  {
+    "model": "GCHV-D28G/HR1-GSB",
+    "capacity_kw": 2.8,
+    "description": "Wall mounted type Indoor, D/C fan motor, 220-240V/1PH/50Hz, with remoted contorller",
+    "price_usd": 465.5
+  },
+  {
+    "model": "GCHV-D36G/HR1-GSB",
+    "capacity_kw": 3.6,
+    "description": "Wall mounted type Indoor, D/C fan motor, 220-240V/1PH/50Hz, with remoted contorller",
+    "price_usd": 469.0
+  },
+  {
+    "model": "GCHV-D45G/HR1-GSC",
+    "capacity_kw": 4.5,
+    "description": "Wall mounted type Indoor, D/C fan motor, 220-240V/1PH/50Hz, with remoted contorller",
+    "price_usd": 514.5
+  },
+  {
+    "model": "GCHV-D56G/HR1-GSC",
+    "capacity_kw": 5.6,
+    "description": "Wall mounted type Indoor, D/C fan motor, 220-240V/1PH/50Hz, with remoted contorller",
+    "price_usd": 518.0
+  },
+  {
+    "model": "GCHV-D71G/HR1-GSC",
+    "capacity_kw": 7,
+    "description": "Wall mounted type Indoor, D/C fan motor, 220-240V/1PH/50Hz, with remoted contorller",
+    "price_usd": 525.0
+  },
+  {
+    "model": "CMV-V22Q4/HR1-C",
+    "capacity_kw": 2.2,
+    "description": "Cassette type Indoor, A/C fan motor, 220-240V/1PH/50Hz, including panel, filter, wireless contorller and built-in drain pump",
+    "price_usd": 777.0
+  },
+  {
+    "model": "CMV-V28Q4/HR1-C",
+    "capacity_kw": 2.8,
+    "description": "Cassette type Indoor, A/C fan motor, 220-240V/1PH/50Hz, including panel, filter, wireless contorller and built-in drain pump",
+    "price_usd": 780.5
+  },
+  {
+    "model": "CMV-V36Q4/HR1-C",
+    "capacity_kw": 3.6,
+    "description": "Cassette type Indoor, A/C fan motor, 220-240V/1PH/50Hz, including panel, filter, wireless contorller and built-in drain pump",
+    "price_usd": 787.5
+  },
+  {
+    "model": "CMV-V45Q4/HR1-C",
+    "capacity_kw": 4.5,
+    "description": "Cassette type Indoor, A/C fan motor, 220-240V/1PH/50Hz, including panel, filter, wireless contorller and built-in drain pump",
+    "price_usd": 791.0
+  },
+  {
+    "model": "CMV-V56QR/HR1",
+    "capacity_kw": 5.6,
+    "description": "Cassette type Indoor, A/C fan motor, 220-240V/1PH/50Hz, including panel, filter, wireless contorller and built-in drain pump",
+    "price_usd": 882.0
+  },
+  {
+    "model": "CMV-V71QR/HR1",
+    "capacity_kw": 7.1,
+    "description": "Cassette type Indoor, A/C fan motor, 220-240V/1PH/50Hz, including panel, filter, wireless contorller and built-in drain pump",
+    "price_usd": 892.5
+  },
+  {
+    "model": "CMV-V80QR/HR1",
+    "capacity_kw": 8,
+    "description": "Cassette type Indoor, A/C fan motor, 220-240V/1PH/50Hz, including panel, filter, wireless contorller and built-in drain pump",
+    "price_usd": 896.0
+  },
+  {
+    "model": "CMV-V90QR/HR1",
+    "capacity_kw": 9,
+    "description": "Cassette type Indoor, A/C fan motor, 220-240V/1PH/50Hz, including panel, filter, wireless contorller and built-in drain pump",
+    "price_usd": 990.5
+  },
+  {
+    "model": "CMV-V100QR/HR1",
+    "capacity_kw": 10,
+    "description": "Cassette type Indoor, A/C fan motor, 220-240V/1PH/50Hz, including panel, filter, wireless contorller and built-in drain pump",
+    "price_usd": 994.0
+  },
+  {
+    "model": "CMV-V112QR/HR1",
+    "capacity_kw": 11.2,
+    "description": "Cassette type Indoor, A/C fan motor, 220-240V/1PH/50Hz, including panel, filter, wireless contorller and built-in drain pump",
+    "price_usd": 997.5
+  },
+  {
+    "model": "CMV-V125QR/HR1",
+    "capacity_kw": 12.5,
+    "description": "Cassette type Indoor, A/C fan motor, 220-240V/1PH/50Hz, including panel, filter, wireless contorller and built-in drain pump",
+    "price_usd": 1001.0
+  },
+  {
+    "model": "CMV-V140QR/HR1",
+    "capacity_kw": 14,
+    "description": "Cassette type Indoor, A/C fan motor, 220-240V/1PH/50Hz, including panel, filter, wireless contorller and built-in drain pump",
+    "price_usd": 1004.5
+  },
+  {
+    "model": "CMV-V160QR/HR1",
+    "capacity_kw": 16,
+    "description": "Cassette type Indoor, A/C fan motor, 220-240V/1PH/50Hz, including panel, filter, wireless contorller and built-in drain pump",
+    "price_usd": 1008.0
+  },
+  {
+    "model": "CMV-V22TA/HR1-C",
+    "capacity_kw": 2.2,
+    "description": "Low ESP Ducted type Indoor, 30PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 486.5
+  },
+  {
+    "model": "CMV-V28TA/HR1-C",
+    "capacity_kw": 2.8,
+    "description": "Low ESP Ducted type Indoor, 30PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 493.5
+  },
+  {
+    "model": "CMV-V36TA/HR1-C",
+    "capacity_kw": 3.6,
+    "description": "Low ESP Ducted type Indoor, 30PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 504.0
+  },
+  {
+    "model": "CMV-V45TA/HR1-C",
+    "capacity_kw": 4.5,
+    "description": "Low ESP Ducted type Indoor, 30PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 507.5
+  },
+  {
+    "model": "CMV-V56TA/HR1-C",
+    "capacity_kw": 5.6,
+    "description": "Low ESP Ducted type Indoor, 30PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 560.0
+  },
+  {
+    "model": "CMV-V71TA/HR1-C",
+    "capacity_kw": 7.1,
+    "description": "Low ESP Ducted type Indoor, 30PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 696.5
+  },
+  {
+    "model": "CMV-V71TB/HR1-B",
+    "capacity_kw": 7.1,
+    "description": "Medium ESP Ducted type Indoor, 50PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 766.5
+  },
+  {
+    "model": "CMV-V80TB/HR1-B",
+    "capacity_kw": 8,
+    "description": "Medium ESP Ducted type Indoor, 50PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 773.5
+  },
+  {
+    "model": "CMV-V90TB/HR1-B",
+    "capacity_kw": 9,
+    "description": "Medium ESP Ducted type Indoor, 50PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 969.5
+  },
+  {
+    "model": "CMV-V100TB/HR1-B",
+    "capacity_kw": 10,
+    "description": "Medium ESP Ducted type Indoor, 50PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 973.0
+  },
+  {
+    "model": "CMV-V120TB/HR1-B",
+    "capacity_kw": 12,
+    "description": "Medium ESP Ducted type Indoor, 50PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 983.5
+  },
+  {
+    "model": "CMV-V150TB/HR1-B",
+    "capacity_kw": 15,
+    "description": "Medium ESP Ducted type Indoor, 50PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 1004.5
+  },
+  {
+    "model": "CMV-V71TH/HR1-B",
+    "capacity_kw": 7.1,
+    "description": "High ESP Ducted type Indoor, 150PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 997.5
+  },
+  {
+    "model": "CMV-V80TH/HR1-B",
+    "capacity_kw": 8,
+    "description": "High ESP Ducted type Indoor, 150PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 1001.0
+  },
+  {
+    "model": "CMV-V90TH/HR1-B",
+    "capacity_kw": 9,
+    "description": "High ESP Ducted type Indoor, 150PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 1004.5
+  },
+  {
+    "model": "CMV-V100TH/HR1-B",
+    "capacity_kw": 10,
+    "description": "High ESP Ducted type Indoor, 150PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 1127.0
+  },
+  {
+    "model": "CMV-V120TH/HR1-B",
+    "capacity_kw": 12,
+    "description": "High ESP Ducted type Indoor, 150PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 1130.5
+  },
+  {
+    "model": "CMV-V150TH/HR1-B",
+    "capacity_kw": 15,
+    "description": "High ESP Ducted type Indoor, 150PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 1134.0
+  },
+  {
+    "model": "CMV-V200TH/HR1-B",
+    "capacity_kw": 20,
+    "description": "High ESP Ducted type Indoor, 150PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 2100.0
+  },
+  {
+    "model": "CMV-V250TH/HR1-B",
+    "capacity_kw": 25,
+    "description": "High ESP Ducted type Indoor, 150PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 2107.0
+  },
+  {
+    "model": "CMV-V280TH/HR1-B",
+    "capacity_kw": 28,
+    "description": "High ESP Ducted type Indoor, 150PA, A/C fan motor, 220-240V/1PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 2121.0
+  },
+  {
+    "model": "CMV-V450TH/HZR1",
+    "capacity_kw": 45,
+    "description": "High ESP Ducted type Indoor, 200PA, A/C fan motor, 380-415V/3PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 4403.0
+  },
+  {
+    "model": "CMV-V560TH/HZR1",
+    "capacity_kw": 56,
+    "description": "High ESP Ducted type Indoor, 200PA, A/C fan motor, 380-415V/3PH/50Hz, including air filter and wired contorller, without drain pump",
+    "price_usd": 4462.5
+  },
+  {
+    "model": "CMV-V140TF/HR1-B",
+    "capacity_kw": 14,
+    "description": "R410a, 220-240V/1PH/50Hz, with wired controller and filter , ESP=220Pa",
+    "price_usd": 1235.5
+  },
+  {
+    "model": "CMV-V224TF/HR1-B",
+    "capacity_kw": 22.4,
+    "description": "R410a, 220-240V/1PH/50Hz, with wired controller and filter , ESP=220Pa",
+    "price_usd": 2313.5
+  },
+  {
+    "model": "CMV-V280TF/HR1-B",
+    "capacity_kw": 28,
+    "description": "R410a, 220-240V/1PH/50Hz, with wired controller and filter , ESP=220Pa",
+    "price_usd": 2327.5
+  },
+  {
+    "model": "CMV-V450TF/HZR1",
+    "capacity_kw": 45,
+    "description": "R410a, 380-415V/3PH/50Hz, with wired controller and filter , ESP=300Pa",
+    "price_usd": 4945.5
+  },
+  {
+    "model": "CMV-V560TF/HZR1",
+    "capacity_kw": 56,
+    "description": "R410a, 380-415V/3PH/50Hz, with wired controller and filter , ESP=300Pa",
+    "price_usd": 5012.0
+  },
+  {
+    "model": "QR-X02D",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 400m³/h",
+    "price_usd": 696.5
+  },
+  {
+    "model": "QR-X03D",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 500m³/h",
+    "price_usd": 850.5
+  },
+  {
+    "model": "QR-X04D",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 600m³/h",
+    "price_usd": 1130.5
+  },
+  {
+    "model": "QR-X05D",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 800m³/h",
+    "price_usd": 1372.0
+  },
+  {
+    "model": "QR-X06D",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 1000m³/h",
+    "price_usd": 1543.5
+  },
+  {
+    "model": "QR-X08D",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 1300m³/h",
+    "price_usd": 1911.0
+  },
+  {
+    "model": "QR-X10D",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 1500m³/h",
+    "price_usd": 2446.5
+  },
+  {
+    "model": "QR-X13D",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 2000m³/h",
+    "price_usd": 2842.0
+  },
+  {
+    "model": "QR-X15DS",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 2500m³/h",
+    "price_usd": 3265.5
+  },
+  {
+    "model": "QR-X20DS",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 3000m³/h",
+    "price_usd": 3703.0
+  },
+  {
+    "model": "QR-X25DS",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 4000m³/h",
+    "price_usd": 4056.5
+  },
+  {
+    "model": "QR-X30DS",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 5000m³/h",
+    "price_usd": 4581.5
+  },
+  {
+    "model": "QR-X40DS",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 6000m³/h",
+    "price_usd": 5715.5
+  },
+  {
+    "model": "QR-X50DS",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 7000m³/h",
+    "price_usd": 6856.5
+  },
+  {
+    "model": "QR-X60WS",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 8000m³/h",
+    "price_usd": 9152.5
+  },
+  {
+    "model": "QR-X70WS",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 9000m³/h",
+    "price_usd": 10300.5
+  },
+  {
+    "model": "QR-X80WS",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 10000m³/h",
+    "price_usd": 10514.0
+  },
+  {
+    "model": "QR-X90WS",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 1500m3/h",
+    "price_usd": 12113.5
+  },
+  {
+    "model": "QR-X100WS",
+    "capacity_kw": "/",
+    "description": "Heat Recovery Ventilator, 2000m3/h",
+    "price_usd": 12176.5
+  },
+  {
+    "model": "CHV-DH080W/R1",
+    "capacity_kw": 8,
+    "description": "Mini VRF outdoor unit 8kW, R410a, 220- 240V/1phase",
+    "price_usd": 1771.0
+  },
+  {
+    "model": "CHV-DH100W/R1",
+    "capacity_kw": 10,
+    "description": "Mini VRF outdoor unit 10kW, R410a, 220- 240V/1phase",
+    "price_usd": 2114.0
+  },
+  {
+    "model": "GCHV-D125W/HR1-D01",
+    "capacity_kw": 12.5,
+    "description": "Mini VRF outdoor unit 14.0kW, R410a, 220- 240V/1phase",
+    "price_usd": 2485.0
+  },
+  {
+    "model": "GCHV-D140W/HR1-F01",
+    "capacity_kw": 14,
+    "description": "Mini VRF outdoor unit 16.0kW, R410a, 220- 240V/1phase",
+    "price_usd": 2821.0
+  },
+  {
+    "model": "GCHV-D160W/HR1-F01",
+    "capacity_kw": 16,
+    "description": "Mini VRF outdoor unit 12.5kW, R410a, 220- 240V/1phase",
+    "price_usd": 2908.5
+  },
+  {
+    "model": "GCHV-D125W/HZR1-D01",
+    "capacity_kw": 12.5,
+    "description": "Mini VRF outdoor unit 12.5kW, R410a, 380- 415V/3phase",
+    "price_usd": 2565.5
+  },
+  {
+    "model": "GCHV-D140W/HZR1-F01",
+    "capacity_kw": 14,
+    "description": "Mini VRF outdoor unit 14.0kW, R410a, 380- 415V/3phase",
+    "price_usd": 2863.0
+  },
+  {
+    "model": "GCHV-D160W/HZR1-F01",
+    "capacity_kw": 16,
+    "description": "Mini VRF outdoor unit 16.0kW, R410a, 380- 415V/3phase",
+    "price_usd": 2961.0
+  },
+  {
+    "model": "GCHV-D125W/HZR1-050D",
+    "capacity_kw": 12.5,
+    "description": "Mini VRF outdoor unit 12.5kW, R410a, 380- 415V/3phase",
+    "price_usd": 2821.0
+  },
+  {
+    "model": "GCHV-D140W/HZR1-050D",
+    "capacity_kw": 14,
+    "description": "Mini VRF outdoor unit 14.0kW, R410a, 380- 415V/3phase",
+    "price_usd": 2828.0
+  },
+  {
+    "model": "GCHV-D160W/HZR1-050D",
+    "capacity_kw": 16,
+    "description": "Mini VRF outdoor unit 16.0kW, R410a, 380- 415V/3phase",
+    "price_usd": 2933.0
+  },
+  {
+    "model": "GCHV-D180W/HZR1-050D",
+    "capacity_kw": 18,
+    "description": "Mini VRF outdoor unit 18.0kW, R410a, 380- 415V/3phase",
+    "price_usd": 3255.0
+  },
+  {
+    "model": "GCHV-D200W/HZR1-080",
+    "capacity_kw": 20,
+    "description": "Mini VRF outdoor unit 20.0kW, R410a, 380- 415V/3phase",
+    "price_usd": 3661.0
+  },
+  {
+    "model": "GCHV-D224W/HZR1-080",
+    "capacity_kw": 22.4,
+    "description": "Mini VRF outdoor unit 22.4kW, R410a, 380- 415V/3phase",
+    "price_usd": 3755.5
+  },
+  {
+    "model": "GCHV-D260W/HZR1-100",
+    "capacity_kw": 26,
+    "description": "Mini VRF outdoor unit 26.0kW, R410a, 380- 415V/3phase",
+    "price_usd": 4231.5
+  },
+  {
+    "model": "GCHV-D280W/HZR1-100",
+    "capacity_kw": 28,
+    "description": "Mini VRF outdoor unit 28.0kW, R410a, 380- 415V/3phase",
+    "price_usd": 4851.0
+  },
+  {
+    "model": "GCHV-D335W/HZR1-100",
+    "capacity_kw": 33.5,
+    "description": "Mini VRF outdoor unit 33.5kW, R410a, 380- 415V/3phase",
+    "price_usd": 4893.0
+  },
+  {
+    "model": "GCHV-E252W/HZR1-DK01",
+    "capacity_kw": 25.2,
+    "description": "Full DC, EVI, VRF Modular Outdoor Unit 25.2kW, 380-415V/3phase",
+    "price_usd": 7574.0
+  },
+  {
+    "model": "GCHV-E280W/HZR1-DK01",
+    "capacity_kw": 28,
+    "description": "Full DC, EVI, VRF Modular Outdoor Unit 28.0kW, 380-415V/3phase",
+    "price_usd": 7644.0
+  },
+  {
+    "model": "GCHV-E335W/HZR1-DK01",
+    "capacity_kw": 33.5,
+    "description": "Full DC, EVI, VRF Modular Outdoor Unit 33.5kW, 380-415V/3phase",
+    "price_usd": 7707.0
+  },
+  {
+    "model": "GCHV-E400W/HZR1-DM01",
+    "capacity_kw": 40,
+    "description": "Full DC, EVI, VRF Modular Outdoor Unit 40.0kW, 380-415V/3phase",
+    "price_usd": 9250.5
+  },
+  {
+    "model": "GCHV-E450W/HZR1-DM01",
+    "capacity_kw": 45,
+    "description": "Full DC, EVI, VRF Modular Outdoor Unit 45.0kW, 380-415V/3phase",
+    "price_usd": 9306.5
+  },
+  {
+    "model": "GCHV-E500W/HZR1-DM01",
+    "capacity_kw": 50,
+    "description": "Full DC, EVI, VRF Modular Outdoor Unit 50.0kW, 380-415V/3phase",
+    "price_usd": 9621.5
+  },
+  {
+    "model": "GCHV-E560W/HZR1-DM01",
+    "capacity_kw": 56,
+    "description": "Full DC, EVI, VRF Modular Outdoor Unit 56.0kW, 380-415V/3phase",
+    "price_usd": 10325.0
+  },
+  {
+    "model": "GCHV-E615W/HZR1-DM01",
+    "capacity_kw": 61.5,
+    "description": "Full DC, EVI, VRF Modular Outdoor Unit 61.5kW, 380-415V/3phase",
+    "price_usd": 10605.0
+  },
+  {
+    "model": "GCHV-E670W/HZR1-DS01",
+    "capacity_kw": 67,
+    "description": "Full DC, EVI, VRF Modular Outdoor Unit 67.0kW, 380-415V/3phase",
+    "price_usd": 12533.5
+  },
+  {
+    "model": "GCHV-E730W/HZR1-DS01",
+    "capacity_kw": 73,
+    "description": "Full DC, EVI, VRF Modular Outdoor Unit 73.0kW, 380-415V/3phase",
+    "price_usd": 14962.5
+  },
+  {
+    "model": "GCHV-E785W/HZR1-DS01",
+    "capacity_kw": 78.5,
+    "description": "Full DC, EVI, VRF Modular Outdoor Unit 78.5kW, 380-415V/3phase",
+    "price_usd": 15102.5
+  },
+  {
+    "model": "GCHV-E850W/HZR1-DS01",
+    "capacity_kw": 85,
+    "description": "Full DC, EVI, VRF Modular Outdoor Unit 85.0kW, 380-415V/3phase",
+    "price_usd": 16940.0
+  },
+  {
+    "model": "GCHV-E900W/HZR1-DS01",
+    "capacity_kw": 90,
+    "description": "Full DC, EVI, VRF Modular Outdoor Unit 90.0kW, 380-415V/3phase",
+    "price_usd": 17160.5
+  }
+]

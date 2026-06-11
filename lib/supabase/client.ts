@@ -6,16 +6,6 @@ export function createClient() {
 
   return createBrowserClient(
     supabaseUrl,
-    supabaseKey,
-    {
-      global: {
-        fetch: (input: RequestInfo | URL, init?: RequestInit) => {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-          return fetch(input, { ...init, signal: controller.signal })
-            .finally(() => clearTimeout(timeoutId));
-        }
-      }
-    }
+    supabaseKey
   );
 }

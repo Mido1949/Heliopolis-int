@@ -2,12 +2,12 @@ export default function PrivacyPage() {
   return (
     <div className="max-w-2xl mx-auto px-6 py-16 text-slate-800">
       <h1 className="text-3xl font-bold mb-2">Privacy Policy</h1>
-      <p className="text-sm text-slate-500 mb-10">Last updated: April 2026 — GCHV LOOMARK</p>
+      <p className="text-sm text-slate-500 mb-10">Last updated: April 2026 — HelioMax</p>
 
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-3">1. Data We Collect</h2>
         <p className="text-slate-600 leading-relaxed">
-          GCHV LOOMARK collects information submitted through lead forms and contact channels,
+          HelioMax collects information submitted through lead forms and contact channels,
           including name, phone number, email address, and company details. This data is used
           solely to manage customer relationships and follow up on sales inquiries.
         </p>

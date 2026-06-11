@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const REFRESH_LEAD_MS = 5 * 60 * 1000;  // refresh 5 min before expiry
 
 export function useSessionManager(userId: string | null, orgId: string | null = null) {
   const router = useRouter();
   const supabase = createClient();
   const logIdRef = useRef<string | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Session timer ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -71,6 +73,36 @@ export function useSessionManager(userId: string | null, orgId: string | null = 
     return () => {
       window.removeEventListener('beforeunload', handleUnload);
       endSession();
+    };
+  }, [userId, supabase]);
+
+  // ── Proactive token refresh (T033) ────────────────────────────────────────
+  useEffect(() => {
+    if (!userId) return;
+
+    const scheduleRefresh = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const expiresAt = data.session?.expires_at;
+        if (!expiresAt) return;
+
+        const msUntilRefresh = expiresAt * 1000 - Date.now() - REFRESH_LEAD_MS;
+        const delay = Math.max(msUntilRefresh, 30_000); // floor at 30s
+
+        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = setTimeout(async () => {
+          await supabase.auth.refreshSession();
+          scheduleRefresh();
+        }, delay);
+      } catch (err) {
+        console.error('Proactive refresh failed:', err);
+      }
+    };
+
+    scheduleRefresh();
+
+    return () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     };
   }, [userId, supabase]);
 

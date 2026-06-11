@@ -71,7 +71,7 @@ export default function Navbar({ lang, onToggleLang, collapsed, onToggleMobileMe
     ? lang === 'ar'
       ? `${currentNav.labelAr} (${currentNav.labelEn})`
       : currentNav.labelEn
-    : 'LOOMARK';
+    : 'HELIOMAX';
 
   useEffect(() => {
     if (!user) return;

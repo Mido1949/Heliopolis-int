@@ -1,9 +1,9 @@
 // ═══════════════════════════════════════════════
-// LOOMARK — Constants
+// HELIOMAX — Constants
 // ═══════════════════════════════════════════════
 
-export const APP_NAME = 'Heliopolis INT';
-export const COMPANY_NAME = 'GCHV Egypt';
+export const APP_NAME = 'HelioMax';
+export const COMPANY_NAME = 'HelioMax';
 
 // Navigation Items
 export const NAV_ITEMS = [
@@ -30,7 +30,7 @@ export const LEAD_SOURCES = [
   { value: 'Phone', labelAr: 'هاتف', color: '#FF9800' },
 ] as const;
 
-// Lead Statuses
+// Lead Statuses (legacy — kept for backward compatibility)
 export const LEAD_STATUSES = [
   { value: 'New', labelAr: 'جديد', color: '#1890FF' },
   { value: 'Interested', labelAr: 'مهتم', color: '#FAAD14' },
@@ -38,6 +38,23 @@ export const LEAD_STATUSES = [
   { value: 'Won', labelAr: 'تم الفوز', color: '#52C41A' },
   { value: 'Lost', labelAr: 'خسران', color: '#FF4D4F' },
 ] as const;
+
+// Pipeline Stages (9-stage funnel — Phase 2)
+export const PIPELINE_STAGES = [
+  { value: 'NEW',           labelAr: 'جديد',                  color: '#1890FF' },
+  { value: 'CONTACTED',     labelAr: 'تم التواصل',            color: '#13C2C2' },
+  { value: 'ASSIGNED_TECH', labelAr: 'محال للتقني',           color: '#722ED1' },
+  { value: 'QUOTED',        labelAr: 'تم إرسال العرض',        color: '#2F54EB' },
+  { value: 'FOLLOW_UP',     labelAr: 'متابعة',                color: '#FAAD14' },
+  { value: 'WON',           labelAr: 'تم الفوز',              color: '#52C41A' },
+  { value: 'LOST_PRICE',    labelAr: 'خسران - سعر',           color: '#FF4D4F' },
+  { value: 'GHOSTED',       labelAr: 'لم يرد',                color: '#8C8C8C' },
+  { value: 'POSTPONED',     labelAr: 'مؤجل',                  color: '#EB2F96' },
+] as const;
+
+export const ACTIVE_PIPELINE_STAGES: ReadonlyArray<typeof PIPELINE_STAGES[number]['value']> = [
+  'NEW', 'CONTACTED', 'ASSIGNED_TECH', 'QUOTED', 'FOLLOW_UP',
+];
 
 // BOQ Statuses
 export const BOQ_STATUSES = [

@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
-import LookAgent from '@/components/agent/LookAgent';
+import HelioAgent from '@/components/agent/HelioAgent';
+import NormalUserShell from './NormalUserShell';
 import NavigationLoader from './NavigationLoader';
 import { useAuth } from '@/context/AuthContext';
 import { useSessionManager } from '@/hooks/useSessionManager';
@@ -25,7 +26,16 @@ export default function Shell({ children }: ShellProps) {
   const router = useRouter();
   const supabase = createClient();
 
+  // Hooks must run unconditionally on every render — call session manager first.
   useSessionManager(user?.id ?? null, currentOrgId);
+
+  // Stage 2: role-based shell — normal CS / Tech users get the AI-first 3-column layout.
+  // Admin and Tech Team Leader keep the full sidebar + Navbar shell unchanged.
+  const isNormalUser = !!profile && profile.role !== 'admin' && profile.role !== 'Tech Team Leader';
+
+  if (isNormalUser) {
+    return <NormalUserShell>{children}</NormalUserShell>;
+  }
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -67,8 +77,8 @@ export default function Shell({ children }: ShellProps) {
         </div>
       </main>
 
-      {/* Floating AI agent — rendered globally, pointer-events:none overlay */}
-      <LookAgent />
+      {/* Floating AI agent — hidden for normal users (their chat is inside NormalUserShell) */}
+      {!isNormalUser && <HelioAgent />}
     </div>
   );
 }

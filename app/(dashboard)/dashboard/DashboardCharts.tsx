@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { PIPELINE_STAGES } from '@/lib/constants';
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -17,6 +18,7 @@ interface LeadRow {
   status: string;
   created_at: string;
   assigned_to_team: string | null;
+  pipeline_stage?: string | null;
 }
 
 interface BOQRow {
@@ -178,6 +180,20 @@ export default function DashboardCharts() {
     { name: 'باقي', value: Math.max(totalLeads - wonLeads, 0), fill: '#E2E8F0' },
   ];
 
+  // 7. Pipeline Funnel (T043)
+  const pipelineMap: Record<string, number> = {};
+  PIPELINE_STAGES.forEach(s => { pipelineMap[s.value] = 0; });
+  leads.forEach(l => {
+    const stage = l.pipeline_stage || 'NEW';
+    pipelineMap[stage] = (pipelineMap[stage] || 0) + 1;
+  });
+  const pipelineData = PIPELINE_STAGES.map(s => ({
+    name: s.labelAr,
+    stage: s.value,
+    count: pipelineMap[s.value] || 0,
+    color: s.color,
+  }));
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -313,6 +329,25 @@ export default function DashboardCharts() {
                     activeDot={{ r: 5 }}
                   />
                 </LineChart>
+              </ResponsiveContainer>
+            )}
+          </ChartCard>
+
+          {/* 7. Pipeline Funnel (T043) */}
+          <ChartCard title="قمع المبيعات" subtitle="Pipeline Funnel (9 stages)">
+            {pipelineData.every(p => p.count === 0) ? <Empty /> : (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={pipelineData} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                  <XAxis dataKey="name" tick={{ fontSize: 9 }} angle={-25} textAnchor="end" height={50} interval={0} />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="count" name="عدد الليدات" radius={[4, 4, 0, 0]}>
+                    {pipelineData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             )}
           </ChartCard>

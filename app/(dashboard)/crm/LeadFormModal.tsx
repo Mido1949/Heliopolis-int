@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Modal, Form, Input, Select, DatePicker, Row, Col, message } from 'antd';
 import { createClient } from '@/lib/supabase/client';
 import { logLeadActivity } from '@/lib/supabase/activities';
-import { LEAD_STATUSES, LEAD_SOURCES, REGIONS, LEAD_CLIENT_TYPES } from '@/lib/constants';
+import { LEAD_STATUSES, LEAD_SOURCES, REGIONS, LEAD_CLIENT_TYPES, PIPELINE_STAGES } from '@/lib/constants';
 import type { Lead } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
@@ -54,6 +54,10 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
         next_follow_up: values.next_follow_up
           ? values.next_follow_up.toISOString()
           : null,
+        pipeline_stage: values.pipeline_stage || 'NEW',
+        stage_timestamps: isEdit
+          ? lead!.stage_timestamps
+          : { NEW: new Date().toISOString() },
       };
 
       if (isEdit) {
@@ -121,7 +125,7 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
         form={form}
         layout="vertical"
         requiredMark={false}
-        initialValues={{ status: 'New', source: 'Direct' }}
+        initialValues={{ status: 'New', source: 'Direct', pipeline_stage: 'NEW' }}
       >
         <Row gutter={16}>
           <Col span={12}>
@@ -177,9 +181,19 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
 
         <Row gutter={16}>
           <Col span={8}>
-            <Form.Item name="status" label="الحالة (Status)">
+            <Form.Item name="status" label="الحالة القديمة (Legacy Status)" tooltip="سيتم إيقاف هذا الحقل لاحقًا — استخدم مرحلة القمع بدلاً">
               <Select
                 options={LEAD_STATUSES.map((s) => ({
+                  value: s.value,
+                  label: `${s.labelAr} (${s.value})`,
+                }))}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="pipeline_stage" label="مرحلة القمع (Pipeline Stage)">
+              <Select
+                options={PIPELINE_STAGES.map((s) => ({
                   value: s.value,
                   label: `${s.labelAr} (${s.value})`,
                 }))}
@@ -196,7 +210,10 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
               />
             </Form.Item>
           </Col>
-          <Col span={8}>
+        </Row>
+
+        <Row gutter={16}>
+          <Col span={12}>
             <Form.Item name="region" label="المنطقة (Region)">
               <Select
                 allowClear

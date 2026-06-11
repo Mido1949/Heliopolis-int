@@ -1,0 +1,21 @@
+node_modules
+.next
+*.log
+.env*.local
+/system-approval
+spec-kit
+specs
+scripts
+/supabase
+GCHV-VRF-SYSTEM APPROVAL
+.opencode
+.specify
+.superpowers
+.claude
+*.zip
+*.rar
+*.7z
+build_stage2.log
+price_list_seed.json
+price_list_seed.sql
+test-demo.mjs

@@ -33,3 +33,8 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# large binary files
+*.zip
+*.rar
+*.7z

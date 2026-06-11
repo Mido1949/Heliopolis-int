@@ -2,7 +2,6 @@
 
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import Image from 'next/image';
 
 const QUOTES = [
   'النجاح يبدأ بخطوة واحدة',
@@ -32,9 +31,12 @@ export default function LoadingScreen() {
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.6 }}
-        className="relative w-24 h-24 mb-6"
+        className="mb-6 text-center"
       >
-        <Image src="/logo.png" alt="Loomark" fill className="object-contain" priority />
+        <div className="text-white text-4xl font-bold tracking-tight">HELIOMAX</div>
+        <div className="text-sm font-bold tracking-[4px] uppercase mt-1" style={{ color: '#D72B2B' }}>
+          GCHV EGYPT
+        </div>
       </motion.div>
 
       <motion.p

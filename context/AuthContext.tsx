@@ -79,14 +79,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        const u = session?.user ?? null;
-        setUser(u);
-        if (u) {
-          await fetchProfile(u.id, u.email);
-        } else {
-          setProfile(null);
+        // T034: handle each event explicitly
+        switch (event) {
+          case 'TOKEN_REFRESHED':
+            // Session is updated automatically by the SDK; just sync state.
+            setUser(session?.user ?? null);
+            break;
+          case 'SIGNED_OUT':
+            setUser(null);
+            setProfile(null);
+            setLoading(false);
+            if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+              window.location.assign('/login');
+            }
+            break;
+          case 'USER_UPDATED':
+            setUser(session?.user ?? null);
+            if (session?.user) await fetchProfile(session.user.id, session.user.email);
+            break;
+          case 'SIGNED_IN':
+          case 'INITIAL_SESSION':
+          default: {
+            const u = session?.user ?? null;
+            setUser(u);
+            if (u) {
+              await fetchProfile(u.id, u.email);
+            } else {
+              setProfile(null);
+            }
+            setLoading(false);
+            break;
+          }
         }
-        setLoading(false);
       }
     );
 

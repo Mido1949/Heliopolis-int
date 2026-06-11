@@ -22,3 +22,36 @@ These defaults are optimized for AI coding agents (and humans) working on apps t
   needed. Always curl https://ai-gateway.vercel.sh/v1/models first; never trust model IDs from memory
 - For durable agent loops or untrusted code: use Workflow (pause/resume/state) + Sandbox; use Vercel MCP for secure infra access
 <!-- VERCEL BEST PRACTICES END -->
+
+<!-- SPECKIT START -->
+## Active Implementation: MASTER_PLAN_V2
+
+Read the master plan before writing any code:
+`specs/002-heliomax-platform/MASTER_PLAN_V2.md`
+
+Three stages. Execute in order. Stop and report after each stage.
+
+### Stage 1 — Database Foundation
+Command: `.opencode/commands/stage1-foundation.md`
+Goal: Apply migrations 001, 002, 005. Fix seed script. Seed 97 GCHV models.
+
+### Stage 2 — AI-First Shell
+Command: `.opencode/commands/stage2-ai-shell.md`
+Goal: Role-based layout. NormalUserShell. AI lead creation.
+
+### Stage 3 — BOQ Simplification
+Command: `.opencode/commands/stage3-boq.md`
+Goal: Remove load calculator. New grid with auto-fill. Official quote PDF.
+
+### Reference artifacts (do not contradict)
+- `specs/002-heliomax-platform/spec.md` — original user stories
+- `.specify/memory/constitution.md` — governing principles (NON-NEGOTIABLE)
+- `price_list_seed.json` — the 97 official GCHV model prices (source of truth)
+- `MASTER_PROMPT_v2.md` — requirements authored by the product owner
+
+### Key constraints
+- Migration 003_boq_rooms.sql: DO NOT apply (load calculator is removed)
+- `npm install` must use `--legacy-peer-deps`
+- Arabic RTL must be preserved everywhere
+- Passwords are NEVER plain text in chat
+<!-- SPECKIT END -->

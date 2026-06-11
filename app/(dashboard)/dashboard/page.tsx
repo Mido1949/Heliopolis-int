@@ -6,6 +6,7 @@ import { formatCurrency } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
+import { PIPELINE_STAGES, ACTIVE_PIPELINE_STAGES } from '@/lib/constants';
 import DashboardCharts from './DashboardCharts';
 import {
   Users,
@@ -64,6 +65,13 @@ export default function DashboardPage() {
     sentBOQs: 0,
   });
 
+  const [pipeline, setPipeline] = useState<{
+    activeCount: number;
+    pipelineValue: number;
+    conversionRate: string;
+    byStage: Record<string, number>;
+  }>({ activeCount: 0, pipelineValue: 0, conversionRate: '0%', byStage: {} });
+
   const [recentLeads, setRecentLeads] = useState<{ id: string; name: string; source: string; status: string; created_at: string }[]>([]);
   const [leaderboard, setLeaderboard] = useState<{ id: string; name: string; score: number; avatar_url?: string; role: string }[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<{ id: string; name: string; stock_quantity: number }[]>([]);
@@ -90,6 +98,7 @@ export default function DashboardPage() {
           { data: reportData },
           { data: targetsData },
           { data: monthLeadsData },
+          { data: pipelineLeads },
         ] = await Promise.all([
           supabase.from('leads').select('*', { count: 'exact', head: true }).eq('org_id', currentOrgId),
           supabase.from('leads').select('*', { count: 'exact', head: true }).eq('org_id', currentOrgId).eq('status', 'New'),
@@ -101,6 +110,7 @@ export default function DashboardPage() {
           supabase.rpc('get_daily_activity_report'),
           supabase.from('sales_targets').select('user_id, target_value').eq('org_id', currentOrgId).eq('target_type', 'leads').gte('period_start', monthStart.slice(0, 10)).lte('period_end', monthEnd.slice(0, 10)),
           supabase.from('leads').select('assigned_to_user').eq('org_id', currentOrgId).gte('created_at', monthStart).lte('created_at', monthEnd).not('assigned_to_user', 'is', null),
+          supabase.from('leads').select('pipeline_stage, deal_value').eq('org_id', currentOrgId),
         ]);
 
         const totalRevenue = wonBoqs?.reduce((acc, curr) => acc + Number(curr.grand_total), 0) || 0;
@@ -139,6 +149,25 @@ export default function DashboardPage() {
           progressMap[uid] = { leadsTarget: target, actualLeads: actual, progress: pct };
         });
         setMonthlyProgress(progressMap);
+
+        // Pipeline KPIs (T042)
+        const byStage: Record<string, number> = {};
+        let activeCount = 0;
+        let pipelineValue = 0;
+        let wonCount = 0;
+        let newCount = 0;
+        (pipelineLeads || []).forEach((l: { pipeline_stage?: string; deal_value?: number | null }) => {
+          const stage = l.pipeline_stage || 'NEW';
+          byStage[stage] = (byStage[stage] || 0) + 1;
+          if (ACTIVE_PIPELINE_STAGES.includes(stage as typeof ACTIVE_PIPELINE_STAGES[number])) {
+            activeCount += 1;
+            pipelineValue += Number(l.deal_value || 0);
+          }
+          if (stage === 'WON') wonCount += 1;
+          if (stage === 'NEW') newCount += 1;
+        });
+        const conversionRate = newCount > 0 ? ((wonCount / newCount) * 100).toFixed(2) + '%' : '0%';
+        setPipeline({ activeCount, pipelineValue, conversionRate, byStage });
 
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -260,6 +289,25 @@ export default function DashboardPage() {
           </div>
         </div>
 
+      </div>
+
+      {/* Pipeline KPIs (T042) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100">
+          <p className="text-xs text-slate-500 font-medium flex justify-between">Active Pipeline <span>العملاء النشطون</span></p>
+          <h3 className="text-2xl font-extrabold text-[#0D2137] mt-1">{pipeline.activeCount}</h3>
+          <p className="text-[10px] text-slate-400 mt-1">In stages NEW → FOLLOW_UP</p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100">
+          <p className="text-xs text-slate-500 font-medium flex justify-between">Pipeline Value <span>قيمة القمع</span></p>
+          <h3 className="text-2xl font-extrabold text-emerald-600 mt-1">${pipeline.pipelineValue.toLocaleString()}</h3>
+          <p className="text-[10px] text-slate-400 mt-1">Sum of deal_value on active leads</p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100">
+          <p className="text-xs text-slate-500 font-medium flex justify-between">Conversion Rate <span>معدل التحويل</span></p>
+          <h3 className="text-2xl font-extrabold text-[#D72B2B] mt-1">{pipeline.conversionRate}</h3>
+          <p className="text-[10px] text-slate-400 mt-1">WON / NEW (lifetime)</p>
+        </div>
       </div>
 
       {/* Daily Activity Report */}

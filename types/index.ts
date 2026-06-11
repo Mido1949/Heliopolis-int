@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════
-// LOOMARK — Type Definitions
-// Company: GCHV Egypt | Industry: HVAC
+// HELIOMAX — Type Definitions
+// Company: HelioMax | Industry: HVAC
 // ═══════════════════════════════════════════════
 
 // ── Enums & Union Types ─────────────────────────
@@ -10,6 +10,16 @@ export type CrmTeam = 'tech' | 'cs';
 export type LeadSource = 'WhatsApp' | 'Meta' | 'Direct' | 'Phone';
 export type LeadClientType = 'موزع' | 'شركة تكييف' | 'مقاول' | 'عميل منفرد';
 export type LeadStatus = 'New' | 'Interested' | 'Quote Sent' | 'Won' | 'Lost';
+export type PipelineStage =
+  | 'NEW'
+  | 'CONTACTED'
+  | 'ASSIGNED_TECH'
+  | 'QUOTED'
+  | 'FOLLOW_UP'
+  | 'WON'
+  | 'LOST_PRICE'
+  | 'GHOSTED'
+  | 'POSTPONED';
 export type BOQStatus = 'Draft' | 'Sent' | 'Paid' | 'Cancelled';
 export type ProductCategory = 'Outdoor' | 'Indoor' | 'Mini VRF' | 'Controller';
 export type Region = 'Cairo' | 'Alexandria' | 'Riyadh' | 'Jeddah' | 'Other';
@@ -44,6 +54,10 @@ export interface Lead {
   org_id?: string;
   source: LeadSource;
   status: LeadStatus;
+  pipeline_stage?: PipelineStage;
+  deal_value?: number | null;
+  stage_timestamps?: Partial<Record<PipelineStage, string>>;
+  last_contact_date?: string | null;
   assigned_to?: string;
   assigned_to_team?: CrmTeam;
   assigned_to_user?: string;
@@ -65,6 +79,38 @@ export interface Lead {
   updated_at: string;
   // Joined
   profile?: Profile;
+}
+
+export interface PriceListItem {
+  id: string;
+  model: string;
+  capacity_kw: number;
+  description?: string;
+  price_usd: number;
+  updated_at?: string;
+  updated_by?: string;
+}
+
+export interface BOQRoom {
+  id: string;
+  boq_id: string;
+  room_name: string;
+  length: number;
+  width: number;
+  area?: number;
+  heat_factor?: number;
+  required_kw?: number;
+  qty: number;
+  sort_order: number;
+}
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  message: string;
+  lead_id?: string;
+  read?: boolean;
+  created_at: string;
 }
 
 export interface Product {
@@ -141,6 +187,7 @@ export interface BOQItem {
   area?: number;
   unit_type?: string;
   capacity_kw?: number;
+  notes?: string;
   product?: Product;
 }
 

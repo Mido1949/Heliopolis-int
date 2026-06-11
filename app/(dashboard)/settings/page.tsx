@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { User, Mail, Shield, Users, Trophy, Clock, Camera, Save, Loader2, Phone } from 'lucide-react';
 import type { Profile, CrmTeam } from '@/types';
 import { formatDuration, getInitials } from '@/lib/utils';
-import { App, Select } from 'antd';
+import { App, Select, Tabs } from 'antd';
+import PriceListManager from '@/components/boq/PriceListManager';
 
 export default function SettingsPage() {
   const { message } = App.useApp();
@@ -111,14 +112,14 @@ export default function SettingsPage() {
 
       // Upload image
       const { error: uploadError } = await supabase.storage
-        .from('loomark') // Using the main bucket if it exists, or change to 'avatars'
+        .from('heliomax') // Using the main bucket if it exists, or change to 'avatars'
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
-        .from('loomark')
+        .from('heliomax')
         .getPublicUrl(filePath);
 
       // Update profile
@@ -133,7 +134,7 @@ export default function SettingsPage() {
       message.success('Avatar updated successfully');
     } catch (err) {
       console.error('Upload error:', err);
-      message.error('Failed to upload image. Ensure the "loomark" storage bucket exists and is public.');
+      message.error('Failed to upload image. Ensure the "heliomax" storage bucket exists and is public.');
     } finally {
       setUploading(false);
     }
@@ -209,6 +210,13 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      <Tabs
+        defaultActiveKey="profile"
+        items={[
+          {
+            key: 'profile',
+            label: 'الملف الشخصي (Profile)',
+            children: (
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
         {/* Main Content */}
         <div className="md:col-span-8 space-y-8">
@@ -344,6 +352,17 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+            ),
+          },
+          ...(profile?.role === 'admin' || profile?.role === 'Tech Team Leader'
+            ? [{
+                key: 'price-list',
+                label: 'قائمة الأسعار (Price List)',
+                children: <PriceListManager />,
+              }]
+            : []),
+        ]}
+      />
     </div>
   );
 }

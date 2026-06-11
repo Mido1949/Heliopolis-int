@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
   Table, Tag, Button, Typography, Row, Col, message,
-  Card, Statistic, Input, Dropdown, Modal, Form, Alert,
+  Card, Statistic, Input, Dropdown, Modal, Form, Alert, Switch,
 } from 'antd';
 import {
   SearchOutlined, EnvironmentOutlined,
@@ -38,6 +38,8 @@ export default function ScraperPage() {
   const [searchText, setSearchText] = useState('');
   const [scrapeModalOpen, setScrapeModalOpen] = useState(false);
   const [scraping, setScraping] = useState(false);
+  // T075: auto-intake toggle — when enabled, scraper results are POSTed to /api/automation/intake
+  const [autoIntake, setAutoIntake] = useState(false);
   const [scrapeForm] = Form.useForm();
 
   const fetchLeads = async () => {
@@ -81,13 +83,38 @@ export default function ScraperPage() {
     try {
       await scrapeForm.validateFields();
       setScraping(true);
-      
+
       // Simulation of scraping for deployment
       await new Promise(r => setTimeout(r, 2000));
-      
+
       const mockCount = 10;
       message.info(`Scraper activation pending API setup. Showing ${mockCount} mock leads for demonstration.`);
-      
+
+      // T075: if auto-intake is enabled, POST the results to /api/automation/intake
+      if (autoIntake) {
+        try {
+          const mockRecords = Array.from({ length: mockCount }, (_, i) => ({
+            name: `Scraped Lead ${i + 1}`,
+            phone: `+2010000000${String(i).padStart(2, '0')}`,
+            company: `Company ${i + 1}`,
+            source: 'Direct',
+          }));
+          const res = await fetch('/api/automation/intake', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(mockRecords),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            message.success(`🤖 Auto-intake: ${data.created} created, ${data.duplicates} duplicates, ${data.errors} errors`);
+          } else {
+            message.error(`Auto-intake failed: ${data.error || 'unknown'}`);
+          }
+        } catch (err) {
+          message.error('Auto-intake failed (network)');
+        }
+      }
+
       setScrapeModalOpen(false);
       scrapeForm.resetFields();
       fetchLeads(); // Refresh table to show existing + mock if any
@@ -142,7 +169,20 @@ export default function ScraperPage() {
   return (
     <div className="space-y-4">
       <Row justify="space-between" align="middle">
-        <Col><Title level={4} style={{ margin: 0 }}>استخراج عملاء (Maps Scraper)</Title></Col>
+        <Col>
+          <Title level={4} style={{ margin: 0 }}>استخراج عملاء (Maps Scraper)</Title>
+          <div className="mt-2 flex items-center gap-2">
+            <Switch
+              checked={autoIntake}
+              onChange={setAutoIntake}
+              checkedChildren="Auto-intake ON"
+              unCheckedChildren="Auto-intake OFF"
+            />
+            <Text type="secondary" className="text-xs">
+              عند التفعيل: يتم إرسال النتائج تلقائيًا إلى /api/automation/intake
+            </Text>
+          </div>
+        </Col>
         <Col>
           <Button type="primary" icon={<SearchOutlined />} onClick={() => setScrapeModalOpen(true)}
             style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}>

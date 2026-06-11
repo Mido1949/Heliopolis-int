@@ -75,7 +75,7 @@ export async function POST(request: Request) {
           : `${personalizedBody}${trackingPixel}`;
 
         return {
-          from: `${campaign.from_name || 'Loomark'} <onboarding@resend.dev>`,
+          from: `${campaign.from_name || 'HelioMax'} <onboarding@resend.dev>`,
           to: [r.lead.email],
           subject: campaign.subject,
           html: finalBody,

@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Save, Download, MessageCircle } from "lucide-react";
-// We dynamically import the PDF component since @react-pdf/renderer relies on browser globals
 import dynamic from "next/dynamic";
 
 const PDFDownloadButton = dynamic(() => import("@/components/boq/PDFDownloadButton"), {
@@ -19,9 +18,14 @@ const PDFDownloadButton = dynamic(() => import("@/components/boq/PDFDownloadButt
 interface BOQSummaryProps {
   items: BOQItem[];
   subtotal: number;
+  yBranchQty: number;
+  yBranchUnitPrice: number;
+  yBranchTotal: number;
+  grandTotal: number;
   discountPercent: number;
   onUpdateDiscount: (val: number) => void;
-  grandTotal: number;
+  discountAmount: number;
+  discountedTotal: number;
   customerInfo: { name: string; phone: string; address: string };
   onUpdateCustomerInfo: (info: { name: string; phone: string; address: string }) => void;
   customer?: Lead;
@@ -37,9 +41,14 @@ interface BOQSummaryProps {
 export function BOQSummary({
   items,
   subtotal,
+  yBranchQty,
+  yBranchUnitPrice,
+  yBranchTotal,
+  grandTotal,
   discountPercent,
   onUpdateDiscount,
-  grandTotal,
+  discountAmount,
+  discountedTotal,
   customerInfo,
   onUpdateCustomerInfo,
   customer,
@@ -60,7 +69,7 @@ export function BOQSummary({
       alert("Please enter a phone number to send via WhatsApp.");
       return;
     }
-    const text = `Hello ${customerInfo.name || 'valued customer'},\n\nHere is the summary of your quotation from Heliomax:\n\n- Subtotal: ${formatUSD(subtotal)}\n- Discount: ${discountPercent}%\n\n*Grand Total: ${formatUSD(grandTotal)}*\n\nPlease let us know if you have any questions.\n\nThank you!`;
+    const text = `Hello ${customerInfo.name || 'valued customer'},\n\nHere is the summary of your quotation from Heliomax:\n\n- Items: ${formatUSD(subtotal)}\n- Y-Branch: ${formatUSD(yBranchTotal)}\n- Subtotal: ${formatUSD(grandTotal)}\n- Discount: ${discountPercent}%\n\n*Total: ${formatUSD(discountedTotal)}*\n\nPlease let us know if you have any questions.\n\nThank you!`;
     const url = `https://wa.me/${customerInfo.phone.replace(/[^0-9+]/g, '')}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
@@ -108,6 +117,18 @@ export function BOQSummary({
           </div>
 
           <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">
+              Y-Branch ({yBranchQty} × {formatUSD(yBranchUnitPrice)})
+            </span>
+            <span className="font-medium">{formatUSD(yBranchTotal)}</span>
+          </div>
+
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Subtotal</span>
+            <span className="font-semibold">{formatUSD(grandTotal)}</span>
+          </div>
+
+          <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground flex items-center gap-2">
               Discount
               <Input 
@@ -121,7 +142,7 @@ export function BOQSummary({
               %
             </span>
             <span className="font-medium text-destructive">
-              -{formatUSD(subtotal * (discountPercent/100))}
+              -{formatUSD(discountAmount)}
             </span>
           </div>
 
@@ -130,10 +151,11 @@ export function BOQSummary({
           <div className="space-y-2">
             <div className="flex items-end justify-between">
               <div>
-                <span className="text-base font-bold">Total (USD)</span>
+                <span className="text-base font-bold">Total After Discount</span>
+                <p className="text-xs text-muted-foreground mt-0.5">Amount due in USD</p>
               </div>
-              <span className="text-2xl font-bold text-primary">
-                {formatUSD(grandTotal)}
+              <span className="text-2xl font-bold text-emerald-700">
+                {formatUSD(discountedTotal)}
               </span>
             </div>
           </div>
@@ -160,8 +182,13 @@ export function BOQSummary({
               <PDFDownloadButton
                 items={items}
                 subtotal={subtotal}
-                discountPercent={discountPercent}
+                yBranchQty={yBranchQty}
+                yBranchUnitPrice={yBranchUnitPrice}
+                yBranchTotal={yBranchTotal}
                 grandTotal={grandTotal}
+                discountPercent={discountPercent}
+                discountAmount={discountAmount}
+                discountedTotal={discountedTotal}
                 customer={customer}
                 boqSerial={boqSerial}
                 boqNumber={boqNumber}

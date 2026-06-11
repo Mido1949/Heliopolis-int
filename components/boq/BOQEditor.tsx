@@ -1,29 +1,53 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { BOQItem, Lead } from "@/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Trash2, Users, ChevronDown, ChevronUp } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Table, InputNumber, Input, Button, Tooltip, Select } from 'antd';
+import { PlusOutlined, CopyOutlined, DeleteOutlined, PercentageOutlined } from '@ant-design/icons';
+import type { ColumnsType } from 'antd/es/table';
+import type { BOQItem, Lead, PriceListItem } from '@/types';
+import { createClient } from '@/lib/supabase/client';
+
+export const Y_BRANCH_MODEL = 'KHRP26A22C';
+export const Y_BRANCH_DEFAULT_PRICE = 60;
+export const Y_BRANCH_TYPE = 'Y-Branch';
+
+export function deriveType(description?: string | null): string {
+  if (!description) return 'Unit';
+  const d = description.toLowerCase();
+  if (d.includes('heat recovery ventilator') || d.includes('hrv')) return 'HRV';
+  if (d.includes('wall mounted') || d.includes('wall-mounted')) return 'Wall';
+  if (d.includes('cassette')) return 'Cassette';
+  if (d.includes('vrf') && d.includes('outdoor')) return 'VRF Outdoor';
+  if (d.includes('mini vrf') && d.includes('outdoor')) return 'Mini VRF Outdoor';
+  if (d.includes('ducted') || d.includes('duct')) return 'Ducted';
+  return 'Unit';
+}
+
+type Group = 'indoor' | 'outdoor' | 'accessory';
+
+function groupOf(type: string): Group {
+  if (type === 'Wall' || type === 'Cassette' || type === 'Ducted') return 'indoor';
+  if (type === 'VRF Outdoor' || type === 'Mini VRF Outdoor') return 'outdoor';
+  return 'accessory';
+}
+
+type Row =
+  | (BOQItem & { _kind: 'item' })
+  | { _kind: 'section'; _key: string; _title: string };
 
 interface BOQEditorProps {
   items: BOQItem[];
   customers: Lead[];
   selectedCustomer: string | null;
-  onSelectCustomer: (customerId: string) => void;
-  onUpdateQuantity: (itemId: string, qty: number) => void;
-  onUpdateDetails: (itemId: string, details: Partial<Pick<BOQItem, 'location' | 'floor' | 'area' | 'unit_type' | 'capacity_kw'>>) => void;
-  onRemoveItem: (itemId: string) => void;
+  onSelectCustomer: (id: string) => void;
+  onAddItem: () => void;
+  onUpdateItem: (id: string, patch: Partial<BOQItem>) => void;
+  onRemoveItem: (id: string) => void;
+  onDuplicateItem: (id: string) => void;
+  discountPercent: number;
+  onUpdateDiscount: (p: number) => void;
+  yBranchUnitPrice: number;
+  onUpdateYBranchUnitPrice: (p: number) => void;
 }
 
 export function BOQEditor({
@@ -31,198 +55,448 @@ export function BOQEditor({
   customers,
   selectedCustomer,
   onSelectCustomer,
-  onUpdateQuantity,
-  onUpdateDetails,
+  onAddItem,
+  onUpdateItem,
   onRemoveItem,
+  onDuplicateItem,
+  discountPercent,
+  onUpdateDiscount,
+  yBranchUnitPrice,
+  onUpdateYBranchUnitPrice,
 }: BOQEditorProps) {
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const supabase = useMemo(() => createClient(), []);
+  const [priceList, setPriceList] = useState<PriceListItem[]>([]);
+  const [priceListLoading, setPriceListLoading] = useState(true);
+  const [unitNo, setUnitNo] = useState<Record<string, string>>({});
+  const tableRef = useRef<HTMLDivElement>(null);
 
-  const toggleExpand = (id: string) => {
-    setExpandedRows(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setPriceListLoading(true);
+      const { data, error } = await supabase
+        .from('price_list')
+        .select('id, model, capacity_kw, description, price_usd')
+        .order('capacity_kw', { ascending: true });
+      if (!cancelled && !error && data) setPriceList(data as PriceListItem[]);
+      if (!cancelled) setPriceListLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [supabase]);
+
+  const priceMap = useMemo(() => {
+    const m: Record<string, PriceListItem> = {};
+    for (const p of priceList) m[p.model] = p;
+    return m;
+  }, [priceList]);
+
+  // Grouped options for the model Select dropdown
+  const modelOptions = useMemo(() => {
+    const indoor: { value: string; label: string; cap: number; price: number }[] = [];
+    const outdoor: { value: string; label: string; cap: number; price: number }[] = [];
+    const other: { value: string; label: string; cap: number; price: number }[] = [];
+
+    for (const p of priceList) {
+      const t = deriveType(p.description);
+      const opt = { value: p.model, label: p.model, cap: p.capacity_kw, price: p.price_usd };
+      if (['Wall', 'Cassette', 'Ducted'].includes(t)) indoor.push(opt);
+      else if (['VRF Outdoor', 'Mini VRF Outdoor'].includes(t)) outdoor.push(opt);
+      else other.push(opt);
+    }
+
+    const groups = [];
+    if (indoor.length) groups.push({ label: 'Indoor Units', options: indoor });
+    if (outdoor.length) groups.push({ label: 'Outdoor Units', options: outdoor });
+    if (other.length) groups.push({ label: 'HRV / Accessories', options: other });
+    return groups;
+  }, [priceList]);
+
+  const rows: Row[] = useMemo(() => {
+    const groups: Record<Group, BOQItem[]> = { indoor: [], outdoor: [], accessory: [] };
+    for (const item of items) {
+      const t = item.unit_type || deriveType(priceMap[item.model]?.description);
+      groups[groupOf(t)].push({ ...item, _kind: 'item' } as BOQItem & { _kind: 'item' });
+    }
+    const order: Array<[Group, string]> = [
+      ['indoor', 'Indoor Units'],
+      ['outdoor', 'Outdoor Units'],
+      ['accessory', 'Accessories / HRV'],
+    ];
+    const out: Row[] = [];
+    for (const [g, title] of order) {
+      if (groups[g].length === 0) continue;
+      out.push({ _kind: 'section', _key: `sec-${g}`, _title: title });
+      out.push(...(groups[g] as Row[]));
+    }
+    return out;
+  }, [items, priceMap]);
+
+  const subtotal = useMemo(
+    () => items.reduce((acc, i) => acc + (i.quantity || 0) * (i.unit_price || 0), 0),
+    [items]
+  );
+  const totalQty = useMemo(() => items.reduce((acc, i) => acc + (i.quantity || 0), 0), [items]);
+  const yBranchQty = Math.max((totalQty - 2) * 2, 0);
+  const yBranchTotal = yBranchQty * yBranchUnitPrice;
+  const grandTotal = subtotal + yBranchTotal;
+  const discountAmount = (grandTotal * discountPercent) / 100;
+  const discountedTotal = grandTotal - discountAmount;
+
+  const handleModelSelect = useCallback(
+    (itemId: string, model: string) => {
+      const p = priceMap[model];
+      if (p) {
+        onUpdateItem(itemId, {
+          model,
+          unit_price: p.price_usd,
+          capacity_kw: p.capacity_kw,
+          unit_type: deriveType(p.description),
+        });
+      } else {
+        onUpdateItem(itemId, { model, unit_type: 'Unit' });
+      }
+    },
+    [priceMap, onUpdateItem]
+  );
+
+  const handleQtyChange = useCallback(
+    (itemId: string, qty: number, currentPrice: number) => {
+      onUpdateItem(itemId, { quantity: qty, total: qty * (currentPrice || 0) });
+    },
+    [onUpdateItem]
+  );
+
+  const handleTotalKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') { e.preventDefault(); onAddItem(); }
+      if (e.key === 'Escape') (e.currentTarget as HTMLElement).blur();
+    },
+    [onAddItem]
+  );
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+        const rowEl = target.closest('tr[data-row-key]') as HTMLTableRowElement | null;
+        if (rowEl && tableRef.current?.contains(rowEl)) {
+          const key = rowEl.getAttribute('data-row-key');
+          if (key && items.some(i => i.id === key)) {
+            e.preventDefault();
+            onDuplicateItem(key);
+          }
+        }
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [items, onDuplicateItem]);
+
+  const columns: ColumnsType<Row> = [
+    {
+      title: '#',
+      key: 'index',
+      width: 36,
+      render: (_: unknown, record: Row) => {
+        if (record._kind === 'section') return '';
+        const idx = rows.indexOf(record);
+        const before = rows.slice(0, idx).filter(r => r._kind === 'item').length;
+        return <span className="text-xs text-slate-400">{before + 1}</span>;
+      },
+    },
+    {
+      title: 'Unit No',
+      key: 'unit_no',
+      width: 72,
+      render: (_: unknown, record: Row) => {
+        if (record._kind === 'section') return null;
+        return (
+          <Input
+            value={unitNo[record.id] || ''}
+            onChange={(e) => setUnitNo(prev => ({ ...prev, [record.id]: e.target.value }))}
+            placeholder="IDU-1"
+            size="small"
+          />
+        );
+      },
+    },
+    {
+      title: 'Type',
+      key: 'type',
+      width: 90,
+      render: (_: unknown, record: Row) => {
+        if (record._kind === 'section') return null;
+        const t = record.unit_type || deriveType(priceMap[record.model]?.description);
+        return <span className="text-xs">{t}</span>;
+      },
+    },
+    {
+      title: 'Cap. KW',
+      key: 'capacity_kw',
+      width: 72,
+      align: 'center',
+      render: (_: unknown, record: Row) => {
+        if (record._kind === 'section') return null;
+        const cap = record.capacity_kw ?? priceMap[record.model]?.capacity_kw ?? 0;
+        return <span className="text-xs">{cap > 0 ? cap : '—'}</span>;
+      },
+    },
+    {
+      title: 'Qty',
+      key: 'quantity',
+      width: 68,
+      render: (_: unknown, record: Row) => {
+        if (record._kind === 'section') return null;
+        return (
+          <InputNumber
+            min={0}
+            value={record.quantity}
+            onChange={(v) => handleQtyChange(record.id, Number(v) || 0, record.unit_price || 0)}
+            size="small"
+            className="w-full"
+          />
+        );
+      },
+    },
+    {
+      title: 'Model',
+      key: 'model',
+      width: 210,
+      render: (_: unknown, record: Row) => {
+        if (record._kind === 'section') return null;
+        return (
+          <Select
+            showSearch
+            loading={priceListLoading}
+            value={record.model || undefined}
+            onChange={(value: string) => handleModelSelect(record.id, value)}
+            options={modelOptions}
+            filterOption={(input, option) =>
+              (option?.value as string)?.toLowerCase().includes(input.toLowerCase()) ?? false
+            }
+            optionRender={(option) => {
+              const p = priceMap[option.value as string];
+              return (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium truncate">{option.value}</span>
+                  {p && (
+                    <span className="text-xs text-slate-400 shrink-0">
+                      {p.capacity_kw > 0 ? `${p.capacity_kw}kW` : 'HRV'} · ${p.price_usd}
+                    </span>
+                  )}
+                </div>
+              );
+            }}
+            placeholder="اختر الموديل..."
+            size="small"
+            style={{ width: '100%' }}
+            popupMatchSelectWidth={false}
+            dropdownStyle={{ minWidth: 340 }}
+            listHeight={320}
+          />
+        );
+      },
+    },
+    {
+      title: 'Unit Price',
+      key: 'unit_price',
+      width: 88,
+      align: 'right',
+      render: (_: unknown, record: Row) => {
+        if (record._kind === 'section') return null;
+        return <span className="text-xs font-medium">${(record.unit_price || 0).toFixed(2)}</span>;
+      },
+    },
+    {
+      title: 'Notes',
+      key: 'notes',
+      width: 160,
+      render: (_: unknown, record: Row) => {
+        if (record._kind === 'section') return null;
+        return (
+          <Input
+            value={record.notes || ''}
+            onChange={(e) => onUpdateItem(record.id, { notes: e.target.value })}
+            placeholder="ملاحظات..."
+            size="small"
+          />
+        );
+      },
+    },
+    {
+      title: 'Total $',
+      key: 'total',
+      width: 90,
+      align: 'right',
+      render: (_: unknown, record: Row) => {
+        if (record._kind === 'section') return null;
+        const total = (record.quantity || 0) * (record.unit_price || 0);
+        return (
+          <div
+            tabIndex={0}
+            onKeyDown={handleTotalKeyDown}
+            className="text-xs font-bold text-[#0D2137] outline-none focus:ring-1 focus:ring-blue-400 rounded px-1 cursor-default"
+          >
+            ${total.toFixed(2)}
+          </div>
+        );
+      },
+    },
+    {
+      title: '',
+      key: 'actions',
+      width: 60,
+      render: (_: unknown, record: Row) => {
+        if (record._kind === 'section') return null;
+        return (
+          <div className="flex gap-0.5">
+            <Tooltip title="Duplicate (Ctrl+D)">
+              <Button size="small" type="text" icon={<CopyOutlined />} onClick={() => onDuplicateItem(record.id)} />
+            </Tooltip>
+            <Tooltip title="Delete">
+              <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={() => onRemoveItem(record.id)} />
+            </Tooltip>
+          </div>
+        );
+      },
+    },
+  ];
 
   return (
-    <Card className="h-full flex flex-col shadow-sm border-muted">
-      <CardHeader className="py-4 border-b shrink-0 flex flex-row items-center justify-between">
-        <CardTitle className="text-lg">Items List</CardTitle>
-        <div className="w-[280px]">
+    <div className="bg-white rounded-lg border border-slate-100 shadow-sm p-4" ref={tableRef}>
+      {/* Toolbar */}
+      <div className="flex justify-between items-center mb-3 gap-2 flex-wrap">
+        <div>
+          <h3 className="text-sm font-bold text-[#0D2137]">BOQ Grid</h3>
+          <p className="text-xs text-slate-400">Tab/Enter to navigate · Enter on Total adds row · Ctrl+D duplicate</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500">Customer:</span>
           <Select
             value={selectedCustomer || undefined}
-            onValueChange={(val) => onSelectCustomer(val as string)}
-          >
-            <SelectTrigger className="h-9">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <SelectValue placeholder="Select Customer" />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              {customers.map(c => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name} <span className="text-muted-foreground ml-1">({c.company || c.phone})</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onChange={onSelectCustomer}
+            placeholder="Select customer"
+            style={{ minWidth: 200 }}
+            size="small"
+            showSearch
+            filterOption={(input, option) =>
+              (option?.label as string)?.toLowerCase().includes(input.toLowerCase()) ?? false
+            }
+            options={customers.map(c => ({
+              value: c.id,
+              label: `${c.name}${c.company ? ` — ${c.company}` : ''}`,
+            }))}
+          />
+          <Button type="primary" icon={<PlusOutlined />} onClick={onAddItem} size="small">
+            Add Row
+          </Button>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="p-0 flex-1 min-h-0 relative">
-        <ScrollArea className="h-full absolute inset-0">
-          {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center px-4">
-              <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center mb-4">
-                <Plus className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-medium">No items added</h3>
-              <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-                Select products from the catalog on the left to start building your Bill of Quantities.
-              </p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader className="bg-muted/50 sticky top-0 z-10">
-                <TableRow>
-                  <TableHead className="w-[35%]">Product</TableHead>
-                  <TableHead className="w-[15%] text-right">Price</TableHead>
-                  <TableHead className="w-[18%] text-center">Qty</TableHead>
-                  <TableHead className="w-[18%] text-right">Total</TableHead>
-                  <TableHead className="w-[7%]"></TableHead>
-                  <TableHead className="w-[7%]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((item) => (
-                  <React.Fragment key={item.id}>
-                    <TableRow className="group">
-                      <TableCell>
-                        <p className="font-medium text-sm">{item.model}</p>
-                        {item.product?.sku && (
-                          <p className="text-xs text-muted-foreground">{item.product.sku}</p>
-                        )}
-                        {/* Show detail summary if filled */}
-                        {(item.floor || item.location || item.unit_type) && (
-                          <p className="text-xs text-blue-600 mt-0.5">
-                            {[item.floor, item.location, item.unit_type, item.capacity_kw ? `${item.capacity_kw}kW` : null, item.area ? `${item.area}m²` : null].filter(Boolean).join(' · ')}
-                          </p>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right text-sm">
-                        ${new Intl.NumberFormat('en-US').format(item.unit_price)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-center">
-                          <Input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => onUpdateQuantity(item.id, parseInt(e.target.value) || 1)}
-                            className="w-16 h-8 text-center"
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-sm">
-                        ${new Intl.NumberFormat('en-US').format(item.total)}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-blue-600"
-                          title="Add details"
-                          onClick={() => toggleExpand(item.id)}
-                        >
-                          {expandedRows.has(item.id) ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                        </Button>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => onRemoveItem(item.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+      {/* Force LTR so column order matches the Excel reference */}
+      <div dir="ltr">
+        <Table
+          rowKey={(record) => (record._kind === 'section' ? (record as { _key: string })._key : record.id)}
+          columns={columns}
+          dataSource={rows}
+          size="small"
+          pagination={false}
+          rowClassName={(record) => (record._kind === 'section' ? 'section-header-row' : '')}
+          scroll={{ x: 950 }}
+          summary={() => (
+            <Table.Summary>
+              {/* Y-Branch — cols: #(0) UnitNo(1) Type(2) Cap(3) Qty(4) Model(5) UnitPrice(6) Notes(7) Total(8) Actions(9) */}
+              <Table.Summary.Row className="bg-blue-50/50">
+                <Table.Summary.Cell index={0} colSpan={4} className="!text-right">
+                  <span className="text-xs font-semibold text-slate-600">Y-Branch</span>
+                  <span className="text-xs text-slate-400 ml-1">
+                    max((Σqty−2)×2, 0) = {yBranchQty}
+                  </span>
+                </Table.Summary.Cell>
+                <Table.Summary.Cell index={4} className="text-center">
+                  <span className="text-xs font-bold">{yBranchQty}</span>
+                </Table.Summary.Cell>
+                <Table.Summary.Cell index={5}>
+                  <Input value={Y_BRANCH_MODEL} disabled size="small" className="text-xs" />
+                </Table.Summary.Cell>
+                <Table.Summary.Cell index={6} className="text-right">
+                  <InputNumber
+                    min={0}
+                    value={yBranchUnitPrice}
+                    onChange={(v) => onUpdateYBranchUnitPrice(Number(v) || 0)}
+                    prefix="$"
+                    size="small"
+                    style={{ width: 80 }}
+                  />
+                </Table.Summary.Cell>
+                <Table.Summary.Cell index={7} />
+                <Table.Summary.Cell index={8} className="text-right">
+                  <span className="text-xs font-bold">${yBranchTotal.toFixed(2)}</span>
+                </Table.Summary.Cell>
+                <Table.Summary.Cell index={9} />
+              </Table.Summary.Row>
 
-                    {/* Expandable detail row */}
-                    {expandedRows.has(item.id) && (
-                      <TableRow className="bg-blue-50/50 hover:bg-blue-50/50">
-                        <TableCell colSpan={6} className="py-3 px-4">
-                          <div className="grid grid-cols-5 gap-2">
-                            <div>
-                              <label className="text-xs text-muted-foreground mb-1 block">Floor</label>
-                              <Input
-                                placeholder="e.g. First"
-                                value={item.floor || ''}
-                                onChange={e => onUpdateDetails(item.id, { floor: e.target.value })}
-                                className="h-7 text-xs"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted-foreground mb-1 block">Zone / Room</label>
-                              <Input
-                                placeholder="e.g. Master"
-                                value={item.location || ''}
-                                onChange={e => onUpdateDetails(item.id, { location: e.target.value })}
-                                className="h-7 text-xs"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted-foreground mb-1 block">Area (m²)</label>
-                              <Input
-                                type="number"
-                                placeholder="e.g. 17.05"
-                                value={item.area || ''}
-                                onChange={e => onUpdateDetails(item.id, { area: parseFloat(e.target.value) || undefined })}
-                                className="h-7 text-xs"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted-foreground mb-1 block">Type</label>
-                              <Input
-                                placeholder="e.g. MED DUCT"
-                                value={item.unit_type || ''}
-                                onChange={e => onUpdateDetails(item.id, { unit_type: e.target.value })}
-                                className="h-7 text-xs"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted-foreground mb-1 block">Capacity (kW)</label>
-                              <Input
-                                type="number"
-                                placeholder="e.g. 5.6"
-                                value={item.capacity_kw || ''}
-                                onChange={e => onUpdateDetails(item.id, { capacity_kw: parseFloat(e.target.value) || undefined })}
-                                className="h-7 text-xs"
-                              />
-                            </div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </React.Fragment>
-                ))}
-              </TableBody>
-            </Table>
+              {/* Grand Total */}
+              <Table.Summary.Row className="bg-slate-100">
+                <Table.Summary.Cell index={0} colSpan={8} className="!text-right">
+                  <span className="text-sm font-bold text-[#0D2137]">Grand Total</span>
+                </Table.Summary.Cell>
+                <Table.Summary.Cell index={8} className="text-right">
+                  <span className="text-sm font-bold text-[#0D2137]">${grandTotal.toFixed(2)}</span>
+                </Table.Summary.Cell>
+                <Table.Summary.Cell index={9} />
+              </Table.Summary.Row>
+
+              {/* Discount */}
+              <Table.Summary.Row className="bg-amber-50/60">
+                <Table.Summary.Cell index={0} colSpan={3} className="!text-right">
+                  <span className="text-xs font-medium inline-flex items-center gap-1">
+                    <PercentageOutlined /> Total after discount
+                  </span>
+                </Table.Summary.Cell>
+                <Table.Summary.Cell index={3}>
+                  <InputNumber
+                    min={0} max={100}
+                    value={discountPercent}
+                    onChange={(v) => onUpdateDiscount(Number(v) || 0)}
+                    suffix="%"
+                    size="small"
+                    style={{ width: 72 }}
+                  />
+                </Table.Summary.Cell>
+                <Table.Summary.Cell index={4} colSpan={4} className="!text-right">
+                  <span className="text-xs text-red-500 font-medium">−${discountAmount.toFixed(2)}</span>
+                </Table.Summary.Cell>
+                <Table.Summary.Cell index={8} className="text-right">
+                  <span className="text-sm font-bold text-emerald-700">${discountedTotal.toFixed(2)}</span>
+                </Table.Summary.Cell>
+                <Table.Summary.Cell index={9} />
+              </Table.Summary.Row>
+            </Table.Summary>
           )}
-        </ScrollArea>
-      </CardContent>
-    </Card>
+        />
+      </div>
+
+      <SectionHeaderStyles />
+    </div>
   );
 }
 
-function Plus(props: React.SVGProps<SVGSVGElement>) {
+function SectionHeaderStyles() {
   return (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 12h14" />
-      <path d="M12 5v14" />
-    </svg>
+    <style jsx global>{`
+      .ant-table-tbody > tr.section-header-row > td {
+        background: #e8edf5 !important;
+        font-weight: 700;
+        color: #0D2137;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 10px;
+        padding: 5px 12px !important;
+      }
+    `}</style>
   );
 }
+
+export default BOQEditor;

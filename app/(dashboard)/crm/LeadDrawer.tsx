@@ -7,7 +7,7 @@ import {
 import { WhatsAppOutlined, PhoneOutlined, MailOutlined, EditOutlined, FileTextOutlined, DownloadOutlined, PlusOutlined } from '@ant-design/icons';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { LEAD_STATUSES, LEAD_SOURCES } from '@/lib/constants';
+import { LEAD_STATUSES, LEAD_SOURCES, PIPELINE_STAGES } from '@/lib/constants';
 import { formatDate, getWhatsAppUrl } from '@/lib/utils';
 import type { Lead, BOQ, BOQItem, CallLog, CallType, CallOutcome } from '@/types';
 import { useAuth } from '@/context/AuthContext';
@@ -18,6 +18,8 @@ const PDFDownloadButton = dynamic(() => import('@/components/boq/PDFDownloadButt
   ssr: false,
   loading: () => <Button icon={<DownloadOutlined />} size="small" disabled>PDF</Button>
 });
+
+import { Y_BRANCH_TYPE, Y_BRANCH_DEFAULT_PRICE } from '@/components/boq/BOQEditor';
 
 const { Text, Title } = Typography;
 
@@ -87,13 +89,13 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
       .eq('lead_id', lead.id)
       .order('created_at', { ascending: false });
 
-    setBoqs((data || []).map((b: BOQ) => ({
+    setBoqs(((data || []).map((b) => ({
       ...b,
-      boq_items: (b.boq_items || []).map((item: BOQItem) => ({
+      boq_items: ((b.boq_items || []) as BOQItem[]).map((item) => ({
         ...item,
         total: item.quantity * item.unit_price,
       })),
-    })) as BOQ[]);
+    })) as unknown) as BOQ[]);
     setLoadingBoqs(false);
   }, [lead, supabase]);
 
@@ -435,9 +437,30 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                   </div>
                 )}
                 <Descriptions column={1} size="small" bordered className="mb-6">
-                  <Descriptions.Item label="الحالة (Status)">
+                  <Descriptions.Item label="الحالة القديمة (Legacy Status)">
                     <Tag color={statusConfig?.color}>{statusConfig?.labelAr || lead.status}</Tag>
                   </Descriptions.Item>
+                  <Descriptions.Item label="مرحلة القمع (Pipeline Stage)">
+                    {(() => {
+                      const stage = lead.pipeline_stage || 'NEW';
+                      const cfg = PIPELINE_STAGES.find(s => s.value === stage);
+                      return cfg
+                        ? <Tag color={cfg.color}>{cfg.labelAr} ({stage})</Tag>
+                        : <Tag>{stage}</Tag>;
+                    })()}
+                  </Descriptions.Item>
+                  {lead.deal_value != null && (
+                    <Descriptions.Item label="قيمة الصفقة (Deal Value)">
+                      <Text strong style={{ color: '#52C41A' }}>
+                        ${lead.deal_value.toLocaleString()}
+                      </Text>
+                    </Descriptions.Item>
+                  )}
+                  {lead.last_contact_date && (
+                    <Descriptions.Item label="آخر تواصل (Last Contact)">
+                      {formatDate(lead.last_contact_date)}
+                    </Descriptions.Item>
+                  )}
                   <Descriptions.Item label="المصدر (Source)">
                     <Tag color={sourceConfig?.color}>{sourceConfig?.labelAr || lead.source}</Tag>
                   </Descriptions.Item>
@@ -448,6 +471,22 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                     {formatDate(lead.created_at)}
                   </Descriptions.Item>
                 </Descriptions>
+
+                {lead.stage_timestamps && Object.keys(lead.stage_timestamps).length > 0 && (
+                  <>
+                    <Divider>سجل المراحل (Stage History)</Divider>
+                    <div className="bg-gray-50 rounded-lg p-3 space-y-1 mb-4 max-h-48 overflow-y-auto">
+                      {Object.entries(lead.stage_timestamps)
+                        .sort(([, a], [, b]) => new Date(b as string).getTime() - new Date(a as string).getTime())
+                        .map(([stage, ts]) => (
+                          <div key={stage} className="flex justify-between text-xs">
+                            <span>{PIPELINE_STAGES.find(s => s.value === stage)?.labelAr || stage}</span>
+                            <span className="text-gray-500">{formatDate(ts as string)}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </>
+                )}
                 {lead.notes && (
                   <>
                     <Divider>ملاحظات (Notes)</Divider>
@@ -672,13 +711,38 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                             <Link href={`/boq/${boq.id}`}>
                               <Button size="small">View</Button>
                             </Link>
-                            <PDFDownloadButton 
-                              items={boq.boq_items || []}
+                            <PDFDownloadButton
+                              items={(boq.boq_items || []).filter(
+                                (i) => i.unit_type !== Y_BRANCH_TYPE
+                              )}
                               subtotal={boq.subtotal}
-                              discountPercent={boq.discount_percent}
-                              vatAmount={boq.vat_amount}
+                              yBranchQty={Number(boq.boq_items?.find(
+                                (i) => i.unit_type === Y_BRANCH_TYPE
+                              )?.quantity) || 0}
+                              yBranchUnitPrice={Number(boq.boq_items?.find(
+                                (i) => i.unit_type === Y_BRANCH_TYPE
+                              )?.unit_price) || Y_BRANCH_DEFAULT_PRICE}
+                              yBranchTotal={
+                                (Number(boq.boq_items?.find(
+                                  (i) => i.unit_type === Y_BRANCH_TYPE
+                                )?.quantity) || 0) *
+                                (Number(boq.boq_items?.find(
+                                  (i) => i.unit_type === Y_BRANCH_TYPE
+                                )?.unit_price) || Y_BRANCH_DEFAULT_PRICE)
+                              }
                               grandTotal={boq.grand_total}
-                              grandTotalUSD={grandTotalUSD}
+                              discountPercent={boq.discount_percent}
+                              discountAmount={
+                                ((Number(boq.subtotal) || 0) +
+                                  (Number(boq.boq_items?.find(
+                                    (i) => i.unit_type === Y_BRANCH_TYPE
+                                  )?.quantity) || 0) *
+                                    (Number(boq.boq_items?.find(
+                                      (i) => i.unit_type === Y_BRANCH_TYPE
+                                    )?.unit_price) || Y_BRANCH_DEFAULT_PRICE)) *
+                                ((Number(boq.discount_percent) || 0) / 100)
+                              }
+                              discountedTotal={Number(boq.grand_total) || 0}
                               dateCreated={boq.created_at}
                               customer={lead}
                             />

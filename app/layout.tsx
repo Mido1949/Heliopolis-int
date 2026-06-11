@@ -17,9 +17,9 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: 'Heliopolis INT — GCHV Egypt HVAC Platform',
+  title: 'HelioMax — HVAC Operations Platform',
   description:
-    'Internal management platform for Heliopolis INT (GCHV Egypt) — CRM, BOQ, Inventory, Email Campaigns, AI Assistant, and Time Tracking for VRF & HVAC Solutions.',
+    'HelioMax — internal management platform for HVAC operations: CRM, BOQ, Inventory, Email Campaigns, AI Assistant, and Time Tracking for VRF & HVAC Solutions.',
   icons: { icon: '/logo.png' }, // Using logo as favicon draft
 };
 

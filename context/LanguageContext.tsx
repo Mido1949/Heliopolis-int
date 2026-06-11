@@ -18,7 +18,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLang] = useState<Language>('ar');
 
   useEffect(() => {
-    const saved = localStorage.getItem('loomark_lang') as Language;
+    const saved = localStorage.getItem('heliomax_lang') as Language;
     if (saved === 'ar' || saved === 'en') {
       setLang(saved);
     }
@@ -29,7 +29,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     document.documentElement.dir = dir;
     document.documentElement.lang = lang;
-    localStorage.setItem('loomark_lang', lang);
+    localStorage.setItem('heliomax_lang', lang);
   }, [lang, dir]);
 
   const setLanguage = (newLang: Language) => {

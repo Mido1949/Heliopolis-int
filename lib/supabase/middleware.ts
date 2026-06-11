@@ -38,7 +38,10 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+  // Token refresh handled implicitly by getUser() — calls refreshSession() if expired.
+  // The cookies returned via response.cookies.set keep the refreshed tokens in sync.
 
   // Protect dashboard routes
   const isDashboardRoute = !request.nextUrl.pathname.startsWith('/login') &&

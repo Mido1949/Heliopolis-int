@@ -88,7 +88,7 @@ export default function TimeTrackerPage() {
   // Resume timer from localStorage
   useEffect(() => {
     try {
-      const savedState = localStorage.getItem('loomark_timer_state');
+      const savedState = localStorage.getItem('heliomax_timer_state');
       if (savedState) {
         const parsed = JSON.parse(savedState);
         const savedStartTime = new Date(parsed.startTime);
@@ -190,7 +190,7 @@ export default function TimeTrackerPage() {
     message.success('Timer started ⏱️');
 
     // Save active state to keep tracking in background
-    localStorage.setItem('loomark_timer_state', JSON.stringify({
+    localStorage.setItem('heliomax_timer_state', JSON.stringify({
       startTime: now.toISOString(),
       taskType: taskType,
       taskDesc: taskDesc,
@@ -212,7 +212,7 @@ export default function TimeTrackerPage() {
     if (error) message.error('Failed to save time');
     else {
       message.success(`Logged ${formatDuration(elapsed)}`);
-      localStorage.removeItem('loomark_timer_state');
+      localStorage.removeItem('heliomax_timer_state');
     }
 
     setActiveLogId(null);

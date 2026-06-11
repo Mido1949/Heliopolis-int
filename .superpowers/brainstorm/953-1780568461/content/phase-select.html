@@ -1,0 +1,42 @@
+<h2>Which phase do you want to spec first?</h2>
+<p class="subtitle">The brief defines the order below. Select the phase you want to design and implement next.</p>
+
+<div class="options">
+  <div class="option" data-choice="phase0" onclick="toggleSelect(this)">
+    <div class="letter">0</div>
+    <div class="content">
+      <h3>Phase 0 — Rebrand &amp; Cleanup</h3>
+      <p>Rename all "Loomark" → "HelioMax" across the codebase, metadata, logo, title. Mechanical and safe — the brief says start here.</p>
+      <p><strong>~18 files</strong> still reference Loomark. Zero visual impact.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="phase1" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content">
+      <h3>Phase 1 — Performance &amp; Stability</h3>
+      <p>Diagnose and fix the refresh/relogin problem the team hits daily. Stale sessions, auth token expiry, over-use of force-dynamic.</p>
+      <p>Foundational — everything else sits on a stable app.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="phase2" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content">
+      <h3>Phase 2 — The Sales Pipeline</h3>
+      <p>Implement the 9-stage pipeline (NEW → CONTACTED → ASSIGNED_TECH → QUOTED → FOLLOW_UP → WON/LOST/GHOSTED/POSTPONED). Kanban view, RLS for CS users, deal_value capture.</p>
+      <p><strong>The foundation</strong> — all metrics and AI insights depend on this.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="phase3" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content">
+      <h3>Phase 3 — BOQ Engine (Beat Excel)</h3>
+      <p>Spreadsheet-like grid, model autocomplete with live pricing from price_list DB, load calculator, Y-branch auto-calc, one-click branded PDF.</p>
+      <p>Acceptance: a tech builds a full quote <strong>faster than Excel</strong>.</p>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 20px; padding: 14px; background: #fff8e1; border-left: 4px solid #faad14; border-radius: 6px;">
+  <strong>Note:</strong> The brief says build in order — Phase 0 first, then 1, 2, 3…
+  If you want to jump ahead, select the phase and we'll spec it directly.
+</div>

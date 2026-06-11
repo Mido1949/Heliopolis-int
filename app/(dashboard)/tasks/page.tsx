@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import type { Task, Profile, Lead } from '@/types';
 import { formatDate } from '@/lib/utils';
+import { PIPELINE_STAGES } from '@/lib/constants';
 import LeadDrawer from '../crm/LeadDrawer';
 import dayjs from 'dayjs';
 
@@ -36,6 +37,8 @@ export default function TasksPage() {
 
   const [filter, setFilter] = useState<string>('all');
   const [dailyLeads, setDailyLeads] = useState<{ id: string; name: string; next_follow_up: string; status: string; reason: string }[]>([]);
+  // T061: pipeline-driven daily tasks (leads at active stages for current user)
+  const [pipelineTasks, setPipelineTasks] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [leadDrawerOpen, setLeadDrawerOpen] = useState(false);
 
@@ -55,7 +58,7 @@ export default function TasksPage() {
     setLoading(true);
     try {
       if (user) {
-        const [{ data: myData }, { count }, { data: dailyData }] = await Promise.all([
+        const [{ data: myData }, { count }, { data: dailyData }, { data: pipelineData }] = await Promise.all([
           supabase
             .from('tasks')
             .select('*, assigned_user:profiles!assigned_to(id, name), lead:leads(id, name, phone)')
@@ -70,10 +73,19 @@ export default function TasksPage() {
           supabase.rpc('get_daily_tasks', {
             p_user_id: isStaff ? null : user.id,
           }),
+          // T061: pipeline-driven daily tasks — leads at active stages assigned to current user
+          supabase
+            .from('leads')
+            .select('id, name, phone, pipeline_stage, deal_value, last_contact_date, next_follow_up')
+            .eq('assigned_to_user', user.id)
+            .in('pipeline_stage', ['NEW', 'CONTACTED', 'ASSIGNED_TECH', 'QUOTED', 'FOLLOW_UP'])
+            .order('updated_at', { ascending: false })
+            .limit(20),
         ]);
         setMyTasks((myData || []) as Task[]);
         setPendingCount(count || 0);
         setDailyLeads(dailyData || []);
+        setPipelineTasks((pipelineData || []) as Lead[]);
       }
 
       if (canManage) {
@@ -346,7 +358,47 @@ export default function TasksPage() {
                   </button>
                 ))}
               </div>
-              <div className="border-t border-slate-100 mt-3 pt-3" />
+            </div>
+          )}
+
+          {/* T061: Pipeline-driven daily tasks (active stage leads) */}
+          {pipelineTasks.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Title level={5} style={{ margin: 0 }}>ليدات نشطة بحاجة لمتابعة (Active Pipeline)</Title>
+                <span className="bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                  {pipelineTasks.length}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {pipelineTasks.map((lead) => {
+                  const stageCfg = PIPELINE_STAGES.find(s => s.value === lead.pipeline_stage);
+                  return (
+                    <button
+                      key={lead.id}
+                      onClick={async () => {
+                        const { data } = await supabase
+                          .from('leads')
+                          .select('*, assigned_user:profiles!leads_assigned_to_user_fkey(id, name)')
+                          .eq('id', lead.id)
+                          .single();
+                        if (data) { setSelectedLead(data as Lead); setLeadDrawerOpen(true); }
+                      }}
+                      className="w-full flex items-center justify-between p-2.5 rounded-lg border border-slate-100 hover:border-emerald-500 transition-colors text-right"
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-[#0D2137]">{lead.name}</span>
+                        <span className="text-[10px] text-slate-500">
+                          {lead.phone || '—'}
+                        </span>
+                      </div>
+                      <Tag color={stageCfg?.color || 'default'} style={{ margin: 0 }}>
+                        {stageCfg?.labelAr || lead.pipeline_stage}
+                      </Tag>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 

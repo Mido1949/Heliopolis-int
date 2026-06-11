@@ -124,7 +124,7 @@ export default function EmailEditor({ open, onClose, onSuccess }: EmailEditorPro
             name="from_name" 
             label="اسم المرسل (From Name)" 
             rules={[{ required: true, message: 'مطلوب' }]}
-            initialValue="Loomark"
+            initialValue="HelioMax"
           >
             <Input placeholder="اسمك أو اسم الشركة" size="large" />
           </Form.Item>

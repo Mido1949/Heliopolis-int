@@ -64,7 +64,7 @@ export default function ImportModal({ open, onClose, onImportComplete }: ImportM
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'loomark-leads-template.csv';
+    link.download = 'heliomax-leads-template.csv';
     link.click();
     URL.revokeObjectURL(url);
   }, []);

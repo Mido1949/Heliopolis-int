@@ -42,7 +42,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
 
-  const SELECTED_ORG_KEY = 'loomark_selected_org';
+  const SELECTED_ORG_KEY = 'heliomax_selected_org';
 
   const loadOrgModules = async (orgId: string) => {
     const { data: modules, error } = await supabase

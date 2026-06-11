@@ -1,5 +1,10 @@
 {
   "framework": "nextjs",
   "installCommand": "npm install --legacy-peer-deps",
-  "buildCommand": "npm run build"
+  "buildCommand": "npm run build",
+  "crons": [
+    { "path": "/api/reports/personal/cron",  "schedule": "30 15 * * 1-5" },
+    { "path": "/api/reports/company/cron",   "schedule": "30 16 * * 1-5" },
+    { "path": "/api/reports/stuck-leads/cron", "schedule": "0 6 * * 1-5" }
+  ]
 }
