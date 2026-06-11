@@ -599,8 +599,8 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                           { label: 'طلب معاودة (Callback)', value: 'Callback Requested' },
                         ]} />
                       </Form.Item>
-                      <Form.Item name="notes" label="ملاحظات">
-                        <Input.TextArea rows={2} />
+                      <Form.Item name="notes" label="وصف المكالمة" rules={[{ required: true, message: 'اكتب وصف للمكالمة' }]}>
+                        <Input.TextArea rows={3} placeholder="ملخص ما تم مناقشته في المكالمة..." />
                       </Form.Item>
                       <Button type="primary" htmlType="submit" block style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}>
                         حفظ المكالمة
