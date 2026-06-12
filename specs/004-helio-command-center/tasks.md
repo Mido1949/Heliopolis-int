@@ -33,7 +33,7 @@
 **Purpose**: Database changes that user stories depend on (additive only)
 
 - [x] T004 Create migration `supabase/migrations/20260612_idempotency_hardening.sql` per data-model.md Migration 1: `notifications.type` column + index, `tasks.auto_created` column + index, new `agent_requests` table with RLS enabled (service-role only)
-- [ ] T005 Apply migration 20260612_idempotency_hardening.sql to the Supabase project (show SQL first; verify with a SELECT on the new columns)
+- [x] T005 Apply migration 20260612_idempotency_hardening.sql to the Supabase project (show SQL first; verify with a SELECT on the new columns) — applied via Supabase MCP; note: live notifications table is the multi-tenant shape (see data-model.md "Live-schema ground truth"), index is on `reference_id` not `lead_id`
 - [x] T006 Update `lib/notifications/in-app.ts` `createNotification` to persist `meta.type` into the new `notifications.type` column (keep broadcast payload unchanged)
 
 **Checkpoint**: migration applied; notifications created with type; build green
@@ -46,7 +46,7 @@
 
 **Independent Test**: quickstart.md "Phase A" — curls for GET crons (no 405), fail-closed auth, 401s on the three endpoints, webhook secret swap, build-failure probe, rate-limit probe
 
-- [ ] T007 [US1] Refactor `app/api/reports/stuck-leads/cron/route.ts`: extract shared `handle()`; export `GET` and `POST`; wrap in `withCronAlert('stuck-leads')`; replace `ilike('%واقف%')` dedup with `type='stuck_lead'` lookup; staleness from `COALESCE(last_contact_date, updated_at)`; create notifications with `type: 'stuck_lead'`; add Cairo window guard (08:00, Sat–Thu) per contracts/cron-endpoints.md
+- [ ] T007 [US1] Refactor `app/api/reports/stuck-leads/cron/route.ts`: extract shared `handle()`; export `GET` and `POST`; wrap in `withCronAlert('stuck-leads')`; replace `ilike('%واقف%')` dedup with `type='stuck_lead' AND reference_id=<lead.id>` lookup (live notifications schema has reference_id, NOT lead_id — see data-model.md); staleness from `COALESCE(last_contact_date, updated_at)`; create notifications via `createNotification(..., { type: 'stuck_lead' })`; add Cairo window guard (08:00, Sat–Thu) per contracts/cron-endpoints.md
 - [ ] T008 [P] [US1] Refactor `app/api/reports/personal/cron/route.ts`: shared `handle()`, GET+POST, `withCronAlert('personal-report')`, Cairo guard (15:50, Sat–Thu), exactly-once via existing `type='personal_report'` notification check for today
 - [ ] T009 [P] [US1] Refactor `app/api/reports/company/cron/route.ts`: shared `handle()`, GET+POST, `withCronAlert('company-report')`, Cairo guard (15:50, Sat–Thu), exactly-once via `type='company_report_sent'` marker notification inserted on success
 - [ ] T010 [P] [US1] Fix `app/api/files/[id]/signed-url/route.ts`: require `supabase.auth.getUser()`; fetch the file row with the caller's RLS-scoped client first (404 if not visible) before generating the signed URL with service role

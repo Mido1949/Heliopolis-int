@@ -18,7 +18,9 @@ export function cairoNow(): { weekday: 'Sat'|'Sun'|'Mon'|'Tue'|'Wed'|'Thu'|'Fri'
   });
   const parts = formatter.formatToParts(new Date());
   const get = (t: string) => parts.find(p => p.type === t)!.value;
-  const rawWeekday = get('weekday');
+  // ICU/CLDR may render short weekdays with a trailing period (e.g. "Fri.") —
+  // normalize to the bare 3-letter form or every window check would fail.
+  const rawWeekday = get('weekday').replace(/\W/g, '').slice(0, 3);
   const weekdayMap: Record<string, 'Sat'|'Sun'|'Mon'|'Tue'|'Wed'|'Thu'|'Fri'> = {
     Sat: 'Sat', Sun: 'Sun', Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri',
   };
@@ -54,12 +56,12 @@ export async function withCronAlert(
     if (!response.ok) {
       const body = await response.clone().json().catch(() => ({}));
       const errorText = (body as Record<string, unknown>).error || `HTTP ${response.status}`;
-      await sendOpsAlert(`🚨 ${jobName} failed: ${errorText}`);
+      await sendOpsAlert(`${jobName} failed: ${errorText}`);
     }
     return response;
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
-    await sendOpsAlert(`🚨 ${jobName} failed: ${message}`);
+    await sendOpsAlert(`${jobName} failed: ${message}`);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

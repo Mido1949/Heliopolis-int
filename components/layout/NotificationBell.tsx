@@ -8,9 +8,12 @@ import { arEG } from 'date-fns/locale';
 
 interface Notification {
   id: string;
-  message: string;
-  lead_id: string | null;
-  read: boolean;
+  title: string;
+  body: string | null;
+  type: string | null;
+  reference_id: string | null;
+  reference_type: string | null;
+  is_read: boolean;
   created_at: string;
 }
 
@@ -29,7 +32,7 @@ export default function NotificationBell() {
       if (!res.ok) return;
       const data: Notification[] = await res.json();
       setNotifications(data || []);
-      setUnreadCount((data || []).filter(n => !n.read).length);
+      setUnreadCount((data || []).filter(n => !n.is_read).length);
     } catch {
       // silent — non-critical
     } finally {
@@ -89,9 +92,12 @@ export default function NotificationBell() {
             {notifications.map(n => (
               <li
                 key={n.id}
-                className={`px-3 py-2.5 text-sm leading-relaxed ${!n.read ? 'bg-amber-50/40' : 'bg-white'}`}
+                className={`px-3 py-2.5 text-sm leading-relaxed ${!n.is_read ? 'bg-amber-50/40' : 'bg-white'}`}
               >
-                <div className="text-slate-800 whitespace-pre-wrap break-words">{n.message}</div>
+                <div className="text-slate-900 font-semibold">{n.title}</div>
+                {n.body && (
+                  <div className="text-slate-800 whitespace-pre-wrap break-words">{n.body}</div>
+                )}
                 <div className="text-[11px] text-slate-500 mt-1">
                   {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: arEG })}
                 </div>

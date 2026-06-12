@@ -2,15 +2,30 @@
 
 All changes are **additive** (constitution II). Three migrations, applied in order. Naming follows the existing `YYYYMMDD_name.sql` convention in `supabase/migrations/`.
 
-## Migration 1 — `20260612_idempotency_hardening.sql` (Phase A)
+## ⚠ Live-schema ground truth (verified 2026-06-12 against project wrmqrvqixtrasajjfbge)
+
+The production `notifications` table is the **multi-tenant shape**, NOT the repo's stale `schema.sql`/`005_notifications.sql` shape:
+
+| Live column | Notes |
+|---|---|
+| `title` | TEXT **NOT NULL** |
+| `body` | TEXT NULL — the message text goes here |
+| `type` | TEXT NULL — **already exists** in production |
+| `is_read` | BOOLEAN DEFAULT false (NOT `read`) |
+| `reference_id` / `reference_type` | generic reference (use `reference_id = lead id`, `reference_type = 'lead'`) — there is **no `lead_id` column** |
+| `org_id` | UUID **NOT NULL, no default, no trigger** — every insert must resolve it (from the recipient's `profiles.org_id`) |
+
+All notification reads/writes MUST use this shape (fixed in `lib/notifications/in-app.ts`, `app/api/notifications/*`, `components/layout/NotificationBell.tsx`). Dedup lookups use `type + reference_id`, not message text or lead_id.
+
+## Migration 1 — `20260612_idempotency_hardening.sql` (Phase A) — ✅ APPLIED
 
 ### notifications (extend)
 
 | Column | Type | Notes |
 |---|---|---|
-| `type` | TEXT NULL | Machine-readable category: `stuck_lead`, `lead_intake`, `personal_report`, `nudge`, `escalation`, `agent_digest`, `scrape_summary`, `assignment`. NULL for legacy rows. |
+| `type` | TEXT NULL | Already present live; `ADD COLUMN IF NOT EXISTS` kept for fresh environments. Categories: `stuck_lead`, `lead_intake`, `personal_report`, `company_report_sent`, `nudge`, `escalation`, `agent_digest`, `scrape_summary`, `assignment`. |
 
-Index: `idx_notifications_type_lead (type, lead_id, created_at)` — serves the 24h dedup lookup.
+Index: `idx_notifications_type_ref (type, reference_id, created_at)` — serves the 24h dedup lookup.
 
 ### tasks (extend)
 
@@ -108,5 +123,6 @@ scrape run ⇒ leads (via lib/leads/intake.ts: insert + assigned_to_user round-r
 
 - Undo allowed only when `undone_at IS NULL` AND current DB state equals the action's recorded after-state; else 409.
 - Suppression: before nudge/escalate, look up `agent_actions` where same `action_type` + `target_lead_id` (or `target_user_id`) within `nudge_suppression_hours` → skip.
-- Exactly-once daily reports: before sending, check today's `notifications` `type = 'personal_report'` (per user) / a company-report sent marker (`notifications` row `type = 'agent_digest'`-style marker for admin, or Telegram send recorded) — implementer detail in contracts/cron-endpoints.md.
+- Stuck-lead notification dedup: `notifications` where `type='stuck_lead' AND reference_id=<lead> AND created_at > now()-24h`.
+- Exactly-once daily reports: before sending, check today's `notifications` `type = 'personal_report'` (per user) / `type = 'company_report_sent'` marker for admin — implementer detail in contracts/cron-endpoints.md.
 - Intake aborts with ops alert when zero active CS members exist.

@@ -5,9 +5,26 @@ interface NotificationMeta {
   data?: Record<string, unknown>;
 }
 
+const TITLES_BY_TYPE: Record<string, string> = {
+  stuck_lead: '⚠️ ليد واقف',
+  lead_intake: '🎯 ليد جديد',
+  assignment: '📌 تعيين جديد',
+  nudge: '⏰ تذكير',
+  escalation: '🚩 تصعيد',
+  personal_report: '📊 تقريرك اليومي',
+  company_report_sent: '📈 تقرير الشركة',
+  agent_digest: '🧠 ملخص هيليو',
+  scrape_summary: '🔍 ملخص السحب الأسبوعي',
+};
+
 /**
  * In-app notification writer. Uses service role so it can write notifications
  * for any user regardless of calling context (route handlers, cron jobs, etc.).
+ *
+ * Live schema: the production `notifications` table is the multi-tenant shape —
+ * `title` (NOT NULL), `body`, `type`, `is_read`, `reference_id`,
+ * `reference_type`, and `org_id` (NOT NULL, no default and no trigger), so
+ * org_id must be resolved from the recipient's profile before insert.
  */
 export async function createNotification(
   userId: string,
@@ -20,19 +37,28 @@ export async function createNotification(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const insertPayload: Record<string, unknown> = {
-    user_id: userId,
-    message,
-    lead_id: leadId || null,
-    read: false,
-  };
-  if (meta?.type) {
-    insertPayload.type = meta.type;
+  const { data: profile, error: profErr } = await supabase
+    .from('profiles')
+    .select('org_id')
+    .eq('id', userId)
+    .single();
+  if (profErr || !profile?.org_id) {
+    throw new Error(`createNotification: recipient ${userId} has no org_id (${profErr?.message || 'profile missing'})`);
   }
 
+  const type = meta?.type || 'general';
   const { data, error } = await supabase
     .from('notifications')
-    .insert(insertPayload)
+    .insert({
+      user_id: userId,
+      title: TITLES_BY_TYPE[type] || '🔔 إشعار',
+      body: message,
+      type,
+      reference_id: leadId || null,
+      reference_type: leadId ? 'lead' : null,
+      is_read: false,
+      org_id: profile.org_id,
+    })
     .select()
     .single();
 

@@ -145,18 +145,23 @@ async function processLead(value: MetaLeadValue): Promise<string> {
 async function notifyAdmins(leadId: string, name: string, phone: string): Promise<void> {
   const { data: admins } = await supabase
     .from('profiles')
-    .select('id')
+    .select('id, org_id')
     .in('role', ['admin', 'Manager']);
 
   if (!admins || admins.length === 0) return;
 
-  const notifications = admins.map((admin) => ({
-    user_id: admin.id,
-    title: `ليد جديد من Meta: ${name} — ${phone}`,
-    type: 'meta_lead',
-    reference_id: leadId,
-    reference_type: 'lead',
-  }));
+  // notifications.org_id is NOT NULL with no default — must come from the profile
+  const notifications = admins
+    .filter((admin) => admin.org_id)
+    .map((admin) => ({
+      user_id: admin.id,
+      title: `ليد جديد من Meta: ${name} — ${phone}`,
+      type: 'meta_lead',
+      reference_id: leadId,
+      reference_type: 'lead',
+      org_id: admin.org_id,
+    }));
+  if (notifications.length === 0) return;
 
   const { error } = await supabase.from('notifications').insert(notifications);
   if (error) {
