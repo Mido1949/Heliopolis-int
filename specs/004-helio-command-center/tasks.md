@@ -20,8 +20,8 @@
 
 **Purpose**: Shared infrastructure used by every subsequent phase
 
-- [ ] T001 Create `lib/cron/guard.ts` with `verifyCronAuth`, `cairoNow`, `isCairoWindow`, `withCronAlert` exactly per contracts/cron-endpoints.md (Intl-based Africa/Cairo, fail-closed Bearer check)
-- [ ] T002 [P] Create `lib/notifications/alert.ts` exporting `sendOpsAlert(message: string)` — wraps existing `sendTelegramMessage` from `lib/notifications/telegram.ts`, prefixes `🚨 HelioMax Ops:`, falls back to `console.error` when Telegram unconfigured; never throws
+- [x] T001 Create `lib/cron/guard.ts` with `verifyCronAuth`, `cairoNow`, `isCairoWindow`, `withCronAlert` exactly per contracts/cron-endpoints.md (Intl-based Africa/Cairo, fail-closed Bearer check)
+- [x] T002 [P] Create `lib/notifications/alert.ts` exporting `sendOpsAlert(message: string)` — wraps existing `sendTelegramMessage` from `lib/notifications/telegram.ts`, prefixes `🚨 HelioMax Ops:`, falls back to `console.error` when Telegram unconfigured; never throws
 - [ ] T003 [P] Add `WEBHOOK_SECRET` to `.env.local.example` with comment; document `CRON_SECRET` + `WEBHOOK_SECRET` as required Vercel env vars in `README.md` deployment section
 
 **Checkpoint**: `npm run build` green (existing flags still on — flipped in Phase 3)
@@ -32,9 +32,9 @@
 
 **Purpose**: Database changes that user stories depend on (additive only)
 
-- [ ] T004 Create migration `supabase/migrations/20260612_idempotency_hardening.sql` per data-model.md Migration 1: `notifications.type` column + index, `tasks.auto_created` column + index, new `agent_requests` table with RLS enabled (service-role only)
+- [x] T004 Create migration `supabase/migrations/20260612_idempotency_hardening.sql` per data-model.md Migration 1: `notifications.type` column + index, `tasks.auto_created` column + index, new `agent_requests` table with RLS enabled (service-role only)
 - [ ] T005 Apply migration 20260612_idempotency_hardening.sql to the Supabase project (show SQL first; verify with a SELECT on the new columns)
-- [ ] T006 Update `lib/notifications/in-app.ts` `createNotification` to persist `meta.type` into the new `notifications.type` column (keep broadcast payload unchanged)
+- [x] T006 Update `lib/notifications/in-app.ts` `createNotification` to persist `meta.type` into the new `notifications.type` column (keep broadcast payload unchanged)
 
 **Checkpoint**: migration applied; notifications created with type; build green
 

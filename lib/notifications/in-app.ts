@@ -20,14 +20,19 @@ export async function createNotification(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
+  const insertPayload: Record<string, unknown> = {
+    user_id: userId,
+    message,
+    lead_id: leadId || null,
+    read: false,
+  };
+  if (meta?.type) {
+    insertPayload.type = meta.type;
+  }
+
   const { data, error } = await supabase
     .from('notifications')
-    .insert({
-      user_id: userId,
-      message,
-      lead_id: leadId,
-      read: false,
-    })
+    .insert(insertPayload)
     .select()
     .single();
 
