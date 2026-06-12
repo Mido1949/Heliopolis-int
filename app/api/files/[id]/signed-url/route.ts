@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -24,15 +25,27 @@ export async function GET(
     }
   );
 
-  const { data: fileRecord } = await supabase
+  const { data: { user }, error: authErr } = await supabase.auth.getUser();
+  if (authErr || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { data: fileRecord, error: fileErr } = await supabase
     .from('client_files')
     .select('file_path')
     .eq('id', params.id)
     .single();
 
-  if (!fileRecord) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (fileErr || !fileRecord) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
 
-  const { data } = await supabase.storage
+  const serviceSupabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data } = await serviceSupabase.storage
     .from('client-files')
     .createSignedUrl(fileRecord.file_path, 3600);
 

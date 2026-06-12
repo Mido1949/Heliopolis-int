@@ -5,13 +5,18 @@ import type { CookieOptions } from '@supabase/ssr';
 import { generateCompanyReport } from '@/lib/reports/company-report';
 import { sendTelegramMessage } from '@/lib/notifications/telegram';
 import { Resend } from 'resend';
+import { createNotification } from '@/lib/notifications/in-app';
+import { verifyCronAuth, withCronAlert, isCairoWindow, cairoNow } from '@/lib/cron/guard';
 
-export async function POST(request: NextRequest) {
-  // T068: CRON_SECRET-protected
-  const authHeader = request.headers.get('authorization');
-  const provided = authHeader?.replace('Bearer ', '');
-  if (!process.env.CRON_SECRET || provided !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+export const dynamic = 'force-dynamic';
+
+async function handle(request: NextRequest) {
+  if (!verifyCronAuth(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (!isCairoWindow({ hour: 15, minute: 50, days: ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu'] })) {
+    return NextResponse.json({ ok: true, skipped: 'outside_window' });
   }
 
   const cookieStore = cookies();
@@ -31,7 +36,20 @@ export async function POST(request: NextRequest) {
     }
   );
 
-  const today = new Date().toISOString().slice(0, 10);
+  const cairo = cairoNow();
+  const today = cairo.dateISO;
+
+  const { data: existingMarker } = await supabase
+    .from('notifications')
+    .select('id')
+    .eq('type', 'company_report_sent')
+    .gte('created_at', `${today}T00:00:00.000Z`)
+    .limit(1);
+
+  if (existingMarker && existingMarker.length > 0) {
+    return NextResponse.json({ ok: true, skipped: 'already_sent' });
+  }
+
   let report;
   try {
     report = await generateCompanyReport(today);
@@ -39,7 +57,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'report generation failed' }, { status: 500 });
   }
 
-  // Format as a structured message
   const pipelineLines = Object.entries(report.pipeline.by_stage)
     .map(([s, c]) => `${s}: ${c}`)
     .join('\n');
@@ -56,7 +73,6 @@ export async function POST(request: NextRequest) {
 
   const delivery: { telegram?: { ok: boolean; error?: string }; email?: { ok: boolean; error?: string } } = {};
 
-  // Telegram
   if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
     try {
       await sendTelegramMessage(text);
@@ -66,7 +82,6 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Email
   if (process.env.RESEND_API_KEY && process.env.ADMIN_EMAIL) {
     try {
       const resend = new Resend(process.env.RESEND_API_KEY);
@@ -83,5 +98,28 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const { data: admins } = await supabase
+    .from('profiles')
+    .select('id')
+    .in('role', ['admin', 'Manager'])
+    .limit(1);
+
+  if (admins && admins.length > 0) {
+    await createNotification(
+      admins[0].id,
+      `📈 تم إرسال تقرير الشركة — ${today}`,
+      undefined,
+      { type: 'company_report_sent' }
+    );
+  }
+
   return NextResponse.json({ ok: true, date: today, delivery, report });
+}
+
+export async function GET(request: NextRequest) {
+  return withCronAlert('company-report', () => handle(request));
+}
+
+export async function POST(request: NextRequest) {
+  return withCronAlert('company-report', () => handle(request));
 }

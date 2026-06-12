@@ -24,12 +24,13 @@ export async function createAutoCallTask(params: CreateAutoCallTaskParams): Prom
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Idempotency guard: skip if a system call task already exists for this lead
+    // Idempotency guard: skip if an auto-created non-cancelled task exists for this lead
     const { data: existing } = await supabase
       .from('tasks')
       .select('id')
       .eq('lead_id', leadId)
-      .ilike('title', '%اتصل%')
+      .eq('auto_created', true)
+      .neq('status', 'cancelled')
       .limit(1);
 
     if (existing && existing.length > 0) return;
@@ -44,6 +45,7 @@ export async function createAutoCallTask(params: CreateAutoCallTaskParams): Prom
       due_date: today,
       status: 'pending',
       priority: 'medium',
+      auto_created: true,
     });
 
     if (error) {

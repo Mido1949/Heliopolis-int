@@ -17,12 +17,7 @@ export async function GET(request: Request) {
 
   const envToken = process.env.META_WEBHOOK_VERIFY_TOKEN ?? '';
   console.log('[meta-webhook] mode:', mode);
-  console.log('[meta-webhook] hub.verify_token:', token);
-  console.log('[meta-webhook] META_WEBHOOK_VERIFY_TOKEN:', envToken);
-  console.log('[meta-webhook] token.length:', token?.length, '| env.length:', envToken.length);
   console.log('[meta-webhook] match:', token === envToken);
-  console.log('[meta-webhook] token hex:', Buffer.from(token ?? '').toString('hex'));
-  console.log('[meta-webhook] env hex:', Buffer.from(envToken).toString('hex'));
 
   if (mode === 'subscribe' && token === envToken) {
     return new Response(challenge ?? '', { status: 200 });
@@ -37,8 +32,6 @@ export async function POST(request: Request) {
   const rawBody = await request.text();
   const signature = request.headers.get('x-hub-signature-256');
 
-  console.log('[meta-webhook POST] raw body:', rawBody);
-  console.log('[meta-webhook POST] signature header:', signature);
   console.log('[meta-webhook POST] META_APP_SECRET set:', !!process.env.META_APP_SECRET);
 
   if (!verifySignature(rawBody, signature)) {

@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getPersonalReportData } from '@/lib/reports/personal-report';
 import { createNotification } from '@/lib/notifications/in-app';
+import { verifyCronAuth, withCronAlert, isCairoWindow, cairoNow } from '@/lib/cron/guard';
 
-export async function POST(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  const provided = authHeader?.replace('Bearer ', '');
-  if (!process.env.CRON_SECRET || provided !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+export const dynamic = 'force-dynamic';
+
+async function handle(request: NextRequest) {
+  if (!verifyCronAuth(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (!isCairoWindow({ hour: 15, minute: 50, days: ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu'] })) {
+    return NextResponse.json({ ok: true, skipped: 'outside_window' });
   }
 
   const supabase = createClient(
@@ -15,7 +20,6 @@ export async function POST(request: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // Fetch all active profiles
   const { data: profiles, error: profErr } = await supabase
     .from('profiles')
     .select('id, name')
@@ -24,11 +28,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: profErr.message }, { status: 500 });
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const results: { user_id: string; status: 'sent' | 'error'; error?: string }[] = [];
+  const cairo = cairoNow();
+  const today = cairo.dateISO;
+  const results: { user_id: string; status: 'sent' | 'skipped' | 'error'; error?: string }[] = [];
 
   for (const p of (profiles || []) as { id: string; name: string }[]) {
     try {
+      const { data: existing } = await supabase
+        .from('notifications')
+        .select('id')
+        .eq('type', 'personal_report')
+        .eq('user_id', p.id)
+        .gte('created_at', `${today}T00:00:00.000Z`)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        results.push({ user_id: p.id, status: 'skipped' });
+        continue;
+      }
+
       const data = await getPersonalReportData(p.id, today);
       await createNotification(
         p.id,
@@ -42,5 +60,13 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, date: today, delivered: results.length, results });
+  return NextResponse.json({ ok: true, date: today, delivered: results.filter(r => r.status === 'sent').length, results });
+}
+
+export async function GET(request: NextRequest) {
+  return withCronAlert('personal-report', () => handle(request));
+}
+
+export async function POST(request: NextRequest) {
+  return withCronAlert('personal-report', () => handle(request));
 }

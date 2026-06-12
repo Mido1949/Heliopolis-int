@@ -33,10 +33,11 @@ export async function POST(request: NextRequest) {
     }
   );
 
-  // Optional auth — allow service role for scraper webhook, otherwise require user
+  // Webhook auth via WEBHOOK_SECRET; otherwise require session
   const authHeader = request.headers.get('authorization');
-  const isServiceRole = authHeader === `Bearer ${process.env.CRON_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY}`;
-  if (!isServiceRole) {
+  const expectedWebhookSecret = process.env.WEBHOOK_SECRET;
+  const isWebhook = expectedWebhookSecret ? (authHeader === `Bearer ${expectedWebhookSecret}`) : false;
+  if (!isWebhook) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
