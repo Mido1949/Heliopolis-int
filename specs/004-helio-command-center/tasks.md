@@ -84,7 +84,7 @@
 **Independent Test**: quickstart.md "Phase B" — chat scenarios (admin + member), seeded autonomy run, suppression re-run, control page undo/pause
 
 - [x] T022 [US2] Create migration `supabase/migrations/20260612_agent_command_center.sql` per data-model.md Migration 2: `agent_actions` + `agent_settings` tables, indexes, RLS (admin/team-lead SELECT; admin UPDATE on settings), singleton seed row
-- [ ] T023 [US2] Apply migration 20260612_agent_command_center.sql (show SQL first; verify tables exist)
+- [x] T023 [US2] Apply migration 20260612_agent_command_center.sql (show SQL first; verify tables exist)
 - [x] T024 [US2] Create `lib/agent/tools.ts`: Anthropic tool definitions + executors for all 10 tools exactly per contracts/helio-tools.md (input schemas, scope filtering by role, RLS-scoped execution, name disambiguation, agent_actions recording with prior-state payload, compact ≤2KB tool results)
 - [ ] T025 [US2] Rewrite `app/api/agent/chat/route.ts` per contracts/helio-tools.md: keep regex fast-paths + register-lead flow + rate limiting (T016); add tool-use loop (`claude-sonnet-4-6`, max_tokens 2048, max 6 iterations, role-filtered tools, system = persona + loadSystemApprovalContext() + role context); Haiku fallback then FALLBACKS on errors; response gains optional `actions` array
 - [ ] T026 [US2] Create `lib/agent/autonomy.ts` per research D4: detection queries (missing first-call task via `auto_created`, overdue tasks, stuck per `COALESCE(last_contact_date, updated_at)` vs `agent_settings.stuck_threshold_days`, 7+ day escalation, workload imbalance max−min>2), corrective actions with service role, 24h suppression via `agent_actions` lookup, every action recorded with templated Arabic reasoning
