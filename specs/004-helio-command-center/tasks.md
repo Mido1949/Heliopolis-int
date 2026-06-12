@@ -70,8 +70,8 @@
 
 **Independent Test**: quickstart.md "Phase D" — in-window/out-of-window/duplicate-call probes; Vercel cron log check post-deploy
 
-- [ ] T020 [US3] Verify the Cairo guards from T007–T009 against contracts/cron-endpoints.md windows table (15:50 reports, 08:00 stuck-leads, Sat–Thu only); fix any drift; confirm Friday produces `skipped: 'outside_window'`
-- [ ] T021 [US3] Manual verification run of quickstart Phase D probes locally (document results in the phase commit message); after deploy, confirm both UTC firings appear in Vercel cron logs and exactly one delivers
+- [x] T020 [US3] Verify the Cairo guards from T007–T009 against contracts/cron-endpoints.md windows table (15:50 reports, 08:00 stuck-leads, Sat–Thu only); fix any drift; confirm Friday produces `skipped: 'outside_window'`
+- [x] T021 [US3] Local probes done (Friday → outside_window confirmed on GET, fail-closed auth confirmed). REMAINING: post-deploy check that both UTC firings appear in Vercel cron logs and exactly one delivers (needs CRON_SECRET set in Vercel first)
 
 **Checkpoint**: US3 deliverable complete (mostly verification — implementation rode on US1)
 
