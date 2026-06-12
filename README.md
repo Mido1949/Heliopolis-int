@@ -1,36 +1,37 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HelioMax
+
+Internal operations platform for HelioMax (HVAC — Egypt/KSA): CRM with a 9-stage lead pipeline, BOQ quoting engine (GCHV price list), Helio AI assistant, automated reports, and lead automation.
+
+**Stack**: Next.js 14 App Router + TypeScript · Supabase (Postgres/RLS/Auth) · Ant Design 5 + Tailwind · Anthropic Claude · Vercel.
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install --legacy-peer-deps   # required — do not plain `npm install`
+cp .env.local.example .env.local # fill in real values
+npm run dev                      # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Spec-driven development: active implementation is declared in `AGENTS.md`; specs live under `specs/`; governing principles in `.specify/memory/constitution.md` (non-negotiable).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deployment (Vercel)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Install command must be `npm install --legacy-peer-deps` (set in `vercel.json`).
 
-## Learn More
+### Required environment variables
 
-To learn more about Next.js, take a look at the following resources:
+| Variable | Purpose |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Client Supabase access |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-side jobs (never client-side) |
+| `CRON_SECRET` | **Required for all scheduled jobs.** Vercel sends it as `Authorization: Bearer …` on cron invocations; cron routes fail closed without it |
+| `WEBHOOK_SECRET` | Dedicated bearer secret for `/api/automation/intake` (external scraper webhook) |
+| `ANTHROPIC_API_KEY` | Helio AI (chat + autonomy engine) |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | Company report delivery + ops failure alerts |
+| `RESEND_API_KEY` / `ADMIN_EMAIL` | Company report email |
+| `META_WEBHOOK_VERIFY_TOKEN` / `META_APP_SECRET` | Meta Lead Ads webhook |
+| `APIFY_API_TOKEN` | Lead scraper (optional — mock data without it) |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Scheduled jobs
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Crons are defined in `vercel.json` (UTC, HTTP GET). Handlers contain Cairo-time guards (Africa/Cairo, Sat–Thu working week) — see `specs/004-helio-command-center/contracts/cron-endpoints.md` for windows and exactly-once semantics.
