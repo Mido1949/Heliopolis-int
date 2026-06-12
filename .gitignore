@@ -38,3 +38,7 @@ next-env.d.ts
 *.zip
 *.rar
 *.7z
+
+# build artifacts
+build*.log
+build*.txt

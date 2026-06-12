@@ -22,7 +22,7 @@
 
 - [x] T001 Create `lib/cron/guard.ts` with `verifyCronAuth`, `cairoNow`, `isCairoWindow`, `withCronAlert` exactly per contracts/cron-endpoints.md (Intl-based Africa/Cairo, fail-closed Bearer check)
 - [x] T002 [P] Create `lib/notifications/alert.ts` exporting `sendOpsAlert(message: string)` — wraps existing `sendTelegramMessage` from `lib/notifications/telegram.ts`, prefixes `🚨 HelioMax Ops:`, falls back to `console.error` when Telegram unconfigured; never throws
-- [ ] T003 [P] Add `WEBHOOK_SECRET` to `.env.local.example` with comment; document `CRON_SECRET` + `WEBHOOK_SECRET` as required Vercel env vars in `README.md` deployment section
+- [x] T003 [P] Add `WEBHOOK_SECRET` to `.env.local.example` with comment; document `CRON_SECRET` + `WEBHOOK_SECRET` as required Vercel env vars in `README.md` deployment section
 
 **Checkpoint**: `npm run build` green (existing flags still on — flipped in Phase 3)
 
@@ -56,9 +56,9 @@
 - [x] T014 [P] [US1] Fix `app/api/automation/intake/route.ts` auth: webhook path accepts ONLY `Bearer ${process.env.WEBHOOK_SECRET}` (fail-closed when unset); session auth path unchanged; service-role key never compared
 - [x] T015 [P] [US1] Update `lib/tasks/auto-create.ts`: insert with `auto_created: true`; replace `ilike('%اتصل%')` idempotency with `lead_id + auto_created=true + status != 'cancelled'` lookup
 - [ ] T016 [US1] Add rate limiting to `app/api/agent/chat/route.ts`: insert `agent_requests` row per call; count last-5-min rows for caller; >30 (members) / >120 (admin role) ⇒ 200 with friendly Arabic refusal content; opportunistic delete of rows older than 1h
-- [ ] T017 [US1] Repo cleanup: `git rm` `build.log`, `build_log.txt`, `build_output.txt`, `build_stage2.log`, `supabase/migrations/003_boq_rooms.sql`; add `build*.log`, `build*.txt`, `*.zip` patterns to `.gitignore`; remove the 003 migration reference warning from AGENTS.md key constraints (it no longer exists)
+- [x] T017 [US1] Repo cleanup: `git rm` `build.log`, `build_log.txt`, `build_output.txt`, `build_stage2.log`, `supabase/migrations/003_boq_rooms.sql`; add `build*.log`, `build*.txt`, `*.zip` patterns to `.gitignore`; remove the 003 migration reference warning from AGENTS.md key constraints (it no longer exists)
 - [ ] T018 [US1] Flip `next.config.mjs` to `ignoreBuildErrors: false` and `ignoreDuringBuilds: false`; run `npm run build`; fix EVERY surfaced TypeScript/ESLint error across the codebase (expect the bulk of effort here; do not weaken types to `any` — fix properly; `eslint-disable` only with a justification comment)
-- [ ] T019 [US1] Update `vercel.json` cron schedules per contracts/cron-endpoints.md: personal `50 12,13 * * *`, company `50 12,13 * * *`, stuck-leads `0 5,6 * * *`
+- [x] T019 [US1] Update `vercel.json` cron schedules per contracts/cron-endpoints.md: personal `50 12,13 * * *`, company `50 12,13 * * *`, stuck-leads `0 5,6 * * *`
 
 **Checkpoint**: ALL quickstart Phase A probes pass; build green WITH checks on — US1 deliverable complete
 
