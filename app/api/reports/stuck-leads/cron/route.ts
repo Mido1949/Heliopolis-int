@@ -22,11 +22,13 @@ async function handle(request: NextRequest) {
   );
 
   const staleThreshold = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  // Staleness = COALESCE(last_contact_date, updated_at) < threshold:
+  // stale by last contact, or never contacted and not updated either.
   const { data: leads, error: leadsErr } = await supabase
     .from('leads')
     .select('id, name, pipeline_stage, assigned_to_user, updated_at, last_contact_date')
     .not('pipeline_stage', 'in', `(${TERMINAL_STAGES.join(',')})`)
-    .lt('updated_at', staleThreshold)
+    .or(`last_contact_date.lt.${staleThreshold},and(last_contact_date.is.null,updated_at.lt.${staleThreshold})`)
     .not('assigned_to_user', 'is', null);
 
   if (leadsErr) return NextResponse.json({ error: leadsErr.message }, { status: 500 });
