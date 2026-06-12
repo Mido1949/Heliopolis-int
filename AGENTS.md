@@ -24,34 +24,40 @@ These defaults are optimized for AI coding agents (and humans) working on apps t
 <!-- VERCEL BEST PRACTICES END -->
 
 <!-- SPECKIT START -->
-## Active Implementation: MASTER_PLAN_V2
+## Active Implementation: 004-helio-command-center
 
-Read the master plan before writing any code:
-`specs/002-heliomax-platform/MASTER_PLAN_V2.md`
+Read before writing any code:
+`specs/004-helio-command-center/plan.md` and `specs/004-helio-command-center/tasks.md`
 
-Three stages. Execute in order. Stop and report after each stage.
+Branch: `004-helio-command-center`. Four stages. Execute in order. Stop and report after each checkpoint.
 
-### Stage 1 — Database Foundation
-Command: `.opencode/commands/stage1-foundation.md`
-Goal: Apply migrations 001, 002, 005. Fix seed script. Seed 97 GCHV models.
+### Stage 4A — Security & Stability Hardening (+ Cairo Reports)
+Command: `.opencode/commands/stage4a-hardening.md`
+Goal: Tasks T001–T021. Revive crons (GET + Cairo guard), close auth holes, strip secret logs, WEBHOOK_SECRET, re-enable build checks, idempotency migration, repo cleanup, rate limit, 15:50 Cairo Sat–Thu reports.
 
-### Stage 2 — AI-First Shell
-Command: `.opencode/commands/stage2-ai-shell.md`
-Goal: Role-based layout. NormalUserShell. AI lead creation.
+### Stage 4B — Helio Command Brain
+Command: `.opencode/commands/stage4b-helio-brain.md`
+Goal: Tasks T022–T030. Tool-use agent (claude-sonnet-4-6), autonomy engine cron, agent_actions audit + undo, /helio control page.
 
-### Stage 3 — BOQ Simplification
-Command: `.opencode/commands/stage3-boq.md`
-Goal: Remove load calculator. New grid with auto-fill. Official quote PDF.
+### Stage 4C — Weekly Auto-Scraping
+Command: `.opencode/commands/stage4c-scraping.md`
+Goal: Tasks T031–T038. scrape_targets queue, Saturday cron, intake/scraper extraction, week-spread tasks, Mido summary.
+
+### Stage 4D — UI Refresh + Polish
+Command: `.opencode/commands/stage4d-ui-refresh.md`
+Goal: Tasks T039–T048. antd theme, skeletons/empty states, error boundaries, realtime bell, dynamic imports, final verification + merge prep.
 
 ### Reference artifacts (do not contradict)
-- `specs/002-heliomax-platform/spec.md` — original user stories
+- `specs/004-helio-command-center/spec.md` — user stories & acceptance criteria
+- `specs/004-helio-command-center/contracts/` — cron, Helio-tools, scrape-pipeline contracts (follow exactly)
+- `specs/004-helio-command-center/data-model.md` — the 3 additive migrations
+- `specs/004-helio-command-center/quickstart.md` — per-stage verification probes
 - `.specify/memory/constitution.md` — governing principles (NON-NEGOTIABLE)
-- `price_list_seed.json` — the 97 official GCHV model prices (source of truth)
-- `MASTER_PROMPT_v2.md` — requirements authored by the product owner
 
 ### Key constraints
-- Migration 003_boq_rooms.sql: DO NOT apply (load calculator is removed)
 - `npm install` must use `--legacy-peer-deps`
 - Arabic RTL must be preserved everywhere
-- Passwords are NEVER plain text in chat
+- Passwords are NEVER plain text in chat; AI login flow must NOT be modified
+- Additive migrations only — show SQL before applying; never drop/truncate
+- Vercel crons fire via HTTP GET in UTC; Cairo-time guards live in the handlers
 <!-- SPECKIT END -->
