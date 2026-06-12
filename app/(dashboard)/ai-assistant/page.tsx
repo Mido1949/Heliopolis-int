@@ -4,8 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import { Typography, Input, Button, Card, Avatar, Spin, Tag } from 'antd';
 import { SendOutlined, RobotOutlined, UserOutlined } from '@ant-design/icons';
 import { useAuth } from '@/context/AuthContext';
-import { usePathname } from 'next/navigation';
-
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 
@@ -18,7 +16,6 @@ interface Message {
 
 export default function AIPage() {
   const { profile } = useAuth();
-  const pathname = usePathname();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');

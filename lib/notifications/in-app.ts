@@ -2,6 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 
 interface NotificationMeta {
   type: string;
+  from?: string;
+  to_team?: string;
   data?: Record<string, unknown>;
 }
 

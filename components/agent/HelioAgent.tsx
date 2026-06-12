@@ -420,7 +420,7 @@ export default function HelioAgent() {
     const reply = await callClaude(next, system);
     setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
     setSending(false);
-  }, [input, sending, messages, pathname, profile?.name, callClaude, profile, loginStep, resolvedEmail, supabase]);
+  }, [input, sending, messages, pathname, callClaude, profile, loginStep, resolvedEmail, supabase]);
 
   const handleLoginSuccess = useCallback(async () => {
     setLoginStep('done');

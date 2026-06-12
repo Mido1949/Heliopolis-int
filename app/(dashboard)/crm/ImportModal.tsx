@@ -229,7 +229,7 @@ const parseFile = useCallback(async (uploadedFile: File) => {
     setStep(3);
     setImporting(false);
     onImportComplete();
-  }, [validRows, supabase, user, onImportComplete]);
+  }, [validRows, supabase, user, onImportComplete, currentOrgId]);
 
   const reset = () => {
     setStep(1);

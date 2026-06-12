@@ -32,7 +32,10 @@ export async function POST(request: NextRequest) {
 
   if (!membership) return NextResponse.json({ error: 'No org' }, { status: 403 });
 
-  const orgSlug = (membership.organizations as { slug: string }).slug;
+  const orgs = membership.organizations as { slug: string }[] | null;
+  const orgSlug = orgs?.[0]?.slug;
+  if (!orgSlug) return NextResponse.json({ error: 'No org slug' }, { status: 403 });
+
   const formData = await request.formData();
   const file = formData.get('file') as File;
   const category = (formData.get('category') as string) ?? 'other';

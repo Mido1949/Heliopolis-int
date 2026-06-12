@@ -52,7 +52,7 @@ async function handle(request: NextRequest) {
         p.id,
         `📊 تقريرك الشخصي جاهز (Personal report ready) — ${today}`,
         undefined,
-        { type: 'personal_report', data }
+        { type: 'personal_report', data: data as unknown as Record<string, unknown> }
       );
       results.push({ user_id: p.id, status: 'sent' });
     } catch (err) {

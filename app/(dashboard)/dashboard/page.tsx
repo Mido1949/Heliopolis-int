@@ -6,7 +6,7 @@ import { formatCurrency } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
-import { PIPELINE_STAGES, ACTIVE_PIPELINE_STAGES } from '@/lib/constants';
+import { ACTIVE_PIPELINE_STAGES } from '@/lib/constants';
 import DashboardCharts from './DashboardCharts';
 import {
   Users,

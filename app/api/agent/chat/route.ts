@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { CookieOptions } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { loadSystemApprovalContext } from '@/lib/system-approval/loader';
 
 const FALLBACKS = [
@@ -51,7 +52,64 @@ const LEAD_STEPS: { key: string; question: string }[] = [
 
 export async function POST(request: NextRequest) {
   try {
+    // ── Auth check ──
+    const cookieStore = cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) { return cookieStore.get(name)?.value; },
+          set(name: string, value: string, options: CookieOptions) {
+            try { cookieStore.set({ name, value, ...options }); } catch { /* noop */ }
+          },
+          remove(name: string, options: CookieOptions) {
+            try { cookieStore.set({ name, value: '', ...options }); } catch { /* noop */ }
+          },
+        },
+      }
+    );
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { messages, system, leadContext } = await request.json();
+
+    // ── Rate limiting ──
+    const serviceClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    await serviceClient.from('agent_requests').insert({ user_id: user.id });
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { count } = await serviceClient
+      .from('agent_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('created_at', fiveMinAgo);
+
+    const limit = profile?.role === 'admin' ? 120 : 30;
+    if (count && count > limit) {
+      return NextResponse.json({
+        content: '⏳ معلش، وصلت للحد الأقصى من الرسايل دلوقتي. جرب تاني بعد شوية.',
+      });
+    }
+
+    // Opportunistic cleanup (fire-and-forget)
+    serviceClient
+      .from('agent_requests')
+      .delete()
+      .lt('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString())
+      .then(() => {}, () => {});
 
     // T074: detect assign intent on the latest user message
     const latest = messages?.[messages.length - 1];

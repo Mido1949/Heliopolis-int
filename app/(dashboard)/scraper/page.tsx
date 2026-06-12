@@ -110,7 +110,7 @@ export default function ScraperPage() {
           } else {
             message.error(`Auto-intake failed: ${data.error || 'unknown'}`);
           }
-        } catch (err) {
+        } catch {
           message.error('Auto-intake failed (network)');
         }
       }

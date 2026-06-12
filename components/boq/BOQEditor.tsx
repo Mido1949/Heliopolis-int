@@ -273,13 +273,14 @@ export function BOQEditor({
             onChange={(value: string) => handleModelSelect(record.id, value)}
             options={modelOptions}
             filterOption={(input, option) =>
-              (option?.value as string)?.toLowerCase().includes(input.toLowerCase()) ?? false
+              option && 'value' in option ? (option.value as string)?.toLowerCase().includes(input.toLowerCase()) ?? false : false
             }
             optionRender={(option) => {
-              const p = priceMap[option.value as string];
+              const optValue = 'value' in option ? (option.value as string) : '';
+              const p = priceMap[optValue];
               return (
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium truncate">{option.value}</span>
+                  <span className="text-xs font-medium truncate">{optValue}</span>
                   {p && (
                     <span className="text-xs text-slate-400 shrink-0">
                       {p.capacity_kw > 0 ? `${p.capacity_kw}kW` : 'HRV'} · ${p.price_usd}

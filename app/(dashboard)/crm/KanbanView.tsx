@@ -2,10 +2,9 @@
 
 import { useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Card, Tag, Typography, message, Modal, InputNumber, Input } from 'antd';
+import { Card, Tag, Typography, message, Modal, Input } from 'antd';
 import { PIPELINE_STAGES } from '@/lib/constants';
 import type { Lead, PipelineStage } from '@/types';
-import { createClient } from '@/lib/supabase/client';
 import { logLeadActivity } from '@/lib/supabase/activities';
 
 const { Text, Title } = Typography;
@@ -17,7 +16,6 @@ interface KanbanViewProps {
 }
 
 export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanViewProps) {
-  const supabase = createClient();
   const [pendingWon, setPendingWon] = useState<{ leadId: string; fromStage: string } | null>(null);
   const [dealValue, setDealValue] = useState<number | null>(null);
   const [dealName, setDealName] = useState<string>('');
@@ -151,7 +149,7 @@ export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanView
         okButtonProps={{ disabled: dealValue === null || dealValue <= 0 }}
       >
         <p className="mb-3">العميل: <strong>{dealName}</strong></p>
-        <p className="text-sm text-gray-500 mb-3">قيمة الصفقة مطلوبة عند نقل العميل إلى مرحلة "تم الفوز".</p>
+        <p className="text-sm text-gray-500 mb-3">قيمة الصفقة مطلوبة عند نقل العميل إلى مرحلة &ldquo;تم الفوز&rdquo;.</p>
         <Input
           type="number"
           min={1}

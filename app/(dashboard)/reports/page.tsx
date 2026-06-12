@@ -676,7 +676,7 @@ export default function ReportsPage() {
           ) : (
             <ResponsiveContainer width="100%" height={180}>
               <PieChart>
-                <Pie data={afterSalesByStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} label={({ name, value }) => `${value}`} labelLine={false} fontSize={10}>
+                <Pie data={afterSalesByStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} label={({ value }) => `${value}`} labelLine={false} fontSize={10}>
                   {afterSalesByStatus.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                 </Pie>
                 <Tooltip formatter={(v, n) => [v, n]} />
