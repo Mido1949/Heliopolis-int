@@ -62,12 +62,10 @@ async function handle(request: NextRequest) {
   const delivery: { telegram?: { ok: boolean; error?: string }; email?: { ok: boolean; error?: string } } = {};
 
   if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
-    try {
-      await sendTelegramMessage(text);
-      delivery.telegram = { ok: true };
-    } catch (err) {
-      delivery.telegram = { ok: false, error: err instanceof Error ? err.message : 'telegram failed' };
-    }
+    // sendTelegramMessage never throws — it returns {ok:false,error}. Honor it
+    // so a parse/delivery failure is surfaced instead of falsely reported ok.
+    const tg = await sendTelegramMessage(text);
+    delivery.telegram = tg.ok ? { ok: true } : { ok: false, error: tg.error };
   }
 
   if (process.env.RESEND_API_KEY && process.env.ADMIN_EMAIL) {
