@@ -48,16 +48,24 @@ async function handle(request: NextRequest) {
   const pipelineLines = Object.entries(report.pipeline.by_stage)
     .map(([s, c]) => `${s}: ${c}`)
     .join('\n');
-  const wonLines = (report.won_today || []).map(w => `• ${w.name} — $${w.deal_value}`).join('\n') || 'None';
-  const flags = (report.flags || []).map(f => `• ${f}`).join('\n') || 'None';
+  // Cap long lists so the message stays well under Telegram's 4096-char limit.
+  const wonArr = report.won_today || [];
+  const wonLines = wonArr.slice(0, 15).map(w => `• ${w.name} — $${w.deal_value}`).join('\n')
+    + (wonArr.length > 15 ? `\n…و${wonArr.length - 15} غيرهم` : '') || 'None';
+  const flagArr = report.flags || [];
+  const flags = (flagArr.slice(0, 10).map(f => `• ${f}`).join('\n')
+    + (flagArr.length > 10 ? `\n…و${flagArr.length - 10} ليد واقف آخر` : '')) || 'None';
 
-  const text = `📊 *HelioMax Company Report* — ${today}\n\n` +
+  let text = `📊 *HelioMax Company Report* — ${today}\n\n` +
     `*Pipeline Snapshot*\n${pipelineLines}\n` +
     `Conversion: ${report.pipeline.conversion_rate}\n` +
     `Pipeline Value: $${report.pipeline.pipeline_value.toLocaleString()}\n\n` +
-    `*Won Today*\n${wonLines}\n\n` +
-    `*Stuck Leads (3+ days)*\n${flags}\n\n` +
+    `*Won Today* (${wonArr.length})\n${wonLines}\n\n` +
+    `*Stuck Leads 3+ days* (${flagArr.length})\n${flags}\n\n` +
     `*AI Insight*\n${report.ai_insight}`;
+
+  // Hard safety cap (Telegram rejects messages > 4096 chars).
+  if (text.length > 3900) text = text.slice(0, 3890) + '\n…';
 
   const delivery: { telegram?: { ok: boolean; error?: string }; email?: { ok: boolean; error?: string } } = {};
 
