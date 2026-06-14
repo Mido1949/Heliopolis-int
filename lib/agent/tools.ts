@@ -51,6 +51,18 @@ interface LeadRow {
   last_contact_date: string | null; deal_value: number | null; next_follow_up: string | null;
 }
 
+async function resolveOrgId(client: SupabaseClient, userId: string): Promise<string> {
+  const { data, error } = await client
+    .from('profiles')
+    .select('org_id')
+    .eq('id', userId)
+    .single();
+  if (error || !data?.org_id) {
+    throw new ToolError('تعذّر تحديد المؤسسة (org) للمستخدم.');
+  }
+  return data.org_id as string;
+}
+
 async function resolveLeadId(client: SupabaseClient, id: string): Promise<LeadRow | null> {
   const { data } = await client
     .from('leads')
@@ -471,6 +483,7 @@ async function createTask(input: Record<string, unknown>, ctx: ToolContext): Pro
     assignedTo = resolvedId;
   }
 
+  const orgId = await resolveOrgId(ctx.callerClient, ctx.callerId);
   const { data: task, error } = await ctx.callerClient
     .from('tasks')
     .insert({
@@ -482,6 +495,7 @@ async function createTask(input: Record<string, unknown>, ctx: ToolContext): Pro
       priority,
       status: 'pending',
       auto_created: false,
+      org_id: orgId,
     })
     .select('id, title, assigned_to, lead_id, due_date, priority')
     .single();
@@ -536,6 +550,7 @@ async function scheduleFollowup(input: Record<string, unknown>, ctx: ToolContext
   const current = await resolveLeadId(ctx.callerClient, leadId);
   if (!current) throw new ToolError(`ليد برقم "${leadId}" غير موجود.`);
 
+  const orgId = await resolveOrgId(ctx.callerClient, ctx.callerId);
   const { data: task, error: taskErr } = await ctx.callerClient
     .from('tasks')
     .insert({
@@ -548,6 +563,7 @@ async function scheduleFollowup(input: Record<string, unknown>, ctx: ToolContext
       status: 'pending',
       priority: 'medium',
       auto_created: false,
+      org_id: orgId,
     })
     .select('id')
     .single();

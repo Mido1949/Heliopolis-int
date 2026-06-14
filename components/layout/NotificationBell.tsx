@@ -5,6 +5,7 @@ import { Badge, Popover, Button, Spin, Empty } from 'antd';
 import { BellOutlined } from '@ant-design/icons';
 import { formatDistanceToNow } from 'date-fns';
 import { arEG } from 'date-fns/locale';
+import { createClient } from '@/lib/supabase/client';
 
 interface Notification {
   id: string;
@@ -24,6 +25,7 @@ export default function NotificationBell() {
   const [loading, setLoading] = useState(false);
   const [, setNow] = useState<number>(Date.now());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -42,10 +44,30 @@ export default function NotificationBell() {
 
   useEffect(() => {
     fetchNotifications();
-    intervalRef.current = setInterval(fetchNotifications, 30000);
     setNow(Date.now());
+
+    const supabase = createClient();
+    const setupChannel = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        intervalRef.current = setInterval(fetchNotifications, 300000);
+        return;
+      }
+      const channel = supabase
+        .channel('user:' + user.id)
+        .on('broadcast', { event: 'new_notification' }, () => fetchNotifications())
+        .subscribe((status) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            intervalRef.current = setInterval(fetchNotifications, 300000);
+          }
+        });
+      channelRef.current = channel;
+    };
+    setupChannel();
+
     const tick = setInterval(() => setNow(Date.now()), 60000);
     return () => {
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
       if (intervalRef.current) clearInterval(intervalRef.current);
       clearInterval(tick);
     };

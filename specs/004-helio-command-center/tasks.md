@@ -86,12 +86,12 @@
 - [x] T022 [US2] Create migration `supabase/migrations/20260612_agent_command_center.sql` per data-model.md Migration 2: `agent_actions` + `agent_settings` tables, indexes, RLS (admin/team-lead SELECT; admin UPDATE on settings), singleton seed row
 - [x] T023 [US2] Apply migration 20260612_agent_command_center.sql (show SQL first; verify tables exist)
 - [x] T024 [US2] Create `lib/agent/tools.ts`: Anthropic tool definitions + executors for all 10 tools exactly per contracts/helio-tools.md (input schemas, scope filtering by role, RLS-scoped execution, name disambiguation, agent_actions recording with prior-state payload, compact ≤2KB tool results)
-- [ ] T025 [US2] Rewrite `app/api/agent/chat/route.ts` per contracts/helio-tools.md: keep regex fast-paths + register-lead flow + rate limiting (T016); add tool-use loop (`claude-sonnet-4-6`, max_tokens 2048, max 6 iterations, role-filtered tools, system = persona + loadSystemApprovalContext() + role context); Haiku fallback then FALLBACKS on errors; response gains optional `actions` array
-- [ ] T026 [US2] Create `lib/agent/autonomy.ts` per research D4: detection queries (missing first-call task via `auto_created`, overdue tasks, stuck per `COALESCE(last_contact_date, updated_at)` vs `agent_settings.stuck_threshold_days`, 7+ day escalation, workload imbalance max−min>2), corrective actions with service role, 24h suppression via `agent_actions` lookup, every action recorded with templated Arabic reasoning
-- [ ] T027 [US2] Create `app/api/agent/brain/cron/route.ts`: GET+POST, CRON_SECRET, Cairo windows 10:00 & 14:00 Sat–Thu, `withCronAlert('agent-brain')`; honors `agent_settings.autonomy_paused`; runs `lib/agent/autonomy.ts`; sends Mido digest (notification `type='agent_digest'` + Telegram) listing each action or none/paused message
-- [ ] T028 [US2] Create `app/api/agent/actions/[id]/undo/route.ts` per contracts/helio-tools.md: admin/team-lead session required; state-match validation (409 with reason on drift or double-undo); reverts assign_lead via payload snapshot / cancels created tasks; sets `undone_at`, `undone_by`
-- [ ] T029 [US2] Create `app/(dashboard)/helio/page.tsx` (RTL-first, antd): action timeline from `agent_actions` (time, type icon, target, reasoning, origin badge, Undo button where reversible and not undone), autonomy pause/resume toggle + stuck-threshold input writing `agent_settings` (admin only), access limited to admin/team-lead (others redirected); add nav entry in the dashboard sidebar
-- [ ] T030 [US2] Add brain cron to `vercel.json`: `{ "path": "/api/agent/brain/cron", "schedule": "0 7,8,11,12 * * *" }`
+- [x] T025 [US2] Rewrite `app/api/agent/chat/route.ts` per contracts/helio-tools.md: keep regex fast-paths + register-lead flow + rate limiting (T016); add tool-use loop (`claude-sonnet-4-6`, max_tokens 2048, max 6 iterations, role-filtered tools, system = persona + loadSystemApprovalContext() + role context); Haiku fallback then FALLBACKS on errors; response gains optional `actions` array
+- [x] T026 [US2] Create `lib/agent/autonomy.ts` per research D4: detection queries (missing first-call task via `auto_created`, overdue tasks, stuck per `COALESCE(last_contact_date, updated_at)` vs `agent_settings.stuck_threshold_days`, 7+ day escalation, workload imbalance max−min>2), corrective actions with service role, 24h suppression via `agent_actions` lookup, every action recorded with templated Arabic reasoning
+- [x] T027 [US2] Create `app/api/agent/brain/cron/route.ts`: GET+POST, CRON_SECRET, Cairo windows 10:00 & 14:00 Sat–Thu, `withCronAlert('agent-brain')`; honors `agent_settings.autonomy_paused`; runs `lib/agent/autonomy.ts`; sends Mido digest (notification `type='agent_digest'` + Telegram) listing each action or none/paused message
+- [x] T028 [US2] Create `app/api/agent/actions/[id]/undo/route.ts` per contracts/helio-tools.md: admin/team-lead session required; state-match validation (409 with reason on drift or double-undo); reverts assign_lead via payload snapshot / cancels created tasks; sets `undone_at`, `undone_by`
+- [x] T029 [US2] Create `app/(dashboard)/helio/page.tsx` (RTL-first, antd): action timeline from `agent_actions` (time, type icon, target, reasoning, origin badge, Undo button where reversible and not undone), autonomy pause/resume toggle + stuck-threshold input writing `agent_settings` (admin only), access limited to admin/team-lead (others redirected); add nav entry in the dashboard sidebar
+- [x] T030 [US2] Add brain cron to `vercel.json`: `{ "path": "/api/agent/brain/cron", "schedule": "0 7,8,11,12 * * *" }`
 
 **Checkpoint**: quickstart Phase B scenarios pass end-to-end — US2 deliverable complete
 
@@ -103,14 +103,14 @@
 
 **Independent Test**: quickstart.md "Phase C" — queue via chat, mock-mode cron run, dedup re-run
 
-- [ ] T031 [US4] Create migration `supabase/migrations/20260612_scrape_targets.sql` per data-model.md Migration 3 (table, status check, indexes, RLS)
-- [ ] T032 [US4] Apply migration 20260612_scrape_targets.sql (show SQL first)
-- [ ] T033 [P] [US4] Extract `lib/leads/intake.ts` from `app/api/automation/intake/route.ts` per contracts/scrape-pipeline.md: `intakeLeads(businesses, opts?)` with dueDates rotation, per-rep counts, `auto_created: true` tasks, `NoCsMembersError`; route becomes thin wrapper with identical external contract
-- [ ] T034 [P] [US4] Extract `lib/scraper/run.ts` from `app/api/scraper/route.ts`: `runScrape(target)` with existing Apify actor + mock fallback; route becomes thin authenticated wrapper (manual scraper page unchanged)
-- [ ] T035 [US4] Create `app/api/scraper/cron/route.ts` per contracts/scrape-pipeline.md: GET+POST, CRON_SECRET, Sat 08:00 Cairo guard, `withCronAlert('weekly-scrape')`; processes ≤10 queued targets with status transitions; `weekSpread()` due dates Sat–Thu; admin summary notification `type='scrape_summary'` + Telegram with created/dups/errors/per-rep
-- [ ] T036 [US4] Wire `queue_scrape_target` Helio tool (defined in T024) to insert into `scrape_targets` and record the action; verify chat round-trip
-- [ ] T037 [US4] Update `app/(dashboard)/scraper/page.tsx`: add "queue for Saturday" form + `scrape_targets` status table (query, region, status, last run, results) alongside the existing immediate-scrape UI
-- [ ] T038 [US4] Add scraper cron to `vercel.json`: `{ "path": "/api/scraper/cron", "schedule": "0 5,6 * * 6" }`
+- [x] T031 [US4] Create migration `supabase/migrations/20260612_scrape_targets.sql` per data-model.md Migration 3 (table, status check, indexes, RLS)
+- [x] T032 [US4] Apply migration 20260612_scrape_targets.sql (show SQL first)
+- [x] T033 [P] [US4] Extract `lib/leads/intake.ts` from `app/api/automation/intake/route.ts` per contracts/scrape-pipeline.md: `intakeLeads(businesses, opts?)` with dueDates rotation, per-rep counts, `auto_created: true` tasks, `NoCsMembersError`; route becomes thin wrapper with identical external contract
+- [x] T034 [P] [US4] Extract `lib/scraper/run.ts` from `app/api/scraper/route.ts`: `runScrape(target)` with existing Apify actor + mock fallback; route becomes thin authenticated wrapper (manual scraper page unchanged)
+- [x] T035 [US4] Create `app/api/scraper/cron/route.ts` per contracts/scrape-pipeline.md: GET+POST, CRON_SECRET, Sat 08:00 Cairo guard, `withCronAlert('weekly-scrape')`; processes ≤10 queued targets with status transitions; `weekSpread()` due dates Sat–Thu; admin summary notification `type='scrape_summary'` + Telegram with created/dups/errors/per-rep
+- [x] T036 [US4] Wire `queue_scrape_target` Helio tool (defined in T024) to insert into `scrape_targets` and record the action; verify chat round-trip
+- [x] T037 [US4] Update `app/(dashboard)/scraper/page.tsx`: add "queue for Saturday" form + `scrape_targets` status table (query, region, status, last run, results) alongside the existing immediate-scrape UI
+- [x] T038 [US4] Add scraper cron to `vercel.json`: `{ "path": "/api/scraper/cron", "schedule": "0 5,6 * * 6" }`
 
 **Checkpoint**: quickstart Phase C scenarios pass in mock mode — US4 deliverable complete
 
@@ -122,12 +122,12 @@
 
 **Independent Test**: quickstart.md "Phase E" — visual pass AR/EN, error-boundary probe, two-session realtime test, bundle comparison, login regression
 
-- [ ] T039 [US5] Create `components/theme/heliomaxTheme.ts`: antd v5 theme token object (brand palette, borderRadius, fontFamily incl. Arabic font, component density for Table/Card/Button/Input); apply via `ConfigProvider` in the dashboard layout keeping `direction` per language
-- [ ] T040 [P] [US5] Create `components/ui/EmptyState.tsx` + `components/ui/PageHeader.tsx` (RTL-aware, themed); apply skeleton loading (antd Skeleton) + EmptyState + PageHeader to `app/(dashboard)/dashboard/page.tsx`, `app/(dashboard)/crm/page.tsx`, `app/(dashboard)/reports/page.tsx`, and the BOQ list page
-- [ ] T041 [P] [US5] Add `app/(dashboard)/error.tsx` and `app/error.tsx`: friendly Arabic/English error screens with retry button (calls `reset()`); log error to console
-- [ ] T042 [P] [US5] Switch the NotificationBell component (in `components/layout/`) from 30s polling to Supabase Realtime subscription on channel `user:{id}` event `new_notification` (matching `createNotification`'s broadcast); keep a 5-min polling fallback when channel errors; unsubscribe on unmount
-- [ ] T043 [P] [US5] Dynamic imports: `xlsx` in `app/(dashboard)/crm/ImportModal.tsx` via lazy `import()` at use-time; `@react-pdf/renderer` usages in BOQ components via `next/dynamic`/lazy import (LeadDrawer's PDFDownloadButton pattern already correct — replicate it); memoize CRM table column definitions with `useMemo`
-- [ ] T044 [US5] Record `npm run build` first-load JS sizes before/after T043 in the phase commit message; verify CRM + BOQ pages did not grow and xlsx/react-pdf live in lazy chunks
+- [x] T039 [US5] Create `components/theme/heliomaxTheme.ts`: antd v5 theme token object (brand palette, borderRadius, fontFamily incl. Arabic font, component density for Table/Card/Button/Input); apply via `ConfigProvider` in the dashboard layout keeping `direction` per language
+- [x] T040 [P] [US5] Create `components/ui/EmptyState.tsx` + `components/ui/PageHeader.tsx` (RTL-aware, themed); apply skeleton loading (antd Skeleton) + EmptyState + PageHeader to `app/(dashboard)/dashboard/page.tsx`, `app/(dashboard)/crm/page.tsx`, `app/(dashboard)/reports/page.tsx`, and the BOQ list page
+- [x] T041 [P] [US5] Add `app/(dashboard)/error.tsx` and `app/error.tsx`: friendly Arabic/English error screens with retry button (calls `reset()`); log error to console
+- [x] T042 [P] [US5] Switch the NotificationBell component (in `components/layout/`) from 30s polling to Supabase Realtime subscription on channel `user:{id}` event `new_notification` (matching `createNotification`'s broadcast); keep a 5-min polling fallback when channel errors; unsubscribe on unmount
+- [x] T043 [P] [US5] Dynamic imports: `xlsx` in `app/(dashboard)/crm/ImportModal.tsx` via lazy `import()` at use-time; `@react-pdf/renderer` usages in BOQ components via `next/dynamic`/lazy import (LeadDrawer's PDFDownloadButton pattern already correct — replicate it); memoize CRM table column definitions with `useMemo`
+- [x] T044 [US5] Record `npm run build` first-load JS sizes before/after T043 in the phase commit message; verify CRM + BOQ pages did not grow and xlsx/react-pdf live in lazy chunks
 
 **Checkpoint**: quickstart Phase E passes incl. AI-login regression — US5 deliverable complete
 

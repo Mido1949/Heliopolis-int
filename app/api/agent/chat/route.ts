@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import type { CookieOptions } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { loadSystemApprovalContext } from '@/lib/system-approval/loader';
+import { toolsForRole, executeTool, type ToolContext } from '@/lib/agent/tools';
 
 const FALLBACKS = [
   'أهلاً! أنا هيليو، مساعدك في HelioMax. اسألني أي حاجة! 👋',
@@ -12,7 +13,12 @@ const FALLBACKS = [
   'أنا هيليو — هنا لو محتاج مساعدة. اكتب سؤالك! 😊',
 ];
 
-// T074: intent patterns for AI re-assignment
+// Models: Sonnet drives the tool-use loop; Haiku is the no-tools fallback.
+const PRIMARY_MODEL = 'claude-sonnet-4-6';
+const FALLBACK_MODEL = 'claude-haiku-4-5-20251001';
+const MAX_TOOL_ITERATIONS = 6;
+
+// T074: intent patterns for AI re-assignment (fast-path shortcuts before the LLM loop)
 const ASSIGN_TECH_PATTERNS = [
   /assign\s+to\s+tech/i,
   /أرسل\s+للتقني/,
@@ -89,6 +95,7 @@ export async function POST(request: NextRequest) {
       .select('role')
       .eq('id', user.id)
       .single();
+    const callerRole = profile?.role || 'member';
 
     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     const { count } = await serviceClient
@@ -97,7 +104,7 @@ export async function POST(request: NextRequest) {
       .eq('user_id', user.id)
       .gte('created_at', fiveMinAgo);
 
-    const limit = profile?.role === 'admin' ? 120 : 30;
+    const limit = callerRole === 'admin' ? 120 : 30;
     if (count && count > limit) {
       return NextResponse.json({
         content: '⏳ معلش، وصلت للحد الأقصى من الرسايل دلوقتي. جرب تاني بعد شوية.',
@@ -111,7 +118,7 @@ export async function POST(request: NextRequest) {
       .lt('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString())
       .then(() => {}, () => {});
 
-    // T074: detect assign intent on the latest user message
+    // ── Fast-path intents (skip the LLM loop for deterministic actions) ──
     const latest = messages?.[messages.length - 1];
     if (latest && latest.role === 'user' && typeof latest.content === 'string') {
       const text = latest.content;
@@ -134,51 +141,31 @@ export async function POST(request: NextRequest) {
       }
 
       if ((wantsTech || wantsCS) && leadContext?.lead_id) {
-        // Get auth context and call assign endpoint
-        const cookieStore = cookies();
-        const supabase = createServerClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          {
-            cookies: {
-              get(name: string) { return cookieStore.get(name)?.value; },
-              set(name: string, value: string, options: CookieOptions) {
-                try { cookieStore.set({ name, value, ...options }); } catch { /* noop */ }
-              },
-              remove(name: string, options: CookieOptions) {
-                try { cookieStore.set({ name, value: '', ...options }); } catch { /* noop */ }
-              },
-            },
-          }
-        );
-
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const baseUrl = request.nextUrl.origin;
-          const assignRes = await fetch(`${baseUrl}/api/automation/assign`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`,
-            },
-            body: JSON.stringify({
-              lead_id: leadContext.lead_id,
-              to_team: wantsTech ? 'tech' : 'cs',
-              message: text,
-            }),
+        const baseUrl = request.nextUrl.origin;
+        const accessToken = (await supabase.auth.getSession()).data.session?.access_token || '';
+        const assignRes = await fetch(`${baseUrl}/api/automation/assign`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            lead_id: leadContext.lead_id,
+            to_team: wantsTech ? 'tech' : 'cs',
+            message: text,
+          }),
+        });
+        const assignData = await assignRes.json();
+        if (assignRes.ok) {
+          return NextResponse.json({
+            content: wantsTech
+              ? `✅ تم تحويل الليد "${assignData.lead.name}" للفريق التقني وإخطار العضو المعيّن.`
+              : `✅ تم إرجاع الليد "${assignData.lead.name}" لفريق المبيعات.`,
           });
-          const assignData = await assignRes.json();
-          if (assignRes.ok) {
-            return NextResponse.json({
-              content: wantsTech
-                ? `✅ تم تحويل الليد "${assignData.lead.name}" للفريق التقني وإخطار العضو المعيّن.`
-                : `✅ تم إرجاع الليد "${assignData.lead.name}" لفريق المبيعات.`,
-            });
-          } else {
-            return NextResponse.json({
-              content: `❌ فشل التحويل: ${assignData.error || 'خطأ غير معروف'}`,
-            });
-          }
+        } else {
+          return NextResponse.json({
+            content: `❌ فشل التحويل: ${assignData.error || 'خطأ غير معروف'}`,
+          });
         }
       }
     }
@@ -193,19 +180,109 @@ export async function POST(request: NextRequest) {
 
     // T018: enrich system prompt with company knowledge base (if any .md files exist)
     const knowledgeBase = loadSystemApprovalContext();
-    const enrichedSystem = (system || '') + knowledgeBase;
+    const leadHint = leadContext?.lead_id
+      ? `\n\nالليد المعروض حالياً: id=${leadContext.lead_id}${leadContext.name ? ` (${leadContext.name})` : ''}.`
+      : '';
+    const enrichedSystem = (system || '') + knowledgeBase + leadHint;
 
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 120,
-      system: enrichedSystem,
-      messages,
-    });
+    // ── Tool-use loop (Sonnet) ──
+    const toolDefs = toolsForRole(callerRole).map(({ name, description, input_schema }) => ({
+      name,
+      description,
+      input_schema,
+    }));
 
-    const content =
-      response.content[0]?.type === 'text' ? response.content[0].text : 'عذراً، مش فاهم!';
+    const toolCtx: ToolContext = {
+      callerClient: supabase,
+      serviceClient,
+      callerId: user.id,
+      callerRole,
+      origin: 'chat',
+    };
 
-    return NextResponse.json({ content });
+    // Working copy of the conversation we extend with tool turns.
+    const convo: Anthropic.MessageParam[] = (messages || []).map(
+      (m: { role: 'user' | 'assistant'; content: string }) => ({ role: m.role, content: m.content })
+    );
+
+    try {
+      let finalText = '';
+      const executedActions: { tool: string; ok: boolean }[] = [];
+
+      for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+        const response: Anthropic.Message = await client.messages.create({
+          model: PRIMARY_MODEL,
+          max_tokens: 2048,
+          system: enrichedSystem,
+          tools: toolDefs,
+          messages: convo,
+        });
+
+        // Collect any assistant text from this turn.
+        const textParts = response.content
+          .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+          .map(b => b.text);
+        if (textParts.length) finalText = textParts.join('\n').trim();
+
+        if (response.stop_reason !== 'tool_use') {
+          break;
+        }
+
+        // Append the assistant turn (with tool_use blocks) verbatim.
+        convo.push({ role: 'assistant', content: response.content });
+
+        // Execute every requested tool, building tool_result blocks.
+        const toolUses = response.content.filter(
+          (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use'
+        );
+        const toolResults: Anthropic.ToolResultBlockParam[] = [];
+        for (const tu of toolUses) {
+          let resultText: string;
+          let isError = false;
+          try {
+            resultText = await executeTool(
+              tu.name,
+              (tu.input as Record<string, unknown>) || {},
+              toolCtx
+            );
+          } catch (toolErr) {
+            isError = true;
+            resultText = (toolErr as { message?: string })?.message || 'خطأ في تنفيذ الأداة.';
+          }
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: tu.id,
+            content: resultText,
+            is_error: isError,
+          });
+          executedActions.push({ tool: tu.name, ok: !isError });
+        }
+
+        convo.push({ role: 'user', content: toolResults });
+        // Loop again so the model can react to the tool results.
+      }
+
+      return NextResponse.json({
+        content: finalText || 'تمام ✅',
+        ...(executedActions.length ? { actions: executedActions } : {}),
+      });
+    } catch (loopErr) {
+      // ── Haiku fallback (no tools) ──
+      const status = (loopErr as { status?: number })?.status;
+      console.error('[helio-agent] sonnet loop failed status=%s; falling back to haiku', status);
+      const fb = await client.messages.create({
+        model: FALLBACK_MODEL,
+        max_tokens: 400,
+        system: enrichedSystem,
+        messages: (messages || []).map((m: { role: 'user' | 'assistant'; content: string }) => ({
+          role: m.role,
+          content: m.content,
+        })),
+      });
+      const content =
+        fb.content[0]?.type === 'text' ? fb.content[0].text : 'عذراً، مش فاهم!';
+      return NextResponse.json({ content });
+    }
   } catch (err: unknown) {
     const status = (err as { status?: number })?.status;
     const msg = (err as { message?: string })?.message || String(err);

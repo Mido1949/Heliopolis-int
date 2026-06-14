@@ -53,7 +53,11 @@ export async function withCronAlert(
 ): Promise<NextResponse> {
   try {
     const response = await handler();
-    if (!response.ok) {
+    // Only alert on real server failures (5xx) or thrown errors. A 4xx — most
+    // notably the 401 from an unauthenticated probe/scanner hitting the public
+    // cron URL — is NOT a job failure: alerting on it spams Telegram and adds a
+    // ~500ms external call to every rejected request.
+    if (response.status >= 500) {
       const body = await response.clone().json().catch(() => ({}));
       const errorText = (body as Record<string, unknown>).error || `HTTP ${response.status}`;
       await sendOpsAlert(`${jobName} failed: ${errorText}`);

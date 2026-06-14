@@ -35,3 +35,42 @@ Install command must be `npm install --legacy-peer-deps` (set in `vercel.json`).
 ### Scheduled jobs
 
 Crons are defined in `vercel.json` (UTC, HTTP GET). Handlers contain Cairo-time guards (Africa/Cairo, Sat–Thu working week) — see `specs/004-helio-command-center/contracts/cron-endpoints.md` for windows and exactly-once semantics.
+
+| Job | Endpoint | Cairo window | Days |
+|---|---|---|---|
+| Personal daily report | `/api/reports/personal/cron` | 15:50 | Sat–Thu |
+| Company daily report | `/api/reports/company/cron` | 15:50 | Sat–Thu |
+| Stuck-lead nudges | `/api/reports/stuck-leads/cron` | 08:00 | Sat–Thu |
+| Helio autonomy brain | `/api/agent/brain/cron` | 10:00 & 14:00 | Sat–Thu |
+| Weekly lead scrape | `/api/scraper/cron` | 08:00 | Sat only |
+
+Dual UTC hours per job cover Egypt DST (EET/EEST); the in-handler Cairo guard runs exactly one of each pair. Out-of-window hits return `200 {skipped}` (not an error). Server failures (5xx) fire a Telegram ops alert via `withCronAlert`; auth rejections (401) do **not** alert.
+
+### Helio (the AI command brain)
+
+Helio is an Anthropic tool-use agent (`claude-sonnet-4-6`, Haiku fallback) reachable from the chat. Tools are role-scoped (member / team-lead / admin):
+
+| Tool | Scope | What it does |
+|---|---|---|
+| `query_leads` | member | Search leads (stage, assignee, stuck, text) |
+| `pipeline_stats` | member | Stage distribution, conversion, pipeline value |
+| `team_performance` | lead | Per-member calls / leads / tasks / won value |
+| `assign_lead` | lead | Assign a lead to a team/person (records an undoable action) |
+| `create_task` | member | Create a task (members → self only) |
+| `nudge_user` | lead | Send a reminder notification to a teammate |
+| `schedule_followup` | member | Create a "متابعة" task + set follow-up date |
+| `generate_report_now` | lead | Run a personal/company report on demand |
+| `queue_scrape_target` | admin | Add a target to the Saturday scrape queue |
+| `list_my_actions` | lead | "what did you do today?" timeline |
+
+**Autonomy engine** (brain cron) reviews stuck leads, overdue tasks, missing first-call tasks, and workload imbalance, then acts on its own — nudging, escalating (7+ days → team lead), creating call tasks, and lightly rebalancing. Every autonomous action is logged to `agent_actions` and a digest is sent to admins (in-app + Telegram).
+
+### Mido control surface — `/helio`
+
+- **Action timeline**: every Helio action (chat + autonomous) with reasoning.
+- **Undo**: reversible actions (assign, rebalance, create-task, schedule-followup) have an Undo button; it 409s if the live state drifted from what Helio recorded.
+- **Autonomy settings** (admin): pause/resume autonomy, stuck-threshold days, nudge suppression hours — stored in `agent_settings`.
+
+### Weekly scrape queue
+
+Add targets via Helio chat (`queue_scrape_target`) or the **Scraper page → "قائمة السبت"** form. Saturday 08:00 Cairo the cron runs queued targets through Apify (mock without `APIFY_API_TOKEN`), feeds results into round-robin intake, spreads first-call task due-dates across Sat–Thu, and sends Mido a summary (created / duplicates / errors / per-rep).

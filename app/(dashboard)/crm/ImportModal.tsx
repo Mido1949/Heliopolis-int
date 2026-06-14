@@ -8,7 +8,6 @@ import {
   DownloadOutlined, InboxOutlined, CheckCircleOutlined,
 } from '@ant-design/icons';
 import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
@@ -102,6 +101,9 @@ const parseFile = useCallback(async (uploadedFile: File) => {
         setParsedData(result);
         validateData(result);
       } else if (extension === 'xlsx' || extension === 'xls') {
+        // Lazy-load xlsx only when an Excel file is actually imported — keeps it
+        // out of the main CRM bundle.
+        const XLSX = await import('xlsx');
         const buffer = await uploadedFile.arrayBuffer();
         const workbook = XLSX.read(buffer, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
