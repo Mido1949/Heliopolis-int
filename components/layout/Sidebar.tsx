@@ -20,6 +20,7 @@ import {
   Building2,
   CheckSquare,
   Wrench,
+  Brain,
 } from 'lucide-react';
 import { NAV_ITEMS } from '@/lib/constants';
 import { getInitials } from '@/lib/utils';
@@ -40,6 +41,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   barChart: <BarChart2 className="w-5 h-5" />,
   tasks: <CheckSquare className="w-5 h-5" />,
   wrench: <Wrench className="w-5 h-5" />,
+  brain: <Brain className="w-5 h-5" />,
 };
 
 // Maps NAV_ITEMS key → module name in the DB (null = always visible)
@@ -56,7 +58,13 @@ const NAV_MODULE_MAP: Record<string, string | null> = {
   tasks:        null,
   'after-sales': 'after_sales',
   'ai-assistant': 'ai_assistant',
+  helio:        null,
   reports:      'analytics',
+};
+
+// Nav items restricted to specific roles (in addition to module gating).
+const ROLE_RESTRICTED: Record<string, string[]> = {
+  helio: ['admin', 'Manager', 'CS Team Leader', 'Tech Team Leader'],
 };
 
 interface SidebarProps {
@@ -80,6 +88,11 @@ export default function Sidebar({ collapsed, onCollapse, lang, profile, mobileMe
   const enabledModuleNames = new Set(orgModules.map(m => m.module.name));
 
   const visibleNavItems = NAV_ITEMS.filter(item => {
+    // Role-restricted items (e.g. Helio control center) — gate before module logic.
+    const allowedRoles = ROLE_RESTRICTED[item.key];
+    if (allowedRoles && !(profile?.role && allowedRoles.includes(profile.role))) {
+      return false;
+    }
     const moduleName = NAV_MODULE_MAP[item.key];
     // Always show if no module required
     if (moduleName === null) return true;

@@ -42,6 +42,7 @@ export interface Profile {
   email?: string;
   score: number;
   is_admin?: boolean;
+  org_id?: string;
   created_at: string;
 }
 

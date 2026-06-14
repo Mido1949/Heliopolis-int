@@ -31,9 +31,9 @@ export async function POST(request: NextRequest) {
 
   let query = supabase
     .from('notifications')
-    .update({ read: true })
+    .update({ is_read: true })
     .eq('user_id', user.id)
-    .eq('read', false);
+    .eq('is_read', false);
 
   if (body.all === true) {
     // no further filter — mark all unread

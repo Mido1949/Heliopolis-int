@@ -17,12 +17,7 @@ export async function GET(request: Request) {
 
   const envToken = process.env.META_WEBHOOK_VERIFY_TOKEN ?? '';
   console.log('[meta-webhook] mode:', mode);
-  console.log('[meta-webhook] hub.verify_token:', token);
-  console.log('[meta-webhook] META_WEBHOOK_VERIFY_TOKEN:', envToken);
-  console.log('[meta-webhook] token.length:', token?.length, '| env.length:', envToken.length);
   console.log('[meta-webhook] match:', token === envToken);
-  console.log('[meta-webhook] token hex:', Buffer.from(token ?? '').toString('hex'));
-  console.log('[meta-webhook] env hex:', Buffer.from(envToken).toString('hex'));
 
   if (mode === 'subscribe' && token === envToken) {
     return new Response(challenge ?? '', { status: 200 });
@@ -37,8 +32,6 @@ export async function POST(request: Request) {
   const rawBody = await request.text();
   const signature = request.headers.get('x-hub-signature-256');
 
-  console.log('[meta-webhook POST] raw body:', rawBody);
-  console.log('[meta-webhook POST] signature header:', signature);
   console.log('[meta-webhook POST] META_APP_SECRET set:', !!process.env.META_APP_SECRET);
 
   if (!verifySignature(rawBody, signature)) {
@@ -145,18 +138,23 @@ async function processLead(value: MetaLeadValue): Promise<string> {
 async function notifyAdmins(leadId: string, name: string, phone: string): Promise<void> {
   const { data: admins } = await supabase
     .from('profiles')
-    .select('id')
+    .select('id, org_id')
     .in('role', ['admin', 'Manager']);
 
   if (!admins || admins.length === 0) return;
 
-  const notifications = admins.map((admin) => ({
-    user_id: admin.id,
-    title: `ليد جديد من Meta: ${name} — ${phone}`,
-    type: 'meta_lead',
-    reference_id: leadId,
-    reference_type: 'lead',
-  }));
+  // notifications.org_id is NOT NULL with no default — must come from the profile
+  const notifications = admins
+    .filter((admin) => admin.org_id)
+    .map((admin) => ({
+      user_id: admin.id,
+      title: `ليد جديد من Meta: ${name} — ${phone}`,
+      type: 'meta_lead',
+      reference_id: leadId,
+      reference_type: 'lead',
+      org_id: admin.org_id,
+    }));
+  if (notifications.length === 0) return;
 
   const { error } = await supabase.from('notifications').insert(notifications);
   if (error) {

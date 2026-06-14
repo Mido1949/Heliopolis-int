@@ -1,16 +1,16 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
-  Table, Tag, Button, Input, Select, Space, Tooltip, Row, Col, Typography, message, Segmented,
+  Table, Tag, Button, Input, Select, Space, Tooltip, Row, Col, Typography, message,
 } from 'antd';
 import {
   PlusOutlined, SearchOutlined, WhatsAppOutlined,
-  EyeOutlined, EditOutlined, PhoneOutlined,
+  EyeOutlined, PhoneOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { createClient } from '@/lib/supabase/client';
-import { PIPELINE_STAGES, REGIONS, LEAD_SOURCES } from '@/lib/constants';
+import { PIPELINE_STAGES, REGIONS } from '@/lib/constants';
 import { formatDate, getWhatsAppUrl } from '@/lib/utils';
 import type { Lead, PipelineStage } from '@/types';
 import { useAuth } from '@/context/AuthContext';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Table, Tag, Button, Input, Select, Space, Tooltip, Dropdown, Row, Col,
   Typography, message, Segmented,
@@ -147,7 +147,10 @@ export default function CRMPage() {
   const getSourceConfig = (source: string) =>
     LEAD_SOURCES.find((s) => s.value === source) || { color: '#0D2137', labelAr: source };
 
-  const columns: ColumnsType<Lead> = [
+  // Memoized so the column array (with its render closures) isn't rebuilt on
+  // every keystroke/filter change — only when call stats actually change.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const columns: ColumnsType<Lead> = useMemo(() => [
     {
       title: 'الاسم (Name)',
       dataIndex: 'name',
@@ -292,7 +295,7 @@ export default function CRMPage() {
         );
       },
     },
-  ];
+  ], [callStats]);
 
   return (
     <div className="space-y-4">

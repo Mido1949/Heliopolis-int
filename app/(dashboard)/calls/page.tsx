@@ -118,6 +118,7 @@ export default function CallsHistoryPage() {
 
   useEffect(() => {
     fetchCallLogs(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outcomeFilter, typeFilter]);
 
   useEffect(() => {
@@ -125,6 +126,7 @@ export default function CallsHistoryPage() {
       fetchCallLogs(1);
     }, 300);
     return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
   const getOutcomeConfig = (outcome: string) =>

@@ -3,6 +3,26 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { CookieOptions } from '@supabase/ssr';
 
+async function authenticate(supabase: ReturnType<typeof createServerClient>): Promise<NextResponse | null> {
+  const { data: { user }, error: authErr } = await supabase.auth.getUser();
+  if (authErr || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  return null;
+}
+
+async function verifyBoqAccess(supabase: ReturnType<typeof createServerClient>, boqId: string): Promise<NextResponse | null> {
+  const { data: boq, error: boqErr } = await supabase
+    .from('boqs')
+    .select('id')
+    .eq('id', boqId)
+    .single();
+  if (boqErr || !boq) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  return null;
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
@@ -23,6 +43,12 @@ export async function GET(
       },
     }
   );
+
+  const authResp = await authenticate(supabase);
+  if (authResp) return authResp;
+
+  const boqResp = await verifyBoqAccess(supabase, params.id);
+  if (boqResp) return boqResp;
 
   const { data, error } = await supabase
     .from('boq_rooms')
@@ -54,6 +80,12 @@ export async function POST(
       },
     }
   );
+
+  const authResp = await authenticate(supabase);
+  if (authResp) return authResp;
+
+  const boqResp = await verifyBoqAccess(supabase, params.id);
+  if (boqResp) return boqResp;
 
   let body: { room_name?: string; length?: number; width?: number; qty?: number; sort_order?: number };
   try { body = await request.json(); } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
@@ -99,6 +131,12 @@ export async function PATCH(
     }
   );
 
+  const authResp = await authenticate(supabase);
+  if (authResp) return authResp;
+
+  const boqResp = await verifyBoqAccess(supabase, params.id);
+  if (boqResp) return boqResp;
+
   let body: { room_id?: string; room_name?: string; length?: number; width?: number; qty?: number; sort_order?: number };
   try { body = await request.json(); } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
   if (!body.room_id) return NextResponse.json({ error: 'room_id required' }, { status: 400 });
@@ -142,6 +180,12 @@ export async function DELETE(
       },
     }
   );
+
+  const authResp = await authenticate(supabase);
+  if (authResp) return authResp;
+
+  const boqResp = await verifyBoqAccess(supabase, params.id);
+  if (boqResp) return boqResp;
 
   const { searchParams } = new URL(request.url);
   const roomId = searchParams.get('room_id');

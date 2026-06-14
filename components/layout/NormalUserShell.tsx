@@ -386,7 +386,7 @@ export default function NormalUserShell({ children }: NormalUserShellProps) {
     } finally {
       setLeadSaving(false);
     }
-  }, [user, supabase, currentOrgId, loadPanels]);
+  }, [user, supabase, currentOrgId, profile]);
 
   const handlePostLeadInput = useCallback(async (text: string) => {
     const lo = text.trim().toLowerCase();

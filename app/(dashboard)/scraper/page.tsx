@@ -30,6 +30,16 @@ interface ScrapedLead {
   scraped_at: string;
 }
 
+interface ScrapeTarget {
+  id: string;
+  query: string;
+  region: string;
+  status: string;
+  last_run_at: string | null;
+  results_count: number | null;
+  created_at: string;
+}
+
 export default function ScraperPage() {
   const supabase = createClient();
   const { currentOrgId } = useOrg();
@@ -41,6 +51,10 @@ export default function ScraperPage() {
   // T075: auto-intake toggle — when enabled, scraper results are POSTed to /api/automation/intake
   const [autoIntake, setAutoIntake] = useState(false);
   const [scrapeForm] = Form.useForm();
+  const [targetForm] = Form.useForm();
+  const [targets, setTargets] = useState<ScrapeTarget[]>([]);
+  const [targetsLoading, setTargetsLoading] = useState(false);
+  const [queuing, setQueuing] = useState(false);
 
   const fetchLeads = async () => {
     setLoading(true);
@@ -53,7 +67,44 @@ export default function ScraperPage() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchLeads(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const fetchTargets = async () => {
+    setTargetsLoading(true);
+    const { data, error } = await supabase
+      .from('scrape_targets')
+      .select('id,query,region,status,last_run_at,results_count,created_at')
+      .order('created_at', { ascending: false });
+    if (error) message.error('فشل تحميل قائمة السبت');
+    else setTargets((data || []) as ScrapeTarget[]);
+    setTargetsLoading(false);
+  };
+
+  const handleQueueTarget = async () => {
+    try {
+      await targetForm.validateFields();
+      setQueuing(true);
+      const values = targetForm.getFieldsValue();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { message.error('يجب تسجيل الدخول'); return; }
+      const { error } = await supabase.from('scrape_targets').insert({
+        query: values.query,
+        region: values.region,
+        status: 'queued',
+        requested_by: user.id,
+      });
+      if (error) { message.error(error.message); return; }
+      message.success('تمت الإضافة لقائمة السحب يوم السبت');
+      targetForm.resetFields();
+      fetchTargets();
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name !== 'ValidationError') {
+        message.error(error.message || 'حدث خطأ');
+      }
+    } finally {
+      setQueuing(false);
+    }
+  };
+
+  useEffect(() => { fetchLeads(); fetchTargets(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addToCRM = async (lead: ScrapedLead) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -110,7 +161,7 @@ export default function ScraperPage() {
           } else {
             message.error(`Auto-intake failed: ${data.error || 'unknown'}`);
           }
-        } catch (err) {
+        } catch {
           message.error('Auto-intake failed (network)');
         }
       }
@@ -166,6 +217,20 @@ export default function ScraperPage() {
     },
   ];
 
+  const targetColumns: ColumnsType<ScrapeTarget> = [
+    { title: 'الكلمات', dataIndex: 'query', key: 'query' },
+    { title: 'المنطقة', dataIndex: 'region', key: 'region' },
+    {
+      title: 'الحالة', dataIndex: 'status', key: 'status',
+      render: (s: string) => {
+        const colors: Record<string, string> = { queued: 'blue', running: 'gold', done: 'green', failed: 'red' };
+        return <Tag color={colors[s] || 'default'}>{s}</Tag>;
+      },
+    },
+    { title: 'آخر تشغيل', dataIndex: 'last_run_at', key: 'last_run_at', render: (d: string | null) => d ? formatDate(d) : '—' },
+    { title: 'النتائج', dataIndex: 'results_count', key: 'results_count', render: (c: number | null) => c ?? '—' },
+  ];
+
   return (
     <div className="space-y-4">
       <Row justify="space-between" align="middle">
@@ -204,6 +269,29 @@ export default function ScraperPage() {
         <Col xs={8}><Card><Statistic title="جديد" value={newCount} valueStyle={{ color: '#1890FF' }} /></Card></Col>
         <Col xs={8}><Card><Statistic title="مضاف للعملاء" value={addedCount} valueStyle={{ color: '#52c41a' }} prefix={<UserAddOutlined />} /></Card></Col>
       </Row>
+
+      <Card title="قائمة السبت — إضافة جديدة">
+        <Form form={targetForm} layout="inline" onFinish={handleQueueTarget}>
+          <Form.Item name="query" label="الكلمات" rules={[{ required: true, message: 'الحقل مطلوب' }]}>
+            <Input placeholder="e.g. HVAC companies" style={{ width: 300 }} />
+          </Form.Item>
+          <Form.Item name="region" label="المنطقة" rules={[{ required: true, message: 'الحقل مطلوب' }]}>
+            <Input placeholder="e.g. Cairo, Egypt" style={{ width: 300 }} />
+          </Form.Item>
+          <Form.Item>
+            <Button type="primary" htmlType="submit" loading={queuing}
+              style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}>
+              أضف لقائمة السبت
+            </Button>
+          </Form.Item>
+        </Form>
+      </Card>
+
+      <Card title="قائمة السبت — المهام المجدولة">
+        <Table columns={targetColumns} dataSource={targets} rowKey="id"
+          loading={targetsLoading} scroll={{ x: 700 }} pagination={{ pageSize: 10 }}
+          locale={{ emptyText: 'لا توجد مهام مجدولة' }} />
+      </Card>
 
       <Input placeholder="بحث بالاسم أو الفئة..." prefix={<SearchOutlined />} value={searchText}
         onChange={e => setSearchText(e.target.value)} className="mb-3" style={{ maxWidth: 400 }} allowClear />

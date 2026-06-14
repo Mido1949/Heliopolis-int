@@ -21,7 +21,7 @@ import dayjs from 'dayjs';
 const { Title, Text } = Typography;
 
 export default function TasksPage() {
-  const { isAdmin, isManager, isTeamLeader, isStaff, user, profile } = useAuth();
+  const { isStaff, user, profile } = useAuth();
   const supabase = createClient();
 
   const [myTasks, setMyTasks] = useState<Task[]>([]);
@@ -100,7 +100,7 @@ export default function TasksPage() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, user, canManage, isAdmin, isManager]);
+  }, [supabase, user, canManage, isStaff]);
 
   useEffect(() => {
     fetchTasks();

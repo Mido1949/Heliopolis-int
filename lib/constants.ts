@@ -19,6 +19,7 @@ export const NAV_ITEMS = [
   { key: 'tasks', labelAr: 'المهام', labelEn: 'Tasks', icon: 'tasks', path: '/tasks' },
   { key: 'after-sales', labelAr: 'خدمة ما بعد البيع', labelEn: 'After Sales', icon: 'wrench', path: '/after-sales' },
   { key: 'ai-assistant', labelAr: 'المساعد الذكي', labelEn: 'AI Assistant', icon: 'robot', path: '/ai-assistant' },
+  { key: 'helio', labelAr: 'مركز هيليو', labelEn: 'Helio', icon: 'brain', path: '/helio' },
   { key: 'reports', labelAr: 'التقارير والأهداف', labelEn: 'Reports', icon: 'barChart', path: '/reports' },
 ] as const;
 

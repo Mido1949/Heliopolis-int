@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Card, Row, Col, Statistic, Tag, Spin, Empty } from 'antd';
 import { useOrg } from '@/context/OrgContext';
 import { createBrowserClient } from '@supabase/ssr';
@@ -60,7 +61,7 @@ export default function SuperAdminDashboard() {
     }
 
     loadStats();
-  }, [allOrgs]);
+  }, [allOrgs, supabase]);
 
   if (isLoading || statsLoading) {
     return (

@@ -5,12 +5,16 @@ import { Badge, Popover, Button, Spin, Empty } from 'antd';
 import { BellOutlined } from '@ant-design/icons';
 import { formatDistanceToNow } from 'date-fns';
 import { arEG } from 'date-fns/locale';
+import { createClient } from '@/lib/supabase/client';
 
 interface Notification {
   id: string;
-  message: string;
-  lead_id: string | null;
-  read: boolean;
+  title: string;
+  body: string | null;
+  type: string | null;
+  reference_id: string | null;
+  reference_type: string | null;
+  is_read: boolean;
   created_at: string;
 }
 
@@ -19,8 +23,9 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [now, setNow] = useState<number>(Date.now());
+  const [, setNow] = useState<number>(Date.now());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -29,7 +34,7 @@ export default function NotificationBell() {
       if (!res.ok) return;
       const data: Notification[] = await res.json();
       setNotifications(data || []);
-      setUnreadCount((data || []).filter(n => !n.read).length);
+      setUnreadCount((data || []).filter(n => !n.is_read).length);
     } catch {
       // silent — non-critical
     } finally {
@@ -39,10 +44,30 @@ export default function NotificationBell() {
 
   useEffect(() => {
     fetchNotifications();
-    intervalRef.current = setInterval(fetchNotifications, 30000);
     setNow(Date.now());
+
+    const supabase = createClient();
+    const setupChannel = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        intervalRef.current = setInterval(fetchNotifications, 300000);
+        return;
+      }
+      const channel = supabase
+        .channel('user:' + user.id)
+        .on('broadcast', { event: 'new_notification' }, () => fetchNotifications())
+        .subscribe((status) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            intervalRef.current = setInterval(fetchNotifications, 300000);
+          }
+        });
+      channelRef.current = channel;
+    };
+    setupChannel();
+
     const tick = setInterval(() => setNow(Date.now()), 60000);
     return () => {
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
       if (intervalRef.current) clearInterval(intervalRef.current);
       clearInterval(tick);
     };
@@ -89,9 +114,12 @@ export default function NotificationBell() {
             {notifications.map(n => (
               <li
                 key={n.id}
-                className={`px-3 py-2.5 text-sm leading-relaxed ${!n.read ? 'bg-amber-50/40' : 'bg-white'}`}
+                className={`px-3 py-2.5 text-sm leading-relaxed ${!n.is_read ? 'bg-amber-50/40' : 'bg-white'}`}
               >
-                <div className="text-slate-800 whitespace-pre-wrap break-words">{n.message}</div>
+                <div className="text-slate-900 font-semibold">{n.title}</div>
+                {n.body && (
+                  <div className="text-slate-800 whitespace-pre-wrap break-words">{n.body}</div>
+                )}
                 <div className="text-[11px] text-slate-500 mt-1">
                   {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: arEG })}
                 </div>

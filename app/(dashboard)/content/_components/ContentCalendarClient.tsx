@@ -23,7 +23,6 @@ const STATUS_COLORS: Record<string, string> = {
 export default function ContentCalendarClient() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
   const [form] = Form.useForm();
   const { org } = useOrg();
 
@@ -36,7 +35,7 @@ export default function ContentCalendarClient() {
     supabase.from('content_posts').select('*').order('scheduled_for').then(({ data }) => {
       setPosts(data ?? []);
     });
-  }, []);
+  }, [supabase]);
 
   const getPostsForDate = (date: Dayjs) =>
     posts.filter(p => p.scheduled_for && p.scheduled_for.startsWith(date.format('YYYY-MM-DD')));
@@ -55,7 +54,6 @@ export default function ContentCalendarClient() {
   };
 
   const handleSelectDate = (date: Dayjs) => {
-    setSelectedDate(date);
     form.setFieldValue('scheduled_for', date);
     setModalOpen(true);
   };

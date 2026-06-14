@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createNotification } from '@/lib/notifications/in-app';
+import { verifyCronAuth, withCronAlert, isCairoWindow } from '@/lib/cron/guard';
 
 export const dynamic = 'force-dynamic';
 
 const TERMINAL_STAGES = ['WON', 'LOST_PRICE', 'GHOSTED', 'POSTPONED'];
 
-export async function POST(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  const provided = authHeader?.replace(/^Bearer\s+/i, '');
-  if (!process.env.CRON_SECRET || provided !== process.env.CRON_SECRET) {
+async function handle(request: NextRequest) {
+  if (!verifyCronAuth(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (!isCairoWindow({ hour: 8, minute: 0, days: ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu'] })) {
+    return NextResponse.json({ ok: true, skipped: 'outside_window' });
   }
 
   const supabase = createClient(
@@ -18,13 +21,14 @@ export async function POST(request: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // 1. Find leads: not terminal stage, stale > 3 days, has an assignee
   const staleThreshold = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  // Staleness = COALESCE(last_contact_date, updated_at) < threshold:
+  // stale by last contact, or never contacted and not updated either.
   const { data: leads, error: leadsErr } = await supabase
     .from('leads')
-    .select('id, name, pipeline_stage, assigned_to_user, updated_at')
+    .select('id, name, pipeline_stage, assigned_to_user, updated_at, last_contact_date')
     .not('pipeline_stage', 'in', `(${TERMINAL_STAGES.join(',')})`)
-    .lt('updated_at', staleThreshold)
+    .or(`last_contact_date.lt.${staleThreshold},and(last_contact_date.is.null,updated_at.lt.${staleThreshold})`)
     .not('assigned_to_user', 'is', null);
 
   if (leadsErr) return NextResponse.json({ error: leadsErr.message }, { status: 500 });
@@ -33,31 +37,37 @@ export async function POST(request: NextRequest) {
   let notified = 0;
   const today = new Date().toISOString().slice(0, 10);
 
-  for (const lead of (leads || []) as { id: string; name: string; pipeline_stage: string; assigned_to_user: string; updated_at: string }[]) {
+  for (const lead of (leads || []) as { id: string; name: string; pipeline_stage: string; assigned_to_user: string; updated_at: string; last_contact_date?: string | null }[]) {
     try {
-      // 2. Check for a recent (last 24h) "واقف" notification for this lead
       const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { data: recent } = await supabase
         .from('notifications')
         .select('id')
-        .eq('lead_id', lead.id)
+        .eq('type', 'stuck_lead')
+        .eq('reference_id', lead.id)
         .gte('created_at', cutoff)
-        .ilike('message', '%واقف%')
         .limit(1);
 
       if (recent && recent.length > 0) continue;
 
-      // 3. Compute days stuck
-      const days = Math.max(1, Math.floor((Date.now() - new Date(lead.updated_at).getTime()) / (24 * 60 * 60 * 1000)));
+      const stalenessRef = lead.last_contact_date || lead.updated_at;
+      const days = Math.max(1, Math.floor((Date.now() - new Date(stalenessRef).getTime()) / (24 * 60 * 60 * 1000)));
       const message = `⚠️ ${lead.name} واقف في ${lead.pipeline_stage} منذ ${days} أيام`;
 
-      await createNotification(lead.assigned_to_user, message, lead.id);
+      await createNotification(lead.assigned_to_user, message, lead.id, { type: 'stuck_lead' });
       notified += 1;
     } catch (err) {
-      // Swallow per-lead errors — keep going
       console.error('[stuck-leads-cron] lead failed:', lead.id, err);
     }
   }
 
   return NextResponse.json({ ok: true, date: today, checked, notified });
+}
+
+export async function GET(request: NextRequest) {
+  return withCronAlert('stuck-leads', () => handle(request));
+}
+
+export async function POST(request: NextRequest) {
+  return withCronAlert('stuck-leads', () => handle(request));
 }
