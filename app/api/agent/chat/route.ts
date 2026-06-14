@@ -4,7 +4,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { CookieOptions } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
-import { loadSystemApprovalContext } from '@/lib/system-approval/loader';
+import { loadHelioKnowledge } from '@/lib/system-approval/loader';
 import { toolsForRole, executeTool, type ToolContext } from '@/lib/agent/tools';
 
 const FALLBACKS = [
@@ -92,10 +92,11 @@ export async function POST(request: NextRequest) {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, org_id')
       .eq('id', user.id)
       .single();
     const callerRole = profile?.role || 'member';
+    const callerOrgId = profile?.org_id as string | undefined;
 
     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     const { count } = await serviceClient
@@ -178,8 +179,8 @@ export async function POST(request: NextRequest) {
 
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-    // T018: enrich system prompt with company knowledge base (if any .md files exist)
-    const knowledgeBase = loadSystemApprovalContext();
+    // Enrich system prompt with live (DB) + file knowledge base.
+    const knowledgeBase = await loadHelioKnowledge(callerOrgId);
     const leadHint = leadContext?.lead_id
       ? `\n\nالليد المعروض حالياً: id=${leadContext.lead_id}${leadContext.name ? ` (${leadContext.name})` : ''}.`
       : '';
