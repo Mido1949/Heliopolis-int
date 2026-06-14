@@ -15,7 +15,9 @@ async function handle(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (!isCairoWindow({ hour: 15, minute: 50, days: ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu'] })) {
+  // Wide tolerance for Hobby single-daily cron + DST; the 'company_report_sent'
+  // today-marker guarantees exactly-once delivery.
+  if (!isCairoWindow({ hour: 15, minute: 50, toleranceMin: 120, days: ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu'] })) {
     return NextResponse.json({ ok: true, skipped: 'outside_window' });
   }
 

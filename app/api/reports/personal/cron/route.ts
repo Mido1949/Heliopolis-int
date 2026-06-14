@@ -11,7 +11,10 @@ async function handle(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (!isCairoWindow({ hour: 15, minute: 50, days: ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu'] })) {
+  // Wide tolerance: Hobby allows one daily UTC cron, so the Cairo target shifts
+  // ~1h across DST and Hobby fires loosely within the hour. The per-user
+  // 'personal_report' today-marker still guarantees exactly-once delivery.
+  if (!isCairoWindow({ hour: 15, minute: 50, toleranceMin: 120, days: ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu'] })) {
     return NextResponse.json({ ok: true, skipped: 'outside_window' });
   }
 

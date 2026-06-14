@@ -31,8 +31,9 @@ async function handle(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Saturday 08:00 Cairo only (the UTC cron is already restricted to Saturday).
-  if (!isCairoWindow({ hour: 8, minute: 0, days: ['Sat'] })) {
+  // Saturday ~08:00 Cairo (UTC cron restricted to Saturday). Wide tolerance for
+  // Hobby single-daily cron + DST; the queued→done transition prevents re-runs.
+  if (!isCairoWindow({ hour: 8, minute: 0, toleranceMin: 120, days: ['Sat'] })) {
     return NextResponse.json({ ok: true, skipped: 'outside_window' });
   }
 

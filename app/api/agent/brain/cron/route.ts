@@ -14,10 +14,12 @@ async function handle(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Two valid Cairo windows per day: 10:00 and 14:00 (Sat–Thu).
+  // Hobby plan = one daily cron, so the brain runs once/day (~10:00 Cairo).
+  // Wide tolerance covers DST + Hobby's loose firing; per-action 24h suppression
+  // keeps it safe even if it ever fired twice.
   const inWindow =
-    isCairoWindow({ hour: 10, minute: 0, days: DAYS }) ||
-    isCairoWindow({ hour: 14, minute: 0, days: DAYS });
+    isCairoWindow({ hour: 10, minute: 0, toleranceMin: 120, days: DAYS }) ||
+    isCairoWindow({ hour: 14, minute: 0, toleranceMin: 120, days: DAYS });
   if (!inWindow) {
     return NextResponse.json({ ok: true, skipped: 'outside_window' });
   }

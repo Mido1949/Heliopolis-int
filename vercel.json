@@ -3,10 +3,10 @@
   "installCommand": "npm install --legacy-peer-deps",
   "buildCommand": "npm run build",
   "crons": [
-    { "path": "/api/reports/personal/cron",   "schedule": "50 12,13 * * *" },
-    { "path": "/api/reports/company/cron",    "schedule": "50 12,13 * * *" },
-    { "path": "/api/reports/stuck-leads/cron", "schedule": "0 5,6 * * *" },
-    { "path": "/api/agent/brain/cron",         "schedule": "0 7,8,11,12 * * *" },
-    { "path": "/api/scraper/cron",             "schedule": "0 5,6 * * 6" }
+    { "path": "/api/reports/personal/cron",    "schedule": "0 13 * * *" },
+    { "path": "/api/reports/company/cron",      "schedule": "0 13 * * *" },
+    { "path": "/api/reports/stuck-leads/cron",  "schedule": "0 6 * * *" },
+    { "path": "/api/agent/brain/cron",          "schedule": "0 8 * * *" },
+    { "path": "/api/scraper/cron",              "schedule": "0 6 * * 6" }
   ]
 }
