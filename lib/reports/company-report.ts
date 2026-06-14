@@ -67,8 +67,7 @@ export async function generateCompanyReport(date: string): Promise<CompanyReport
   // 2. Per-user activity
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id, name, crm_team')
-    .neq('id', null);
+    .select('id, name, crm_team');
 
   const { data: callsToday } = await supabase
     .from('call_logs')

@@ -25,8 +25,7 @@ async function handle(request: NextRequest) {
 
   const { data: profiles, error: profErr } = await supabase
     .from('profiles')
-    .select('id, name')
-    .neq('id', null);
+    .select('id, name');
   if (profErr) {
     return NextResponse.json({ error: profErr.message }, { status: 500 });
   }
