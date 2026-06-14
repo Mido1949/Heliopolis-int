@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import type { CookieOptions } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { generateCompanyReport } from '@/lib/reports/company-report';
 import { sendTelegramMessage } from '@/lib/notifications/telegram';
 import { Resend } from 'resend';
@@ -21,21 +19,9 @@ async function handle(request: NextRequest) {
     return NextResponse.json({ ok: true, skipped: 'outside_window' });
   }
 
-  const cookieStore = cookies();
-  const supabase = createServerClient(
+  const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) { return cookieStore.get(name)?.value; },
-        set(name: string, value: string, options: CookieOptions) {
-          try { cookieStore.set({ name, value, ...options }); } catch { /* noop */ }
-        },
-        remove(name: string, options: CookieOptions) {
-          try { cookieStore.set({ name, value: '', ...options }); } catch { /* noop */ }
-        },
-      },
-    }
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
   const cairo = cairoNow();

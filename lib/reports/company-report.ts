@@ -1,6 +1,4 @@
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import type { CookieOptions } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import Anthropic from '@anthropic-ai/sdk';
 
 export interface CompanyReport {
@@ -24,21 +22,10 @@ export interface CompanyReport {
  * Aggregates pipeline data, team performance, and AI insight.
  */
 export async function generateCompanyReport(date: string): Promise<CompanyReport> {
-  const cookieStore = cookies();
-  const supabase = createServerClient(
+  // Service-role client (bypasses RLS) — no request/cookies context needed.
+  const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) { return cookieStore.get(name)?.value; },
-        set(name: string, value: string, options: CookieOptions) {
-          try { cookieStore.set({ name, value, ...options }); } catch { /* noop */ }
-        },
-        remove(name: string, options: CookieOptions) {
-          try { cookieStore.set({ name, value: '', ...options }); } catch { /* noop */ }
-        },
-      },
-    }
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
   const dayStart = `${date}T00:00:00.000Z`;
@@ -162,7 +149,7 @@ Data:
 Write a concise insight focused on the most important observation and one recommended action. Use Egyptian Arabic.`;
 
       const msg = await client.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 300,
         messages: [{ role: 'user', content: prompt }],
       });

@@ -1,6 +1,4 @@
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import type { CookieOptions } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 
 export interface PersonalReportData {
   user_id: string;
@@ -23,21 +21,11 @@ export interface PersonalReportData {
  * Pure server-side function so it can be reused by both the API route and the cron trigger.
  */
 export async function getPersonalReportData(userId: string, date: string): Promise<PersonalReportData> {
-  const cookieStore = cookies();
-  const supabase = createServerClient(
+  // Service-role client (bypasses RLS) — no request/cookies context needed, so
+  // this works identically from a cron, a route handler, or anywhere server-side.
+  const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) { return cookieStore.get(name)?.value; },
-        set(name: string, value: string, options: CookieOptions) {
-          try { cookieStore.set({ name, value, ...options }); } catch { /* noop */ }
-        },
-        remove(name: string, options: CookieOptions) {
-          try { cookieStore.set({ name, value: '', ...options }); } catch { /* noop */ }
-        },
-      },
-    }
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
   const dayStart = `${date}T00:00:00.000Z`;
