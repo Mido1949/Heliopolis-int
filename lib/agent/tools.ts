@@ -254,6 +254,25 @@ export function toolsForRole(role: string): ToolDefinition[] {
       },
       scope: 'admin',
     },
+    {
+      name: 'send_email',
+      description: 'إرسال إيميل لعميل (عرض/متابعة) مع إمكانية إرفاق مستندات الشركة الرسمية (التفويض، المطابقة، قوائم الأسعار، البطاقة الضريبية، السجل التجاري)',
+      input_schema: {
+        type: 'object',
+        properties: {
+          to: { type: 'string', description: 'إيميل المستقبِل' },
+          subject: { type: 'string', description: 'عنوان الإيميل' },
+          body: { type: 'string', description: 'نص الإيميل' },
+          attach_docs: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'مستندات للإرفاق (مثال: ["تفويض","مطابقة","اسعار خارجية","اسعار داخلية","بطاقة ضريبية","سجل تجاري","قيمة مضافة"])',
+          },
+        },
+        required: ['to', 'subject', 'body'],
+      },
+      scope: 'admin',
+    },
   ];
 
   const tools: ToolDefinition[] = [...memberTools];
@@ -277,6 +296,7 @@ export async function executeTool(
     case 'schedule_followup': return scheduleFollowup(input, ctx);
     case 'generate_report_now': return generateReportNow(input, ctx);
     case 'queue_scrape_target': return queueScrapeTarget(input, ctx);
+    case 'send_email': return sendEmailTool(input, ctx);
     case 'list_my_actions': return listMyActions(input, ctx);
     default:
       throw new ToolError(`أداة غير معروفة: "${name}".`);
@@ -674,6 +694,67 @@ async function queueScrapeTarget(input: Record<string, unknown>, ctx: ToolContex
   });
 
   return compactResult({ ok: true, target: { id: data.id, query: data.query, region: data.region } });
+}
+
+const COMPANY_DOCS: { keys: string[]; filename: string; url: string }[] = [
+  { keys: ['تفويض', 'authorization', 'ضمان', 'warranty'], filename: 'Authorization-Letter-5yr.pdf', url: 'https://wrmqrvqixtrasajjfbge.supabase.co/storage/v1/object/public/company-docs/authorization-letter-5yr.pdf' },
+  { keys: ['مطابقة', 'compliance'], filename: 'Compliance-Sheet.pdf', url: 'https://wrmqrvqixtrasajjfbge.supabase.co/storage/v1/object/public/company-docs/compliance-sheet.pdf' },
+  { keys: ['خارجية', 'outdoor'], filename: 'VRF-Outdoor-PriceList.pdf', url: 'https://wrmqrvqixtrasajjfbge.supabase.co/storage/v1/object/public/company-docs/vrf-outdoor-price-list.pdf' },
+  { keys: ['داخلية', 'indoor'], filename: 'VRF-Indoor-PriceList.pdf', url: 'https://wrmqrvqixtrasajjfbge.supabase.co/storage/v1/object/public/company-docs/vrf-indoor-price-list.pdf' },
+  { keys: ['بطاقة ضريبية', 'tax'], filename: 'Tax-Card.pdf', url: 'https://wrmqrvqixtrasajjfbge.supabase.co/storage/v1/object/public/company-docs/tax-card.pdf' },
+  { keys: ['سجل تجاري', 'commercial'], filename: 'Commercial-Register.pdf', url: 'https://wrmqrvqixtrasajjfbge.supabase.co/storage/v1/object/public/company-docs/commercial-register.pdf' },
+  { keys: ['قيمة مضافة', 'مضاف', 'vat'], filename: 'VAT-Certificate.pdf', url: 'https://wrmqrvqixtrasajjfbge.supabase.co/storage/v1/object/public/company-docs/vat-certificate.pdf' },
+];
+
+async function sendEmailTool(input: Record<string, unknown>, ctx: ToolContext): Promise<string> {
+  const to = input.to as string;
+  const subject = input.subject as string;
+  const body = input.body as string;
+  const attachDocs = (input.attach_docs as string[] | undefined) || [];
+
+  if (!process.env.RESEND_API_KEY) {
+    throw new ToolError('خدمة الإيميل لسه مش مفعّلة — محتاج إضافة RESEND_API_KEY و EMAIL_FROM (دومين مُوثّق) في إعدادات النظام.');
+  }
+
+  const attachments = attachDocs
+    .map(want => {
+      const w = String(want).toLowerCase();
+      return COMPANY_DOCS.find(d => d.keys.some(k => w.includes(k.toLowerCase()) || k.includes(w)));
+    })
+    .filter((d): d is { keys: string[]; filename: string; url: string } => !!d)
+    .map(d => ({ filename: d.filename, path: d.url }));
+
+  const from = process.env.EMAIL_FROM || 'HelioMax <onboarding@resend.dev>';
+
+  try {
+    const { Resend } = await import('resend');
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const { error } = await resend.emails.send({
+      from,
+      to,
+      subject,
+      text: body,
+      ...(attachments.length ? { attachments } : {}),
+    });
+    if (error) throw new ToolError(`فشل إرسال الإيميل: ${error.message}`);
+  } catch (err) {
+    if (err instanceof ToolError) throw err;
+    throw new ToolError(`فشل إرسال الإيميل: ${err instanceof Error ? err.message : 'unknown'}`);
+  }
+
+  await recordAction(ctx.serviceClient, {
+    action_type: 'send_email',
+    origin: ctx.origin,
+    reasoning: `إرسال إيميل إلى ${to} — "${subject}"${attachments.length ? ` مع ${attachments.length} مرفق` : ''}`,
+    payload: { to, subject, attachments: attachments.map(a => a.filename) },
+    created_by: ctx.callerId,
+  });
+
+  return compactResult({
+    ok: true,
+    sent_to: to,
+    attachments: attachments.map(a => a.filename),
+  });
 }
 
 async function listMyActions(input: Record<string, unknown>, ctx: ToolContext): Promise<string> {
