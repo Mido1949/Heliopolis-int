@@ -35,6 +35,11 @@ type Row =
   | (BOQItem & { _kind: 'item' })
   | { _kind: 'section'; _key: string; _title: string };
 
+export interface CustomColumn {
+  key: string;
+  label: string;
+}
+
 interface BOQEditorProps {
   items: BOQItem[];
   customers: Lead[];
@@ -48,6 +53,9 @@ interface BOQEditorProps {
   onUpdateDiscount: (p: number) => void;
   yBranchUnitPrice: number;
   onUpdateYBranchUnitPrice: (p: number) => void;
+  customColumns?: CustomColumn[];
+  onAddColumn?: (label: string) => void;
+  onRemoveColumn?: (key: string) => void;
 }
 
 export function BOQEditor({
@@ -63,8 +71,12 @@ export function BOQEditor({
   onUpdateDiscount,
   yBranchUnitPrice,
   onUpdateYBranchUnitPrice,
+  customColumns = [],
+  onAddColumn,
+  onRemoveColumn,
 }: BOQEditorProps) {
   const supabase = useMemo(() => createClient(), []);
+  const nCustom = customColumns.length;
   const [priceList, setPriceList] = useState<PriceListItem[]>([]);
   const [priceListLoading, setPriceListLoading] = useState(true);
   const [unitNo, setUnitNo] = useState<Record<string, string>>({});
@@ -325,6 +337,40 @@ export function BOQEditor({
         );
       },
     },
+    ...customColumns.map((col) => ({
+      title: (
+        <span className="inline-flex items-center gap-1">
+          {col.label}
+          {onRemoveColumn && (
+            <span
+              onClick={() => onRemoveColumn(col.key)}
+              style={{ cursor: 'pointer', color: '#ef4444', fontWeight: 700 }}
+              title="حذف العمود"
+            >
+              ✕
+            </span>
+          )}
+        </span>
+      ),
+      key: `custom_${col.key}`,
+      width: 140,
+      render: (_: unknown, record: Row) => {
+        if (record._kind === 'section') return null;
+        const val = record.custom_values?.[col.key] ?? '';
+        return (
+          <Input
+            value={val}
+            onChange={(e) =>
+              onUpdateItem(record.id, {
+                custom_values: { ...(record.custom_values || {}), [col.key]: e.target.value },
+              })
+            }
+            placeholder={col.label}
+            size="small"
+          />
+        );
+      },
+    })),
     {
       title: 'Total $',
       key: 'total',
@@ -392,6 +438,18 @@ export function BOQEditor({
           <Button type="primary" icon={<PlusOutlined />} onClick={onAddItem} size="small">
             Add Row
           </Button>
+          {onAddColumn && (
+            <Button
+              icon={<PlusOutlined />}
+              size="small"
+              onClick={() => {
+                const label = window.prompt('اسم العمود الجديد:');
+                if (label && label.trim()) onAddColumn(label.trim());
+              }}
+            >
+              Add Column
+            </Button>
+          )}
         </div>
       </div>
 
@@ -432,10 +490,11 @@ export function BOQEditor({
                   />
                 </Table.Summary.Cell>
                 <Table.Summary.Cell index={7} />
-                <Table.Summary.Cell index={8} className="text-right">
+                {customColumns.map((c, i) => <Table.Summary.Cell key={c.key} index={8 + i} />)}
+                <Table.Summary.Cell index={8 + nCustom} className="text-right">
                   <span className="text-xs font-bold">${yBranchTotal.toFixed(2)}</span>
                 </Table.Summary.Cell>
-                <Table.Summary.Cell index={9} />
+                <Table.Summary.Cell index={9 + nCustom} />
               </Table.Summary.Row>
 
               {/* Grand Total */}
@@ -443,10 +502,11 @@ export function BOQEditor({
                 <Table.Summary.Cell index={0} colSpan={8} className="!text-right">
                   <span className="text-sm font-bold text-[#0D2137]">Grand Total</span>
                 </Table.Summary.Cell>
-                <Table.Summary.Cell index={8} className="text-right">
+                {customColumns.map((c, i) => <Table.Summary.Cell key={c.key} index={8 + i} />)}
+                <Table.Summary.Cell index={8 + nCustom} className="text-right">
                   <span className="text-sm font-bold text-[#0D2137]">${grandTotal.toFixed(2)}</span>
                 </Table.Summary.Cell>
-                <Table.Summary.Cell index={9} />
+                <Table.Summary.Cell index={9 + nCustom} />
               </Table.Summary.Row>
 
               {/* Discount */}
@@ -469,10 +529,11 @@ export function BOQEditor({
                 <Table.Summary.Cell index={4} colSpan={4} className="!text-right">
                   <span className="text-xs text-red-500 font-medium">−${discountAmount.toFixed(2)}</span>
                 </Table.Summary.Cell>
-                <Table.Summary.Cell index={8} className="text-right">
+                {customColumns.map((c, i) => <Table.Summary.Cell key={c.key} index={8 + i} />)}
+                <Table.Summary.Cell index={8 + nCustom} className="text-right">
                   <span className="text-sm font-bold text-emerald-700">${discountedTotal.toFixed(2)}</span>
                 </Table.Summary.Cell>
-                <Table.Summary.Cell index={9} />
+                <Table.Summary.Cell index={9 + nCustom} />
               </Table.Summary.Row>
             </Table.Summary>
           )}

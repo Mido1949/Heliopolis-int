@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BOQEditor } from "@/components/boq/BOQEditor";
+import type { CustomColumn } from "@/components/boq/BOQEditor";
 import { BOQSummary } from "@/components/boq/BOQSummary";
 import { BOQItem, Lead, BOQ } from "@/types";
 import { createClient } from "@/lib/supabase/client";
@@ -37,6 +38,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const [customerInfo, setCustomerInfo] = useState({ name: "", phone: "", address: "" });
   const [discountPercent, setDiscountPercent] = useState(0);
+  const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
   const [yBranchUnitPrice, setYBranchUnitPrice] = useState<number>(Y_BRANCH_DEFAULT_PRICE);
   const [profileName, setProfileName] = useState<string>("");
   const [currentBoqSerial, setCurrentBoqSerial] = useState<number | null>(null);
@@ -80,7 +82,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
       const { data, error } = await supabase
         .from("boqs")
         .select(
-          "id, boq_number, boq_serial, customer_name, customer_phone, customer_address, grand_total, subtotal, discount_percent, status, created_at, created_by, lead:leads(name), boq_items(id, boq_id, model, quantity, unit_price, location, floor, area, unit_type, capacity_kw, notes)"
+          "id, boq_number, boq_serial, customer_name, customer_phone, customer_address, grand_total, subtotal, discount_percent, custom_columns, status, created_at, created_by, lead:leads(name), boq_items(id, boq_id, model, quantity, unit_price, location, floor, area, unit_type, capacity_kw, notes, custom_values)"
         )
         .eq("created_by", user.id)
         .order("created_at", { ascending: false })
@@ -119,6 +121,11 @@ export default function BOQPage({ params }: { params: { id: string } }) {
         address: boq.customer_address || "",
       });
       setDiscountPercent(boq.discount_percent || 0);
+      setCustomColumns(
+        Array.isArray((boq as unknown as { custom_columns?: CustomColumn[] }).custom_columns)
+          ? (boq as unknown as { custom_columns: CustomColumn[] }).custom_columns
+          : []
+      );
 
       const { data: itemsData } = await supabase
         .from("boq_items")
@@ -148,6 +155,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
             unit_type: item.unit_type || undefined,
             capacity_kw: item.capacity_kw || undefined,
             notes: item.notes || undefined,
+            custom_values: item.custom_values || {},
             product: item.product,
           });
         }
@@ -259,6 +267,17 @@ export default function BOQPage({ params }: { params: { id: string } }) {
     []
   );
 
+  const handleAddColumn = useCallback((label: string) => {
+    setCustomColumns((prev) => [
+      ...prev,
+      { key: `c${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`, label },
+    ]);
+  }, []);
+
+  const handleRemoveColumn = useCallback((key: string) => {
+    setCustomColumns((prev) => prev.filter((c) => c.key !== key));
+  }, []);
+
   const handleRemoveItem = useCallback((itemId: string) => {
     setActiveItems((prev) => prev.filter((item) => item.id !== itemId));
   }, []);
@@ -339,6 +358,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
             discount_percent: discountPercent,
             discount_amount: discountAmount,
             grand_total: discountedTotal,
+            custom_columns: customColumns,
             updated_at: new Date().toISOString(),
           })
           .eq("id", boqId);
@@ -371,6 +391,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
             discount_percent: discountPercent,
             discount_amount: discountAmount,
             grand_total: discountedTotal,
+            custom_columns: customColumns,
           })
           .select("id")
           .single();
@@ -395,6 +416,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
         unit_type: item.unit_type || null,
         capacity_kw: item.capacity_kw || null,
         notes: item.notes || null,
+        custom_values: item.custom_values || {},
         org_id: currentOrgId,
       }));
 
@@ -439,6 +461,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
       setCurrentBoqSerial(null);
       setCurrentBoqNumber(null);
       setDiscountPercent(0);
+      setCustomColumns([]);
       setYBranchUnitPrice(Y_BRANCH_DEFAULT_PRICE);
       setActiveTab("list");
     } catch (err: unknown) {
@@ -544,6 +567,9 @@ export default function BOQPage({ params }: { params: { id: string } }) {
               onUpdateDiscount={setDiscountPercent}
               yBranchUnitPrice={yBranchUnitPrice}
               onUpdateYBranchUnitPrice={setYBranchUnitPrice}
+              customColumns={customColumns}
+              onAddColumn={handleAddColumn}
+              onRemoveColumn={handleRemoveColumn}
             />
           </div>
         </div>

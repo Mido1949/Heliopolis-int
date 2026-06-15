@@ -190,6 +190,7 @@ export interface BOQItem {
   unit_type?: string;
   capacity_kw?: number;
   notes?: string;
+  custom_values?: Record<string, string>;
   product?: Product;
 }
 
