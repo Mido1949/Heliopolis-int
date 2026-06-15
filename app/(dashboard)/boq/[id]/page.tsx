@@ -434,6 +434,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
                 area: null,
                 unit_type: Y_BRANCH_TYPE,
                 capacity_kw: 0,
+                custom_values: {},
                 org_id: currentOrgId,
               },
             ]
