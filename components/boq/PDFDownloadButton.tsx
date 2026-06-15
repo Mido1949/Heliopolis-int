@@ -20,6 +20,7 @@ interface PDFDownloadButtonProps {
   boqNumber?: string;
   boqSerial?: number;
   createdBy?: string;
+  customColumns?: { key: string; label: string }[];
   customer?: Lead;
   variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
   size?: "default" | "sm" | "lg" | "icon";

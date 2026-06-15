@@ -407,14 +407,19 @@ async function teamPerformance(input: Record<string, unknown>, ctx: ToolContext)
     activity[l.assigned_to_user].won_value += Number(l.deal_value || 0);
   });
 
-  const members = Object.entries(activity).map(([uid, a]) => ({
-    user: profileMap[uid]?.name || 'Unknown',
-    team: profileMap[uid]?.crm_team || null,
-    calls: a.calls,
-    leads_assigned: a.leads_assigned,
-    tasks_done: a.tasks_done,
-    won_value: a.won_value,
-  }));
+  // List every team member, including those with no activity yet (zeros) so the
+  // model never says a real member is "not found".
+  const members = Object.keys(profileMap).map((uid) => {
+    const a = activity[uid] || { calls: 0, leads_assigned: 0, tasks_done: 0, won_value: 0 };
+    return {
+      user: profileMap[uid].name,
+      team: profileMap[uid].crm_team || null,
+      calls: a.calls,
+      leads_assigned: a.leads_assigned,
+      tasks_done: a.tasks_done,
+      won_value: a.won_value,
+    };
+  });
 
   return compactResult({ period, members });
 }

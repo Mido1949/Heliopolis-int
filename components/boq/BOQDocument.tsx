@@ -185,6 +185,7 @@ interface BOQDocumentProps {
   boqNumber?: string;
   boqSerial?: number;
   createdBy?: string;
+  customColumns?: { key: string; label: string }[];
   customer?: Lead & {
     customer_name?: string;
     customer_phone?: string;
@@ -214,8 +215,13 @@ export function BOQDocument({
   boqNumber,
   boqSerial,
   createdBy,
+  customColumns = [],
   customer,
 }: BOQDocumentProps) {
+  // Custom columns share space with the Model column so the row still sums ~100%.
+  const nC = customColumns.length;
+  const customW = nC > 0 ? Math.min(14, Math.floor(28 / nC)) : 0;
+  const modelW = Math.max(10, 32 - customW * nC);
   const fmt = (val: number) =>
     new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -259,7 +265,12 @@ export function BOQDocument({
               </Text>
               <Text style={[styles.colCap, { fontSize: 8 }]}>{cap > 0 ? String(cap) : '—'}</Text>
               <Text style={[styles.colQty, { fontSize: 8 }]}>{item.quantity || 0}</Text>
-              <Text style={[styles.colModel, { fontSize: 8 }]}>{item.model || '-'}</Text>
+              <Text style={[styles.colModel, { fontSize: 8, width: `${modelW}%` }]}>{item.model || '-'}</Text>
+              {customColumns.map((c) => (
+                <Text key={c.key} style={{ fontSize: 8, width: `${customW}%`, paddingHorizontal: 2 }}>
+                  {item.custom_values?.[c.key] || '—'}
+                </Text>
+              ))}
               <Text style={[styles.colPrice, { fontSize: 8 }]}>{fmt(item.unit_price || 0)}</Text>
               <Text style={[styles.colTotal, { fontSize: 8, fontWeight: 'bold' }]}>
                 {fmt(item.total || 0)}
@@ -334,7 +345,12 @@ export function BOQDocument({
             <Text style={[styles.tableHeaderText, styles.colType]}>Type</Text>
             <Text style={[styles.tableHeaderText, styles.colCap]}>Capacity KW</Text>
             <Text style={[styles.tableHeaderText, styles.colQty]}>Qty</Text>
-            <Text style={[styles.tableHeaderText, styles.colModel]}>Model</Text>
+            <Text style={[styles.tableHeaderText, styles.colModel, { width: `${modelW}%` }]}>Model</Text>
+            {customColumns.map((c) => (
+              <Text key={c.key} style={[styles.tableHeaderText, { width: `${customW}%`, paddingHorizontal: 2 }]}>
+                {c.label}
+              </Text>
+            ))}
             <Text style={[styles.tableHeaderText, styles.colPrice]}>Unit Price</Text>
             <Text style={[styles.tableHeaderText, styles.colTotal]}>Total Price $</Text>
           </View>

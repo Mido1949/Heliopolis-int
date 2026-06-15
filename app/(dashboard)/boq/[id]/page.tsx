@@ -699,6 +699,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
                               boqNumber={boq.boq_number}
                               boqSerial={boq.boq_serial}
                               createdBy={boq.created_by_name || profileName}
+                              customColumns={(boq as unknown as { custom_columns?: CustomColumn[] }).custom_columns || []}
                               customer={Object.assign({}, boq.lead, {
                                 name: boq.customer_name || boq.lead?.name || "Client",
                                 phone: boq.customer_phone || boq.lead?.phone || "",
