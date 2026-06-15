@@ -268,7 +268,8 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
     try {
       const { error: updateError } = await supabase
         .from('leads')
-        .update({ assigned_to_team: assignTeam, assigned_to_user: assignUser })
+        // Track who is doing the assignment so the assignee can later bounce it back.
+        .update({ assigned_to_team: assignTeam, assigned_to_user: assignUser, assigned_by: user?.id ?? null })
         .eq('id', lead.id);
       if (updateError) throw updateError;
 
@@ -305,6 +306,47 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
     } catch (err) {
       console.error('Assign error:', err);
       message.error('فشل التعيين');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const handleReturnToSender = async () => {
+    if (!lead || !lead.assigned_by) return;
+    const sender = lead.assigned_by;
+    setAssigning(true);
+    try {
+      // Bounce back to whoever assigned this lead to the current holder.
+      // The current holder becomes the new assigned_by so it can bounce again.
+      const { error: updateError } = await supabase
+        .from('leads')
+        .update({ assigned_to_user: sender, assigned_by: user?.id ?? null })
+        .eq('id', lead.id);
+      if (updateError) throw updateError;
+
+      const orgId = lead.org_id ?? currentOrgId;
+      await supabase.from('lead_activities').insert({
+        lead_id: lead.id,
+        user_id: user?.id,
+        type: 'assignment',
+        body: 'تم إرجاع الليد للمُرسِل',
+        org_id: orgId,
+      });
+      await supabase.from('notifications').insert({
+        user_id: sender,
+        title: 'رجعلك ليد',
+        body: 'تم إرجاع ليد ليك من العضو المعيّن',
+        type: 'lead_assigned',
+        reference_id: lead.id,
+        reference_type: 'lead',
+        org_id: orgId,
+      });
+
+      message.success('تم إرجاع الليد للمُرسِل');
+      onAssigned?.();
+    } catch (err) {
+      console.error('Return-to-sender error:', err);
+      message.error('فشل إرجاع الليد');
     } finally {
       setAssigning(false);
     }
@@ -589,6 +631,16 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                       >
                         تعيين يدوي
                       </Button>
+                      {lead?.assigned_by && (
+                        <Button
+                          block
+                          loading={assigning}
+                          onClick={handleReturnToSender}
+                          style={{ marginTop: 8 }}
+                        >
+                          ↩️ رجّع للمُرسِل
+                        </Button>
+                      )}
                     </div>
                   </details>
                 )}

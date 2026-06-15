@@ -455,6 +455,7 @@ async function assignLead(input: Record<string, unknown>, ctx: ToolContext): Pro
     .update({
       assigned_to_team: toTeam,
       assigned_to_user: targetUserId,
+      assigned_by: ctx.callerId,
       pipeline_stage: newStage,
       stage_timestamps: { ...((current.stage_timestamps as Record<string, string>) || {}), [newStage]: now },
       last_contact_date: now,

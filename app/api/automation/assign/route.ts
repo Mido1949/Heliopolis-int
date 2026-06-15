@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
     .update({
       assigned_to_team: body.to_team,
       assigned_to_user: targetUserId,
+      assigned_by: user.id,
       pipeline_stage: newStage,
       stage_timestamps,
       last_contact_date: now,

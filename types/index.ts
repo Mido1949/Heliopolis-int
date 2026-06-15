@@ -62,6 +62,7 @@ export interface Lead {
   assigned_to?: string;
   assigned_to_team?: CrmTeam;
   assigned_to_user?: string;
+  assigned_by?: string | null;
   assigned_user?: { id: string; name: string } | null;
   meta_lead_id?: string;
   form_id?: string;

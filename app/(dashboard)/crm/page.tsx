@@ -28,7 +28,7 @@ import { useAuth } from '@/context/AuthContext';
 const { Title, Text } = Typography;
 
 export default function CRMPage() {
-  const { isAdmin, isManager, isTeamLeader, user } = useAuth();
+  const { isAdmin } = useAuth();
   const supabase = createClient();
 
   // State
@@ -100,10 +100,8 @@ export default function CRMPage() {
       if (pipelineFilter) query = query.eq('pipeline_stage', pipelineFilter);
       if (sourceFilter) query = query.eq('source', sourceFilter);
 
-      // Team leaders, managers and admins see all org leads; regular staff see only their own
-      if (!isAdmin && !isManager && !isTeamLeader && user) {
-        query = query.eq('assigned_to_user', user.id);
-      }
+      // All team members can see (and edit) every lead in the org — collaborative
+      // CRM. (Personal view is available on the My Leads page.)
 
       // Order by pipeline_stage for kanban/grouping, else by updated_at
       if (pipelineFilter || viewType === 'kanban') {
