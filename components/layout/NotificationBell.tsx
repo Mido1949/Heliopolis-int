@@ -26,6 +26,24 @@ export default function NotificationBell() {
   const [, setNow] = useState<number>(Date.now());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
+  const prevUnread = useRef(-1);
+
+  function playPing() {
+    try {
+      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'sine'; o.frequency.value = 880;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+      o.start(); o.stop(ctx.currentTime + 0.35);
+      o.onended = () => ctx.close();
+    } catch {}
+  }
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -34,7 +52,10 @@ export default function NotificationBell() {
       if (!res.ok) return;
       const data: Notification[] = await res.json();
       setNotifications(data || []);
-      setUnreadCount((data || []).filter(n => !n.is_read).length);
+      const count = (data || []).filter(n => !n.is_read).length;
+      if (prevUnread.current !== -1 && count > prevUnread.current) playPing();
+      prevUnread.current = count;
+      setUnreadCount(count);
     } catch {
       // silent — non-critical
     } finally {
@@ -55,7 +76,7 @@ export default function NotificationBell() {
       }
       const channel = supabase
         .channel('user:' + user.id)
-        .on('broadcast', { event: 'new_notification' }, () => fetchNotifications())
+        .on('broadcast', { event: 'new_notification' }, () => { playPing(); fetchNotifications(); })
         .subscribe((status) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             intervalRef.current = setInterval(fetchNotifications, 300000);

@@ -12,7 +12,7 @@ import { formatDate } from '@/lib/utils';
 import {
   Phone, FileText, Plus, CheckCircle2,
   Clock, Calendar, TrendingUp, Sparkles, Send, X, ListChecks, UserCircle2,
-  BarChart2, CheckSquare, ChevronRight, Download,
+  BarChart2, CheckSquare, ChevronRight, Download, LogOut,
 } from 'lucide-react';
 
 interface NormalUserShellProps {
@@ -289,6 +289,13 @@ export default function NormalUserShell({ children }: NormalUserShellProps) {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, supabase, loadPanels]);
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    try { await supabase.auth.signOut(); } catch {}
+    router.push('/login');
+    router.refresh();
+  };
 
   const toggleLang = () => setLang(prev => (prev === 'ar' ? 'en' : 'ar'));
 
@@ -747,6 +754,7 @@ export default function NormalUserShell({ children }: NormalUserShellProps) {
                   leadFlowActive={leadFlowActive}
                   onStartCallFlow={startCallFlow}
                   callFlowActive={callFlowStep !== null}
+                  onLogout={handleLogout}
                 />
 
                 {leadFlowActive && (
@@ -1068,12 +1076,13 @@ function BOQPanel({ boqs, loading, kpis, onNewBoq, onOpenBoq, onOpenMyLeads, onO
   );
 }
 
-function ChatHeader({ onStartLeadFlow, leadFlowActive, onStartCallFlow, callFlowActive }: {
+function ChatHeader({ onStartLeadFlow, leadFlowActive, onStartCallFlow, callFlowActive, onLogout }: {
   userName?: string | null;
   onStartLeadFlow: () => void;
   leadFlowActive: boolean;
   onStartCallFlow: () => void;
   callFlowActive: boolean;
+  onLogout?: () => void;
 }) {
   const busy = leadFlowActive || callFlowActive;
   return (
@@ -1105,6 +1114,11 @@ function ChatHeader({ onStartLeadFlow, leadFlowActive, onStartCallFlow, callFlow
           سجّل مكالمة
         </button>
         <NotificationBell />
+        {onLogout && (
+          <button onClick={onLogout} title="تسجيل الخروج" className="flex items-center gap-1.5 bg-white/10 hover:bg-white/25 text-white text-xs font-semibold px-2 py-1.5 rounded-md transition-colors">
+            <LogOut className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </div>
   );

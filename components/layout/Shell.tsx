@@ -12,6 +12,7 @@ import { useOrg } from '@/context/OrgContext';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useLanguage } from '@/context/LanguageContext';
+import { useIdleLogout } from '@/lib/hooks/useIdleLogout';
 
 interface ShellProps {
   children: React.ReactNode;
@@ -28,6 +29,7 @@ export default function Shell({ children }: ShellProps) {
 
   // Hooks must run unconditionally on every render — call session manager first.
   useSessionManager(user?.id ?? null, currentOrgId);
+  useIdleLogout();
 
   // Stage 2: role-based shell — normal CS / Tech users get the AI-first 3-column layout.
   // Admin and Tech Team Leader keep the full sidebar + Navbar shell unchanged.
