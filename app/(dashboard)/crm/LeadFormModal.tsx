@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Modal, Form, Input, Select, DatePicker, Row, Col, message } from 'antd';
+import { Modal, Form, Input, Select, DatePicker, Upload, Row, Col, Button, message } from 'antd';
+import { UploadOutlined } from '@ant-design/icons';
+import type { UploadFile } from 'antd/es/upload/interface';
 import { createClient } from '@/lib/supabase/client';
 import { logLeadActivity } from '@/lib/supabase/activities';
-import { LEAD_STATUSES, LEAD_SOURCES, REGIONS, LEAD_CLIENT_TYPES, PIPELINE_STAGES } from '@/lib/constants';
+import { LEAD_SOURCES, REGIONS, LEAD_CLIENT_TYPES, PIPELINE_STAGES } from '@/lib/constants';
 import type { Lead } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
@@ -26,16 +28,25 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
   const [form] = Form.useForm();
   const supabase = createClient();
   const isEdit = !!lead;
+  const [owners, setOwners] = useState<{ id: string; name: string }[]>([]);
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const submitLock = useRef(false);
 
   useEffect(() => {
-    if (open && lead) {
+    if (!open) return;
+    supabase.from('profiles').select('id, name').order('name')
+      .then(({ data }) => setOwners((data || []) as { id: string; name: string }[]));
+  }, [open, supabase]);
+
+  useEffect(() => {
+    if (!open) { setFileList([]); return; }
+    if (lead) {
       form.setFieldsValue({
         ...lead,
         next_follow_up: lead.next_follow_up ? dayjs(lead.next_follow_up) : null,
       });
-    } else if (open) {
+    } else {
       form.resetFields();
       if (defaultRegion) {
         form.setFieldsValue({ region: defaultRegion });
@@ -51,13 +62,12 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
       const values = await form.validateFields();
       const payload = {
         ...values,
-        next_follow_up: values.next_follow_up
-          ? values.next_follow_up.toISOString()
-          : null,
+        deal_value: values.deal_value ? Number(values.deal_value) : null,
+        next_follow_up: values.next_follow_up ? values.next_follow_up.toISOString() : null,
         pipeline_stage: values.pipeline_stage || 'NEW',
         stage_timestamps: isEdit
           ? lead!.stage_timestamps
-          : { NEW: new Date().toISOString() },
+          : { [values.pipeline_stage || 'NEW']: new Date().toISOString() },
       };
 
       if (isEdit) {
@@ -72,21 +82,16 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
           changes: Object.keys(values).filter(k => values[k] !== lead![k as keyof Lead])
         });
 
-        if (lead && values.status !== lead.status) {
-          supabase.from('lead_activities').insert({
-            lead_id: lead.id,
-            user_id: user?.id,
-            type: 'status_change',
-            body: `${lead.status} → ${values.status}`,
-            org_id: currentOrgId,
-          });
-        }
-
         message.success('تم تحديث العميل بنجاح (Lead updated)');
       } else {
         const { data, error } = await supabase
           .from('leads')
-          .insert({ ...payload, org_id: currentOrgId, assigned_to_user: user?.id, created_by: user?.id })
+          .insert({
+            ...payload,
+            org_id: currentOrgId,
+            assigned_to_user: values.assigned_to_user || user?.id,
+            created_by: user?.id,
+          })
           .select()
           .single();
         if (error) throw error;
@@ -94,6 +99,16 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
         // Non-blocking activity log
         if (data) {
           logLeadActivity(data.id, 'creation');
+          // Upload attachments after insert
+          if (fileList.length) {
+            for (const f of fileList) {
+              if (f.originFileObj) {
+                const fd = new FormData();
+                fd.append('file', f.originFileObj as File);
+                await fetch('/api/files/upload', { method: 'POST', body: fd });
+              }
+            }
+          }
         }
 
         message.success('تم إضافة العميل بنجاح (Lead created)');
@@ -125,7 +140,7 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
         form={form}
         layout="vertical"
         requiredMark={false}
-        initialValues={{ status: 'New', source: 'Direct', pipeline_stage: 'NEW' }}
+        initialValues={{ source: 'Meta Ad', pipeline_stage: 'NEW' }}
       >
         <Row gutter={16}>
           <Col span={12}>
@@ -179,40 +194,18 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
           </Col>
         </Row>
 
+        {/* ② Classification */}
         <Row gutter={16}>
-          <Col span={8}>
-            <Form.Item name="status" label="الحالة القديمة (Legacy Status)" tooltip="سيتم إيقاف هذا الحقل لاحقًا — استخدم مرحلة القمع بدلاً">
-              <Select
-                options={LEAD_STATUSES.map((s) => ({
-                  value: s.value,
-                  label: `${s.labelAr} (${s.value})`,
-                }))}
-              />
-            </Form.Item>
-          </Col>
-          <Col span={8}>
-            <Form.Item name="pipeline_stage" label="مرحلة القمع (Pipeline Stage)">
-              <Select
-                options={PIPELINE_STAGES.map((s) => ({
-                  value: s.value,
-                  label: `${s.labelAr} (${s.value})`,
-                }))}
-              />
-            </Form.Item>
-          </Col>
-          <Col span={8}>
+          <Col span={12}>
             <Form.Item name="source" label="المصدر (Source)">
               <Select
                 options={LEAD_SOURCES.map((s) => ({
                   value: s.value,
-                  label: `${s.labelAr} (${s.value})`,
+                  label: s.labelAr,
                 }))}
               />
             </Form.Item>
           </Col>
-        </Row>
-
-        <Row gutter={16}>
           <Col span={12}>
             <Form.Item name="region" label="المنطقة (Region)">
               <Select
@@ -220,13 +213,68 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
                 placeholder="اختر"
                 options={REGIONS.map((r) => ({
                   value: r.value,
-                  label: `${r.labelAr} (${r.value})`,
+                  label: r.labelAr,
                 }))}
               />
             </Form.Item>
           </Col>
         </Row>
 
+        {/* ③ Project */}
+        <Form.Item name="project_description" label="وصف المشروع (Project)">
+          <TextArea rows={2} placeholder="ما أرسله العميل عن مشروعه..." />
+        </Form.Item>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="project_capacity" label="السعة المطلوبة (Capacity)">
+              <Input placeholder="مثال: 10 طن / 8 HP" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="deal_value" label="القيمة المتوقعة (Expected Value)">
+              <Input type="number" placeholder="EGP" />
+            </Form.Item>
+          </Col>
+        </Row>
+
+        {/* ④ Pipeline & ownership */}
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="pipeline_stage" label="المرحلة (Stage)">
+              <Select
+                options={PIPELINE_STAGES.map((s) => ({
+                  value: s.value,
+                  label: `${s.emoji} ${s.labelAr}`,
+                }))}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="assigned_to_user" label="المسؤول (Owner)">
+              <Select
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                placeholder="اختر المسؤول"
+                options={owners.map((o) => ({ value: o.id, label: o.name }))}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+
+        {/* ⑤ Attachments */}
+        <Form.Item label="المرفقات (Attachments)">
+          <Upload
+            multiple
+            beforeUpload={() => false}
+            fileList={fileList}
+            onChange={({ fileList: fl }) => setFileList(fl)}
+          >
+            <Button icon={<UploadOutlined />}>اختر ملفات</Button>
+          </Upload>
+        </Form.Item>
+
+        {/* ⑥ Follow-up & Notes */}
         <Form.Item name="next_follow_up" label="المتابعة القادمة (Next Follow-up)">
           <DatePicker className="w-full" placeholder="اختر التاريخ" />
         </Form.Item>
