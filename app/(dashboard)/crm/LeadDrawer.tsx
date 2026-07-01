@@ -7,9 +7,9 @@ import {
 import { WhatsAppOutlined, PhoneOutlined, MailOutlined, EditOutlined, FileTextOutlined, DownloadOutlined, PlusOutlined } from '@ant-design/icons';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { LEAD_STATUSES, LEAD_SOURCES, PIPELINE_STAGES } from '@/lib/constants';
+import { LEAD_SOURCES, PIPELINE_STAGES, LOST_REASONS } from '@/lib/constants';
 import { formatDate, getWhatsAppUrl } from '@/lib/utils';
-import type { Lead, BOQ, BOQItem, CallLog, CallType, CallOutcome } from '@/types';
+import type { Lead, BOQ, BOQItem, CallLog, CallType, CallOutcome, PipelineStage } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
 import dynamic from 'next/dynamic';
@@ -49,13 +49,8 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
   const [loadingCalls, setLoadingCalls] = useState(false);
   const [isLoggingCall, setIsLoggingCall] = useState(false);
   const [form] = Form.useForm();
-  const { user, profile, isAdmin, isManager, isCSLead, isTechLead } = useAuth();
+  const { user } = useAuth();
   const { currentOrgId } = useOrg();
-  const isFullAdmin    = isAdmin || isManager;
-  const isCSTeam       = isCSLead  || profile?.crm_team === 'cs';
-  const isTechTeam     = isTechLead || profile?.crm_team === 'tech';
-  const canSendToTech  = isCSTeam   || isFullAdmin;
-  const canSendToCS    = isTechTeam || isFullAdmin;
   const supabase = createClient();
   const [assignTeam, setAssignTeam] = useState<string | undefined>();
   const [assignUser, setAssignUser] = useState<string | undefined>();
@@ -352,53 +347,8 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
     }
   };
 
-  const handleRandomAssignToTech = async () => {
-    if (!lead || !user) return;
-    setAssigning(true);
-    try {
-      const { data, error } = await supabase.rpc('assign_to_tech_team', {
-        p_lead_id: lead.id,
-        p_assigning_user_id: user.id,
-      });
-      if (error) throw error;
-      const result = data as { success: boolean; assigned_to_name?: string; error?: string };
-      if (!result.success) throw new Error(result.error || 'لا يوجد أعضاء في الفريق التقني');
-      message.success(`تم التحويل للفريق التقني ✓ — ${result.assigned_to_name}`);
-      onAssigned?.();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'خطأ غير معروف';
-      console.error('Random assign error:', err);
-      message.error(`فشل التحويل للفريق التقني: ${msg}`, 8);
-    } finally {
-      setAssigning(false);
-    }
-  };
-
-  const handleRandomAssignToCS = async () => {
-    if (!lead || !user) return;
-    setAssigning(true);
-    try {
-      const { data, error } = await supabase.rpc('assign_to_cs_team', {
-        p_lead_id: lead.id,
-        p_assigning_user_id: user.id,
-      });
-      if (error) throw error;
-      const result = data as { success: boolean; assigned_to_name?: string; error?: string };
-      if (!result.success) throw new Error(result.error || 'لا يوجد أعضاء في الفريق التجاري');
-      message.success(`تم التحويل للفريق التجاري ✓ — ${result.assigned_to_name}`);
-      onAssigned?.();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'خطأ غير معروف';
-      console.error('CS assign error:', err);
-      message.error(`فشل التحويل للفريق التجاري: ${msg}`, 8);
-    } finally {
-      setAssigning(false);
-    }
-  };
-
   if (!lead) return null;
 
-  const statusConfig = LEAD_STATUSES.find((s) => s.value === lead.status);
   const sourceConfig = LEAD_SOURCES.find((s) => s.value === lead.source);
 
   return (
@@ -479,17 +429,47 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                   </div>
                 )}
                 <Descriptions column={1} size="small" bordered className="mb-6">
-                  <Descriptions.Item label="الحالة القديمة (Legacy Status)">
-                    <Tag color={statusConfig?.color}>{statusConfig?.labelAr || lead.status}</Tag>
-                  </Descriptions.Item>
                   <Descriptions.Item label="مرحلة القمع (Pipeline Stage)">
-                    {(() => {
-                      const stage = lead.pipeline_stage || 'NEW';
-                      const cfg = PIPELINE_STAGES.find(s => s.value === stage);
-                      return cfg
-                        ? <Tag color={cfg.color}>{cfg.labelAr} ({stage})</Tag>
-                        : <Tag>{stage}</Tag>;
-                    })()}
+                    <Select
+                      size="small"
+                      value={lead.pipeline_stage || 'NEW'}
+                      style={{ width: '100%' }}
+                      onChange={async (v) => {
+                        const now = new Date().toISOString();
+                        const newStage = v as PipelineStage;
+                        const stage_timestamps = { ...((lead.stage_timestamps as Record<string, string>) || {}), [newStage]: now };
+                        const { error } = await supabase.from('leads')
+                          .update({ pipeline_stage: newStage, stage_timestamps, updated_at: now })
+                          .eq('id', lead.id);
+                        if (error) return message.error('فشل تحديث المرحلة');
+                        supabase.from('lead_activities').insert({
+                          lead_id: lead.id, user_id: user?.id, type: 'status_change',
+                          body: `${lead.pipeline_stage || 'NEW'} → ${newStage}`,
+                          org_id: lead.org_id ?? currentOrgId,
+                        });
+                        message.success('تم تحديث المرحلة');
+                        onAssigned?.();
+                      }}
+                      options={PIPELINE_STAGES.map((s) => ({
+                        value: s.value,
+                        label: `${s.emoji} ${s.labelAr}`,
+                      }))}
+                    />
+                    {lead.pipeline_stage === 'LOST' && (
+                      <div className="mt-2">
+                        <Select
+                          size="small"
+                          style={{ width: '100%' }}
+                          defaultValue={lead.lost_reason ?? undefined}
+                          placeholder="سبب الخسارة (Lost reason)"
+                          onChange={async (v) => {
+                            await supabase.from('leads').update({ lost_reason: v }).eq('id', lead.id);
+                            onAssigned?.();
+                          }}
+                          options={LOST_REASONS.map((r) => ({ value: r.value, label: r.labelAr }))}
+                        />
+                      </div>
+                    )}
                   </Descriptions.Item>
                   {lead.deal_value != null && (
                     <Descriptions.Item label="قيمة الصفقة (Deal Value)">
@@ -562,6 +542,25 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
 
                 <Divider>تعيين (Assign To)</Divider>
 
+                {/* Claim button for unassigned leads */}
+                {!lead.assigned_to_user && (
+                  <Button
+                    block
+                    type="primary"
+                    style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B', marginBottom: 8 }}
+                    onClick={async () => {
+                      if (!user) return;
+                      const { error } = await supabase.from('leads')
+                        .update({ assigned_to_user: user.id }).eq('id', lead.id);
+                      if (error) return message.error('فشل الاستلام');
+                      message.success('تم الاستلام');
+                      onAssigned?.();
+                    }}
+                  >
+                    استلام (Claim)
+                  </Button>
+                )}
+
                 {/* Current assignment badge */}
                 {lead.assigned_to_team && (
                   <div className="mb-3 p-2 bg-gray-50 rounded-lg border border-gray-100 text-xs text-gray-500 flex items-center gap-2">
@@ -573,77 +572,48 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                   </div>
                 )}
 
-                {/* CS Team or Admin → Send to Tech Team (random) */}
-                {canSendToTech && (
+                {/* Manual assign — visible to all users */}
+                <div className="flex flex-col gap-2 mt-2">
+                  <Select
+                    placeholder="اختر الفريق"
+                    value={assignTeam}
+                    onChange={handleTeamChange}
+                    className="w-full"
+                    options={[
+                      { value: 'tech', label: 'Tech Team' },
+                      { value: 'cs',   label: 'CS Team'   },
+                    ]}
+                  />
+                  <Select
+                    placeholder="اختر المستخدم"
+                    value={assignUser}
+                    onChange={(v: string) => setAssignUser(v)}
+                    className="w-full"
+                    disabled={!assignTeam || teamUsers.length === 0}
+                    options={teamUsers.map((u) => ({ value: u.id, label: u.name }))}
+                    notFoundContent="لا يوجد مستخدمون في هذا الفريق"
+                  />
                   <Button
+                    type="primary"
                     block
                     loading={assigning}
-                    onClick={handleRandomAssignToTech}
-                    style={{ backgroundColor: '#1A6FD4', borderColor: '#1A6FD4', color: '#fff', marginBottom: 8 }}
+                    disabled={!assignTeam || !assignUser}
+                    onClick={handleAssign}
+                    style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}
                   >
-                    إرسال للفريق التقني (عشوائي)
+                    تعيين
                   </Button>
-                )}
-
-                {/* Tech Team or Admin → Send back to CS Team (random) */}
-                {canSendToCS && (
-                  <Button
-                    block
-                    loading={assigning}
-                    onClick={handleRandomAssignToCS}
-                    style={{ backgroundColor: '#16a34a', borderColor: '#16a34a', color: '#fff', marginBottom: 8 }}
-                  >
-                    إرسال للفريق التجاري (عشوائي)
-                  </Button>
-                )}
-
-                {/* Admin/Manager: full manual override */}
-                {isFullAdmin && (
-                  <details className="mt-1">
-                    <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600">تعيين يدوي (Admin)</summary>
-                    <div className="flex flex-col gap-2 mt-2">
-                      <Select
-                        placeholder="اختر الفريق"
-                        value={assignTeam}
-                        onChange={handleTeamChange}
-                        className="w-full"
-                        options={[
-                          { value: 'tech', label: 'Tech Team' },
-                          { value: 'cs',   label: 'CS Team'   },
-                        ]}
-                      />
-                      <Select
-                        placeholder="اختر المستخدم"
-                        value={assignUser}
-                        onChange={(v: string) => setAssignUser(v)}
-                        className="w-full"
-                        disabled={!assignTeam || teamUsers.length === 0}
-                        options={teamUsers.map((u) => ({ value: u.id, label: u.name }))}
-                        notFoundContent="لا يوجد مستخدمون في هذا الفريق"
-                      />
-                      <Button
-                        type="primary"
-                        block
-                        loading={assigning}
-                        disabled={!assignTeam || !assignUser}
-                        onClick={handleAssign}
-                        style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}
-                      >
-                        تعيين يدوي
-                      </Button>
-                      {lead?.assigned_by && (
-                        <Button
-                          block
-                          loading={assigning}
-                          onClick={handleReturnToSender}
-                          style={{ marginTop: 8 }}
-                        >
-                          ↩️ رجّع للمُرسِل
-                        </Button>
-                      )}
-                    </div>
-                  </details>
-                )}
+                  {lead?.assigned_by && (
+                    <Button
+                      block
+                      loading={assigning}
+                      onClick={handleReturnToSender}
+                      style={{ marginTop: 8 }}
+                    >
+                      ↩️ رجّع للمُرسِل
+                    </Button>
+                  )}
+                </div>
               </>
             ),
           },
@@ -865,14 +835,6 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                     </Form>
                   </div>
                 )}
-                {/* Current Status Badge */}
-                <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
-                  <span className="text-[10px] text-gray-400 font-medium">الحالة الحالية:</span>
-                  <Tag color={LEAD_STATUSES.find(s => s.value === lead.status)?.color || '#8C8C8C'} style={{ margin: 0, fontSize: 11 }}>
-                    {LEAD_STATUSES.find(s => s.value === lead.status)?.labelAr || lead.status}
-                  </Tag>
-                </div>
-
                 {/* Activity Feed */}
                 {activities
                   .filter(a => activityTab === 'all' || a.type === activityTab)

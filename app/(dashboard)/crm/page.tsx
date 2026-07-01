@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Table, Tag, Button, Input, Select, Space, Tooltip, Dropdown, Row, Col,
   Typography, message, Segmented,
@@ -16,7 +17,7 @@ import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { LEAD_STATUSES, LEAD_SOURCES, PIPELINE_STAGES } from '@/lib/constants';
+import { LEAD_SOURCES, PIPELINE_STAGES } from '@/lib/constants';
 import { formatDate, getWhatsAppUrl } from '@/lib/utils';
 import type { Lead } from '@/types';
 import LeadDrawer from './LeadDrawer';
@@ -29,6 +30,7 @@ const { Title, Text } = Typography;
 
 export default function CRMPage() {
   const { isAdmin } = useAuth();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   // State
@@ -41,7 +43,6 @@ export default function CRMPage() {
 
   // Filters
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string | undefined>();
   const [pipelineFilter, setPipelineFilter] = useState<string | undefined>();
   const [sourceFilter] = useState<string | undefined>();
 
@@ -50,7 +51,7 @@ export default function CRMPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
-  const [viewType, setViewType] = useState<'table' | 'kanban'>('table');
+  const [viewType, setViewType] = useState<'table' | 'kanban'>('kanban');
   const [importModalOpen, setImportModalOpen] = useState(false);
 
   // Call stats
@@ -85,6 +86,25 @@ export default function CRMPage() {
     fetchCallStats();
   }, [fetchCallStats]);
 
+  // Open a specific lead's drawer when arriving via ?lead=<id> (e.g. from a notification).
+  useEffect(() => {
+    const leadId = searchParams.get('lead');
+    if (!leadId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('leads')
+        .select('*, assigned_user:profiles!leads_assigned_to_user_fkey(id, name)')
+        .eq('id', leadId)
+        .single();
+      if (!cancelled && data) {
+        setSelectedLead(data as Lead);
+        setDrawerOpen(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [searchParams, supabase]);
+
   // Fetch leads
   const fetchLeads = async (p = page) => {
     setLoading(true);
@@ -96,7 +116,6 @@ export default function CRMPage() {
       if (search) {
         query = query.or(`name.ilike.%${search}%,company.ilike.%${search}%,phone.ilike.%${search}%`);
       }
-      if (statusFilter) query = query.eq('status', statusFilter);
       if (pipelineFilter) query = query.eq('pipeline_stage', pipelineFilter);
       if (sourceFilter) query = query.eq('source', sourceFilter);
 
@@ -137,10 +156,6 @@ export default function CRMPage() {
       fetchLeads();
     }
   };
-
-  // Status color map
-  const getStatusConfig = (status: string) =>
-    LEAD_STATUSES.find((s) => s.value === status) || { color: '#8C8C8C', labelAr: status };
 
   const getSourceConfig = (source: string) =>
     LEAD_SOURCES.find((s) => s.value === source) || { color: '#0D2137', labelAr: source };
@@ -184,13 +199,15 @@ export default function CRMPage() {
         ),
     },
     {
-      title: 'الحالة (Status)',
-      dataIndex: 'status',
-      key: 'status',
-      width: 140,
-      render: (status: string) => {
-        const config = getStatusConfig(status);
-        return <Tag color={config.color}>{config.labelAr}</Tag>;
+      title: 'مرحلة القمع (Pipeline)',
+      key: 'pipeline_stage',
+      width: 160,
+      render: (_: unknown, record: Lead) => {
+        const stage = record.pipeline_stage || 'NEW';
+        const cfg = PIPELINE_STAGES.find(s => s.value === stage);
+        return cfg
+          ? <Tag color={cfg.color}>{cfg.emoji} {cfg.labelAr}</Tag>
+          : <Tag>{stage}</Tag>;
       },
     },
     {
@@ -401,16 +418,6 @@ export default function CRMPage() {
                   }}
                   onPressEnter={() => { setPage(1); fetchLeads(1); }}
                   allowClear
-                />
-              </Col>
-              <Col xs={12} md={7}>
-                <Select
-                  placeholder="الحالة القديمة (Status)"
-                  value={statusFilter}
-                  onChange={(v) => { setStatusFilter(v); setPage(1); setTimeout(() => fetchLeads(1), 0); }}
-                  allowClear
-                  className="w-full"
-                  options={LEAD_STATUSES.map((s) => ({ value: s.value, label: `${s.labelAr} (${s.value})` }))}
                 />
               </Col>
               <Col xs={12} md={7}>
