@@ -2,10 +2,14 @@
 
 import { useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Card, Tag, Typography, message, Modal, Input } from 'antd';
-import { PIPELINE_STAGES } from '@/lib/constants';
+import { Card, Tag, Typography, Button, message, Modal, Input } from 'antd';
+import { WhatsAppOutlined } from '@ant-design/icons';
+import { PIPELINE_STAGES, PIPELINE_ZONES } from '@/lib/constants';
 import type { Lead, PipelineStage } from '@/types';
-import { logLeadActivity } from '@/lib/supabase/activities';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/context/AuthContext';
+import { useOrg } from '@/context/OrgContext';
+import { getWhatsAppUrl } from '@/lib/utils';
 
 const { Text, Title } = Typography;
 
@@ -15,30 +19,27 @@ interface KanbanViewProps {
   onRefresh: () => void;
 }
 
+function stageAgeDays(lead: Lead) {
+  const ts = lead.stage_timestamps?.[lead.pipeline_stage || 'NEW'];
+  if (!ts) return 0;
+  return Math.floor((Date.now() - new Date(ts).getTime()) / 86_400_000);
+}
+
 export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanViewProps) {
+  const { user } = useAuth();
+  const { currentOrgId } = useOrg();
+  const supabase = createClient();
   const [pendingWon, setPendingWon] = useState<{ leadId: string; fromStage: string } | null>(null);
   const [dealValue, setDealValue] = useState<number | null>(null);
   const [dealName, setDealName] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
-  const moveStage = async (leadId: string, newStage: PipelineStage, deal_value: number | null = null) => {
-    try {
-      const res = await fetch(`/api/leads/${leadId}/stage`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pipeline_stage: newStage, deal_value }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Update failed');
-
-      await logLeadActivity(leadId, 'status_change', { to: newStage, deal_value });
-      const stageLabel = PIPELINE_STAGES.find(s => s.value === newStage)?.labelAr || newStage;
-      message.success(`تم نقل العميل إلى ${stageLabel}`);
-      onRefresh();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'فشل تحديث حالة العميل';
-      message.error(msg);
-    }
+  const claim = async (lead: Lead) => {
+    const { error } = await supabase.from('leads')
+      .update({ assigned_to_user: user?.id }).eq('id', lead.id);
+    if (error) return message.error('فشل الاستلام');
+    message.success('تم الاستلام');
+    onRefresh();
   };
 
   const onDragEnd = async (result: DropResult) => {
@@ -52,14 +53,29 @@ export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanView
     const lead = leads.find(l => l.id === leadId);
 
     if (newStage === 'WON') {
-      // T037: prompt for deal_value before allowing WON
       setDealName(lead?.name || '');
       setPendingWon({ leadId, fromStage: source.droppableId });
       setDealValue(null);
       return;
     }
 
-    await moveStage(leadId, newStage);
+    const now = new Date().toISOString();
+    const moved = leads.find((l) => l.id === leadId);
+    const stage_timestamps = { ...(moved?.stage_timestamps || {}), [newStage]: now };
+
+    const { error } = await supabase.from('leads')
+      .update({ pipeline_stage: newStage, stage_timestamps, updated_at: now })
+      .eq('id', leadId);
+    if (error) { message.error('فشل تحديث المرحلة'); return; }
+
+    supabase.from('lead_activities').insert({
+      lead_id: leadId,
+      user_id: user?.id,
+      type: 'status_change',
+      body: `${moved?.pipeline_stage || 'NEW'} → ${newStage}`,
+      org_id: moved?.org_id ?? currentOrgId,
+    });
+    onRefresh();
   };
 
   const confirmWon = async () => {
@@ -68,70 +84,147 @@ export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanView
       return;
     }
     setSubmitting(true);
-    await moveStage(pendingWon.leadId, 'WON', dealValue);
+    const now = new Date().toISOString();
+    const moved = leads.find((l) => l.id === pendingWon.leadId);
+    const stage_timestamps = { ...(moved?.stage_timestamps || {}), WON: now };
+
+    const { error } = await supabase.from('leads')
+      .update({ pipeline_stage: 'WON', stage_timestamps, updated_at: now, deal_value: dealValue })
+      .eq('id', pendingWon.leadId);
+    if (error) {
+      message.error('فشل تحديث المرحلة');
+      setSubmitting(false);
+      return;
+    }
+
+    supabase.from('lead_activities').insert({
+      lead_id: pendingWon.leadId,
+      user_id: user?.id,
+      type: 'status_change',
+      body: `${moved?.pipeline_stage || 'NEW'} → WON`,
+      org_id: moved?.org_id ?? currentOrgId,
+    });
+
     setSubmitting(false);
     setPendingWon(null);
+    onRefresh();
   };
+
+  // Group columns by zone
+  const zones = PIPELINE_ZONES.map((z) => ({
+    ...z,
+    stages: PIPELINE_STAGES.filter((s) => s.zone === z.value),
+  }));
+
+  const columns = PIPELINE_STAGES.map((s) => ({
+    key: s.value,
+    title: `${s.emoji} ${s.labelAr}`,
+    color: s.color,
+    zone: s.zone,
+    items: leads.filter((l) => (l.pipeline_stage || 'NEW') === s.value),
+  }));
 
   return (
     <>
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4 min-h-[500px]">
-          {PIPELINE_STAGES.map((status) => (
-            <div key={status.value} className="flex-shrink-0 w-80">
-              <div className="bg-gray-100 rounded-xl p-3 h-full flex flex-col">
-                <div className="flex justify-between items-center mb-4 px-1">
-                  <Title level={5} style={{ margin: 0 }}>{status.labelAr}</Title>
-                  <Tag color={status.color}>
-                    {leads.filter(l => (l.pipeline_stage || 'NEW') === status.value).length}
-                  </Tag>
-                </div>
+        <div className="space-y-6 overflow-x-auto pb-4">
+          {zones.map((zone) => (
+            <div key={zone.value}>
+              <div className="flex items-center gap-2 mb-2 px-1">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: zone.color }} />
+                <Text strong style={{ fontSize: '13px', color: zone.color }}>{zone.labelAr}</Text>
+              </div>
+              <div className="flex gap-4">
+                {zone.stages.map((stage) => {
+                  const col = columns.find((c) => c.key === stage.value)!;
+                  return (
+                    <div key={stage.value} className="flex-shrink-0 w-72">
+                      <div className="bg-gray-100 rounded-xl p-3 h-full flex flex-col">
+                        <div className="flex justify-between items-center mb-4 px-1">
+                          <Title level={5} style={{ margin: 0, fontSize: '13px' }}>{col.title}</Title>
+                          <Tag color={stage.color} style={{ fontSize: '10px' }}>
+                            {col.items.length}
+                          </Tag>
+                        </div>
 
-                <Droppable droppableId={status.value}>
-                  {(provided, snapshot) => (
-                    <div
-                      {...provided.droppableProps}
-                      ref={provided.innerRef}
-                      className={`flex-grow space-y-3 p-1 transition-colors rounded-lg ${snapshot.isDraggingOver ? 'bg-gray-200' : ''}`}
-                      style={{ minHeight: 100 }}
-                    >
-                      {leads
-                        .filter((l) => (l.pipeline_stage || 'NEW') === status.value)
-                        .map((lead, index) => (
-                          <Draggable key={lead.id} draggableId={lead.id} index={index}>
-                            {(prov, snap) => (
-                              <div
-                                ref={prov.innerRef}
-                                {...prov.draggableProps}
-                                {...prov.dragHandleProps}
-                                onClick={() => onLeadClick(lead)}
-                                style={{ ...prov.draggableProps.style, userSelect: 'none' }}
-                              >
-                                <Card
-                                  size="small"
-                                  className={`shadow-sm cursor-pointer hover:border-accent transition-all ${snap.isDragging ? 'shadow-lg ring-1 ring-accent' : ''}`}
-                                  styles={{ body: { padding: '12px' } }}
-                                >
-                                  <Title level={5} style={{ fontSize: '14px', marginBottom: '4px' }}>{lead.name}</Title>
-                                  {lead.company && <Text type="secondary" style={{ fontSize: '12px', display: 'block' }}>{lead.company}</Text>}
-                                  {lead.deal_value != null && status.value === 'WON' && (
-                                    <Text strong style={{ fontSize: '12px', color: '#52C41A' }}>
-                                      ${lead.deal_value.toLocaleString()}
-                                    </Text>
+                        <Droppable droppableId={stage.value}>
+                          {(provided, snapshot) => (
+                            <div
+                              {...provided.droppableProps}
+                              ref={provided.innerRef}
+                              className={`flex-grow space-y-3 p-1 transition-colors rounded-lg ${snapshot.isDraggingOver ? 'bg-gray-200' : ''}`}
+                              style={{ minHeight: 100 }}
+                            >
+                              {col.items.map((lead, index) => (
+                                <Draggable key={lead.id} draggableId={lead.id} index={index}>
+                                  {(prov, snap) => (
+                                    <div
+                                      ref={prov.innerRef}
+                                      {...prov.draggableProps}
+                                      {...prov.dragHandleProps}
+                                      onClick={() => onLeadClick(lead)}
+                                      style={{ ...prov.draggableProps.style, userSelect: 'none' }}
+                                    >
+                                      <Card
+                                        size="small"
+                                        className={`shadow-sm cursor-pointer hover:border-accent transition-all ${snap.isDragging ? 'shadow-lg ring-1 ring-accent' : ''}`}
+                                        styles={{ body: { padding: '12px' } }}
+                                      >
+                                        <Title level={5} style={{ fontSize: '14px', marginBottom: '4px' }}>{lead.name}</Title>
+                                        {lead.company && <Text type="secondary" style={{ fontSize: '12px', display: 'block' }}>{lead.company}</Text>}
+                                        {lead.deal_value != null && stage.value === 'WON' && (
+                                          <Text strong style={{ fontSize: '12px', color: '#52C41A' }}>
+                                            ${lead.deal_value.toLocaleString()}
+                                          </Text>
+                                        )}
+                                        {/* stage age */}
+                                        {lead.stage_timestamps?.[lead.pipeline_stage || 'NEW'] && (
+                                          <div className="text-[10px] text-gray-400 mt-1">
+                                            {stageAgeDays(lead)} يوم في هذه المرحلة
+                                          </div>
+                                        )}
+                                        <div className="mt-2 flex items-center justify-between gap-1">
+                                          <div className="flex items-center gap-1 min-w-0">
+                                            {/* owner or claim */}
+                                            {lead.assigned_user?.name ? (
+                                              <Tag style={{ fontSize: '10px', margin: 0 }}>{lead.assigned_user.name}</Tag>
+                                            ) : (
+                                              <Button
+                                                size="small"
+                                                style={{ fontSize: '10px', height: '22px', padding: '0 6px' }}
+                                                onClick={(e) => { e.stopPropagation(); claim(lead); }}
+                                              >
+                                                استلام
+                                              </Button>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center gap-1 shrink-0">
+                                            <Text type="secondary" style={{ fontSize: '10px' }}>{lead.region || '—'}</Text>
+                                            {lead.phone && (
+                                              <a
+                                                href={getWhatsAppUrl(lead.phone)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={(e) => e.stopPropagation()}
+                                              >
+                                                <WhatsAppOutlined style={{ color: '#25D366', fontSize: '14px' }} />
+                                              </a>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </Card>
+                                    </div>
                                   )}
-                                  <div className="mt-3 flex justify-between items-center">
-                                    <Text type="secondary" style={{ fontSize: '11px' }}>{lead.region || '—'}</Text>
-                                    <Tag color="blue" style={{ fontSize: '10px' }}>{lead.source}</Tag>
-                                  </div>
-                                </Card>
-                              </div>
-                            )}
-                          </Draggable>
-                        ))}
-                      {provided.placeholder}
+                                </Draggable>
+                              ))}
+                              {provided.placeholder}
+                            </div>
+                          )}
+                        </Droppable>
+                      </div>
                     </div>
-                  )}
-                </Droppable>
+                  );
+                })}
               </div>
             </div>
           ))}
