@@ -43,7 +43,7 @@ export async function generateCompanyReport(date: string): Promise<CompanyReport
   (leads || []).forEach((l: { pipeline_stage?: string; deal_value?: number | null }) => {
     const stage = l.pipeline_stage || 'NEW';
     by_stage[stage] = (by_stage[stage] || 0) + 1;
-    if (['NEW', 'CONTACTED', 'ASSIGNED_TECH', 'QUOTED', 'FOLLOW_UP'].includes(stage)) {
+    if (['NEW', 'WELCOME_SENT', 'NO_RESPONSE', 'INTERESTED', 'PRICING', 'QUOTED', 'NEGOTIATION'].includes(stage)) {
       pipeline_value += Number(l.deal_value || 0);
     }
     if (stage === 'WON') wonCount += 1;
@@ -112,7 +112,7 @@ export async function generateCompanyReport(date: string): Promise<CompanyReport
     })),
   };
 
-  // 3. WON/LOST/GHOSTED/POSTPONED today
+  // 3. WON/LOST/POSTPONED today
   const { data: wonToday } = await supabase
     .from('leads')
     .select('name, deal_value')
@@ -126,7 +126,7 @@ export async function generateCompanyReport(date: string): Promise<CompanyReport
     if (!l.stage_timestamps || !l.pipeline_stage) return;
     const ts = l.stage_timestamps[l.pipeline_stage];
     if (!ts) return;
-    if (new Date(ts).getTime() < new Date(threeDaysAgo).getTime() && ['NEW', 'CONTACTED', 'ASSIGNED_TECH', 'QUOTED', 'FOLLOW_UP'].includes(l.pipeline_stage)) {
+    if (new Date(ts).getTime() < new Date(threeDaysAgo).getTime() && ['NEW', 'WELCOME_SENT', 'NO_RESPONSE', 'INTERESTED', 'PRICING', 'QUOTED', 'NEGOTIATION'].includes(l.pipeline_stage)) {
       const days = Math.floor((Date.now() - new Date(ts).getTime()) / (24 * 60 * 60 * 1000));
       flags.push(`Lead "${l.name}" stuck in ${l.pipeline_stage} for ${days} days`);
     }

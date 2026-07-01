@@ -296,7 +296,7 @@ export default function DashboardPage() {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100">
           <p className="text-xs text-slate-500 font-medium flex justify-between">Active Pipeline <span>العملاء النشطون</span></p>
           <h3 className="text-2xl font-extrabold text-[#0D2137] mt-1">{pipeline.activeCount}</h3>
-          <p className="text-[10px] text-slate-400 mt-1">In stages NEW → FOLLOW_UP</p>
+          <p className="text-[10px] text-slate-400 mt-1">In stages NEW → NEGOTIATION</p>
         </div>
         <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100">
           <p className="text-xs text-slate-500 font-medium flex justify-between">Pipeline Value <span>قيمة القمع</span></p>

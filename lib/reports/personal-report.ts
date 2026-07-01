@@ -52,10 +52,10 @@ export async function getPersonalReportData(userId: string, date: string): Promi
       .eq('assigned_to_user', userId).eq('pipeline_stage', 'WON')
       .gte('updated_at', dayStart).lte('updated_at', dayEnd),
     supabase.from('leads').select('*', { count: 'exact', head: true })
-      .eq('assigned_to_user', userId).eq('pipeline_stage', 'LOST_PRICE')
+      .eq('assigned_to_user', userId).eq('pipeline_stage', 'LOST')
       .gte('updated_at', dayStart).lte('updated_at', dayEnd),
     supabase.from('leads').select('*', { count: 'exact', head: true })
-      .eq('assigned_to_user', userId).eq('pipeline_stage', 'FOLLOW_UP')
+      .eq('assigned_to_user', userId).eq('pipeline_stage', 'NEGOTIATION')
       .gte('updated_at', dayStart).lte('updated_at', dayEnd),
   ]);
 

@@ -5,7 +5,7 @@ import { verifyCronAuth, withCronAlert, isCairoWindow } from '@/lib/cron/guard';
 
 export const dynamic = 'force-dynamic';
 
-const TERMINAL_STAGES = ['WON', 'LOST_PRICE', 'GHOSTED', 'POSTPONED'];
+const TERMINAL_STAGES = ['WON', 'LOST', 'POSTPONED'];
 
 async function handle(request: NextRequest) {
   if (!verifyCronAuth(request)) {

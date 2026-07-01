@@ -10,7 +10,7 @@ import { createNotification } from '@/lib/notifications/in-app';
  * double-notify. Uses the service-role client throughout (no RLS).
  */
 
-const TERMINAL_STAGES = ['WON', 'LOST_PRICE', 'GHOSTED', 'POSTPONED'];
+const TERMINAL_STAGES = ['WON', 'LOST', 'POSTPONED'];
 const LEADER_ROLES = ['admin', 'Manager', 'CS Team Leader', 'Tech Team Leader'];
 
 // Per-run safety caps so a backlog can never produce a flood of actions.

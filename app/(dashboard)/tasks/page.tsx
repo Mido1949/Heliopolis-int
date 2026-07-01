@@ -78,7 +78,7 @@ export default function TasksPage() {
             .from('leads')
             .select('id, name, phone, pipeline_stage, deal_value, last_contact_date, next_follow_up')
             .eq('assigned_to_user', user.id)
-            .in('pipeline_stage', ['NEW', 'CONTACTED', 'ASSIGNED_TECH', 'QUOTED', 'FOLLOW_UP'])
+            .in('pipeline_stage', ['NEW', 'WELCOME_SENT', 'NO_RESPONSE', 'INTERESTED', 'PRICING', 'QUOTED', 'NEGOTIATION'])
             .order('updated_at', { ascending: false })
             .limit(20),
         ]);
