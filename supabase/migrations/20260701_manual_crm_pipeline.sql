@@ -18,8 +18,23 @@ where pipeline_stage in ('ASSIGNED_TECH','FOLLOW_UP','LOST_PRICE','GHOSTED');
 
 update leads set pipeline_stage = 'NEW' where pipeline_stage is null;
 
--- 3. Refresh the check constraint
-alter table leads drop constraint if exists leads_pipeline_stage_check;
+-- 3. Refresh the check constraint.
+-- Drop ANY existing check constraint on leads that references pipeline_stage
+-- (name-agnostic — handles leads_pipeline_stage_check or any other name).
+do $$
+declare c record;
+begin
+  for c in
+    select conname
+    from pg_constraint
+    where conrelid = 'leads'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) ilike '%pipeline_stage%'
+  loop
+    execute format('alter table leads drop constraint %I', c.conname);
+  end loop;
+end $$;
+
 alter table leads add constraint leads_pipeline_stage_check
   check (pipeline_stage in (
     'NEW','WELCOME_SENT','NO_RESPONSE','INTERESTED','PRICING',
