@@ -452,7 +452,7 @@ async function assignLead(input: Record<string, unknown>, ctx: ToolContext): Pro
     targetUserId = users[0].id;
   }
 
-  const newStage: PipelineStage = toTeam === 'tech' ? 'ASSIGNED_TECH' : 'FOLLOW_UP';
+  const newStage: PipelineStage = toTeam === 'tech' ? 'INTERESTED' : 'NEGOTIATION';
   const now = new Date().toISOString();
 
   const { error: updateErr } = await ctx.callerClient

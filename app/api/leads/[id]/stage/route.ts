@@ -5,8 +5,8 @@ import type { CookieOptions } from '@supabase/ssr';
 import type { PipelineStage } from '@/types';
 
 const VALID_STAGES: PipelineStage[] = [
-  'NEW','CONTACTED','ASSIGNED_TECH','QUOTED','FOLLOW_UP',
-  'WON','LOST_PRICE','GHOSTED','POSTPONED',
+  'NEW','WELCOME_SENT','NO_RESPONSE','INTERESTED','PRICING','QUOTED',
+  'NEGOTIATION','WON','LOST','POSTPONED',
 ];
 
 export async function PATCH(
@@ -79,7 +79,7 @@ export async function PATCH(
   if (pipeline_stage === 'WON') {
     update.deal_value = deal_value;
   }
-  if (pipeline_stage === 'CONTACTED' || pipeline_stage === 'FOLLOW_UP') {
+  if (pipeline_stage === 'WELCOME_SENT' || pipeline_stage === 'NEGOTIATION') {
     update.last_contact_date = now;
   }
   // Backward compat: mirror into old status column
@@ -102,10 +102,10 @@ export async function PATCH(
 function legacyStatusFor(stage: PipelineStage): string {
   switch (stage) {
     case 'NEW': return 'New';
-    case 'CONTACTED': return 'Interested';
+    case 'INTERESTED': return 'Interested';
     case 'QUOTED': return 'Quote Sent';
     case 'WON': return 'Won';
-    case 'LOST_PRICE': return 'Lost';
+    case 'LOST': return 'Lost';
     default: return 'New';
   }
 }

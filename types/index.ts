@@ -7,19 +7,21 @@
 export type UserRole = 'admin' | 'Sales Engineer' | 'Manager' | 'Telesales' | 'Call Center' | 'CS Team Leader' | 'Tech Team Leader';
 export type UserTeam = 'Tech Team' | 'Sales Team' | 'Management';
 export type CrmTeam = 'tech' | 'cs';
-export type LeadSource = 'WhatsApp' | 'Meta' | 'Direct' | 'Phone';
+export type LeadSource = 'WhatsApp' | 'Meta' | 'Meta Ad' | 'Direct' | 'Phone';
 export type LeadClientType = 'موزع' | 'شركة تكييف' | 'مقاول' | 'عميل منفرد';
 export type LeadStatus = 'New' | 'Interested' | 'Quote Sent' | 'Won' | 'Lost';
 export type PipelineStage =
   | 'NEW'
-  | 'CONTACTED'
-  | 'ASSIGNED_TECH'
+  | 'WELCOME_SENT'
+  | 'NO_RESPONSE'
+  | 'INTERESTED'
+  | 'PRICING'
   | 'QUOTED'
-  | 'FOLLOW_UP'
+  | 'NEGOTIATION'
   | 'WON'
-  | 'LOST_PRICE'
-  | 'GHOSTED'
+  | 'LOST'
   | 'POSTPONED';
+export type LostReason = 'price' | 'no_need' | 'competitor' | 'ghosted' | 'other';
 export type BOQStatus = 'Draft' | 'Sent' | 'Paid' | 'Cancelled';
 export type ProductCategory = 'Outdoor' | 'Indoor' | 'Mini VRF' | 'Controller';
 export type Region = 'Cairo' | 'Alexandria' | 'Riyadh' | 'Jeddah' | 'Other';
@@ -70,6 +72,8 @@ export interface Lead {
   region?: Region;
   client_type?: LeadClientType;
   notes?: string;
+  lost_reason?: LostReason | null;
+  project_description?: string | null;
   next_follow_up?: string;
   fb1?: boolean;
   fb1_date?: string;

@@ -25,10 +25,11 @@ export const NAV_ITEMS = [
 
 // Lead Sources
 export const LEAD_SOURCES = [
-  { value: 'WhatsApp', labelAr: 'واتساب', color: '#25D366' },
-  { value: 'Meta', labelAr: 'ميتا', color: '#1877F2' },
-  { value: 'Direct', labelAr: 'مباشر', color: '#0D2137' },
-  { value: 'Phone', labelAr: 'هاتف', color: '#FF9800' },
+  { value: 'Meta Ad',  labelAr: 'إعلان ميتا', color: '#1877F2' },
+  { value: 'WhatsApp', labelAr: 'واتساب',     color: '#25D366' },
+  { value: 'Meta',     labelAr: 'ميتا',       color: '#1877F2' },
+  { value: 'Direct',   labelAr: 'مباشر',      color: '#0D2137' },
+  { value: 'Phone',    labelAr: 'هاتف',       color: '#FF9800' },
 ] as const;
 
 // Lead Statuses (legacy — kept for backward compatibility)
@@ -40,22 +41,39 @@ export const LEAD_STATUSES = [
   { value: 'Lost', labelAr: 'خسران', color: '#FF4D4F' },
 ] as const;
 
-// Pipeline Stages (9-stage funnel — Phase 2)
+// Pipeline Zones (visual grouping + notification routing — NOT permission locks)
+export const PIPELINE_ZONES = [
+  { value: 'tech',  labelAr: 'الفريق التقني', color: '#1A6FD4' },
+  { value: 'cs',    labelAr: 'خدمة العملاء',  color: '#16A34A' },
+  { value: 'sales', labelAr: 'المبيعات',      color: '#D72B2B' },
+] as const;
+
+// Unified Pipeline (10 stages — replaces legacy `status`)
 export const PIPELINE_STAGES = [
-  { value: 'NEW',           labelAr: 'جديد',                  color: '#1890FF' },
-  { value: 'CONTACTED',     labelAr: 'تم التواصل',            color: '#13C2C2' },
-  { value: 'ASSIGNED_TECH', labelAr: 'محال للتقني',           color: '#722ED1' },
-  { value: 'QUOTED',        labelAr: 'تم إرسال العرض',        color: '#2F54EB' },
-  { value: 'FOLLOW_UP',     labelAr: 'متابعة',                color: '#FAAD14' },
-  { value: 'WON',           labelAr: 'تم الفوز',              color: '#52C41A' },
-  { value: 'LOST_PRICE',    labelAr: 'خسران - سعر',           color: '#FF4D4F' },
-  { value: 'GHOSTED',       labelAr: 'لم يرد',                color: '#8C8C8C' },
-  { value: 'POSTPONED',     labelAr: 'مؤجل',                  color: '#EB2F96' },
+  { value: 'NEW',          labelAr: 'جديد',                  emoji: '🆕', zone: 'tech',  color: '#1890FF' },
+  { value: 'WELCOME_SENT', labelAr: 'تم الترحيب',            emoji: '👋', zone: 'tech',  color: '#13C2C2' },
+  { value: 'NO_RESPONSE',  labelAr: 'لم يرد',                emoji: '📵', zone: 'cs',    color: '#8C8C8C' },
+  { value: 'INTERESTED',   labelAr: 'مهتم / عنده مشروع',     emoji: '🔥', zone: 'tech',  color: '#FA8C16' },
+  { value: 'PRICING',      labelAr: 'جاري التسعير',          emoji: '🧮', zone: 'tech',  color: '#722ED1' },
+  { value: 'QUOTED',       labelAr: 'تم إرسال العرض',        emoji: '📤', zone: 'sales', color: '#2F54EB' },
+  { value: 'NEGOTIATION',  labelAr: 'متابعة السيلز / تفاوض', emoji: '🤝', zone: 'sales', color: '#FAAD14' },
+  { value: 'WON',          labelAr: 'تم البيع',              emoji: '✅', zone: 'sales', color: '#52C41A' },
+  { value: 'LOST',         labelAr: 'خسارة',                 emoji: '❌', zone: 'sales', color: '#FF4D4F' },
+  { value: 'POSTPONED',    labelAr: 'مؤجل',                  emoji: '⏸️', zone: 'sales', color: '#EB2F96' },
 ] as const;
 
 export const ACTIVE_PIPELINE_STAGES: ReadonlyArray<typeof PIPELINE_STAGES[number]['value']> = [
-  'NEW', 'CONTACTED', 'ASSIGNED_TECH', 'QUOTED', 'FOLLOW_UP',
+  'NEW', 'WELCOME_SENT', 'NO_RESPONSE', 'INTERESTED', 'PRICING', 'QUOTED', 'NEGOTIATION',
 ];
+
+// Loss reasons (used when a lead moves to LOST)
+export const LOST_REASONS = [
+  { value: 'price',      labelAr: 'السعر مرتفع' },
+  { value: 'no_need',    labelAr: 'لا يوجد احتياج' },
+  { value: 'competitor', labelAr: 'اختار منافس' },
+  { value: 'ghosted',    labelAr: 'اختفى / لم يرد' },
+  { value: 'other',      labelAr: 'أخرى' },
+] as const;
 
 // BOQ Statuses
 export const BOQ_STATUSES = [
