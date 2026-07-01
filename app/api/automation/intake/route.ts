@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { CookieOptions } from '@supabase/ssr';
-import { intakeLeads, NoCsMembersError } from '@/lib/leads/intake';
+import { intakeLeads } from '@/lib/leads/intake';
 
 interface ScrapedBusiness {
   name?: string;
@@ -46,13 +46,6 @@ export async function POST(request: NextRequest) {
   try { payload = await request.json(); } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
   if (!Array.isArray(payload)) return NextResponse.json({ error: 'Expected array' }, { status: 400 });
 
-  try {
-    const result = await intakeLeads(payload);
-    return NextResponse.json({ created: result.created, duplicates: result.duplicates, errors: result.errors });
-  } catch (err) {
-    if (err instanceof NoCsMembersError) {
-      return NextResponse.json({ error: 'No CS users available' }, { status: 503 });
-    }
-    throw err;
-  }
+  const result = await intakeLeads(payload);
+  return NextResponse.json({ created: result.created, duplicates: result.duplicates, errors: result.errors });
 }
