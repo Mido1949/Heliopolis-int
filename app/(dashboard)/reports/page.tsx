@@ -7,6 +7,7 @@ import { useOrg } from '@/context/OrgContext';
 import { Form, Select, InputNumber, Button, message, Tag, Tabs } from 'antd';
 import { DatePicker } from 'antd';
 import DailyReport from './DailyReport';
+import FunnelReport from './FunnelReport';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Legend,
@@ -1024,6 +1025,11 @@ export default function ReportsPage() {
           key: 'daily',
           label: '📊 النشاط اليومي',
           children: <DailyReport />,
+        },
+        {
+          key: 'funnel',
+          label: '🔻 قمع المبيعات',
+          children: <FunnelReport />,
         },
       ]}
     />
