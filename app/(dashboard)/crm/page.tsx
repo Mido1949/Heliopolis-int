@@ -114,7 +114,10 @@ export default function CRMPage() {
         .select('*, assigned_user:profiles!leads_assigned_to_user_fkey(id, name)', { count: 'exact' });
 
       if (search) {
-        query = query.or(`name.ilike.%${search}%,company.ilike.%${search}%,phone.ilike.%${search}%`);
+        const safe = search.replace(/[,()\*]/g, ' ').trim();
+        if (safe) {
+          query = query.or(`name.ilike.%${safe}%,company.ilike.%${safe}%,phone.ilike.%${safe}%`);
+        }
       }
       if (pipelineFilter) query = query.eq('pipeline_stage', pipelineFilter);
       if (sourceFilter) query = query.eq('source', sourceFilter);
