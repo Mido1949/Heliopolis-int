@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { normalizePhone } from '@/lib/phone';
 
 export interface ScrapedBusiness {
   name?: string; phone?: string; company?: string; email?: string;
@@ -28,11 +29,14 @@ export async function intakeLeads(
     try {
       if (!biz.phone) { errors += 1; continue; }
 
-      const { data: existing } = await supabase
-        .from('leads')
-        .select('id')
-        .eq('phone', biz.phone)
-        .maybeSingle();
+      // US6/FR-011: dedupe on the NORMALIZED phone so +9665… and 05… don't
+      // create duplicates. Fall back to exact-string matching when the phone
+      // can't be normalized, so nothing regresses.
+      const phoneNormalized = normalizePhone(biz.phone);
+      const dedupeQuery = supabase.from('leads').select('id').limit(1);
+      const { data: existing } = phoneNormalized
+        ? await dedupeQuery.eq('phone_normalized', phoneNormalized).maybeSingle()
+        : await dedupeQuery.eq('phone', biz.phone).maybeSingle();
       if (existing) { duplicates += 1; continue; }
 
       const now = new Date().toISOString();
@@ -43,6 +47,7 @@ export async function intakeLeads(
         .insert({
           name,
           phone: biz.phone,
+          phone_normalized: phoneNormalized,
           company: biz.company,
           email: biz.email,
           source,
