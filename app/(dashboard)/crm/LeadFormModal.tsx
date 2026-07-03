@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Modal, Form, Input, Select, DatePicker, Upload, Row, Col, Button, message } from 'antd';
+import { Modal, Form, Input, Select, DatePicker, Upload, Row, Col, Button, Alert, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { createClient } from '@/lib/supabase/client';
 import { logLeadActivity } from '@/lib/supabase/activities';
 import { LEAD_SOURCES, REGIONS, LEAD_CLIENT_TYPES, PIPELINE_STAGES } from '@/lib/constants';
+import { normalizePhone } from '@/lib/phone';
 import type { Lead } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
@@ -32,12 +33,37 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const submitLock = useRef(false);
+  const [dupLead, setDupLead] = useState<{ id: string; name: string } | null>(null);
+  const phoneValue = Form.useWatch('phone', form);
 
   useEffect(() => {
     if (!open) return;
     supabase.from('profiles').select('id, name').order('name')
       .then(({ data }) => setOwners((data || []) as { id: string; name: string }[]));
   }, [open, supabase]);
+
+  // US6/FR-011: warn (don't block) when the entered phone matches an existing
+  // lead on its normalized form. Debounced so it doesn't fire per keystroke.
+  useEffect(() => {
+    if (!open) { setDupLead(null); return; }
+    const normalized = normalizePhone(phoneValue || '');
+    if (!normalized) { setDupLead(null); return; }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      let query = supabase
+        .from('leads')
+        .select('id, name')
+        .eq('phone_normalized', normalized)
+        .limit(1);
+      // Exclude the lead being edited from matching itself.
+      if (lead?.id) query = query.neq('id', lead.id);
+      const { data } = await query.maybeSingle();
+      if (!cancelled) setDupLead(data ? (data as { id: string; name: string }) : null);
+    }, 400);
+
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [phoneValue, open, lead, supabase]);
 
   useEffect(() => {
     if (!open) { setFileList([]); return; }
@@ -65,6 +91,8 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
         deal_value: values.deal_value ? Number(values.deal_value) : null,
         next_follow_up: values.next_follow_up ? values.next_follow_up.toISOString() : null,
         pipeline_stage: values.pipeline_stage || 'NEW',
+        // Keep the normalized match key in sync so manual leads dedupe too (US6).
+        phone_normalized: values.phone ? normalizePhone(values.phone) : null,
         stage_timestamps: isEdit
           ? lead!.stage_timestamps
           : { [values.pipeline_stage || 'NEW']: new Date().toISOString() },
@@ -182,6 +210,22 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
             <Form.Item name="phone" label="الهاتف (Phone)">
               <Input placeholder="+201xxxxxxxxx" />
             </Form.Item>
+            {dupLead && (
+              <Alert
+                type="warning"
+                showIcon
+                className="mb-4 -mt-2"
+                message={
+                  <span>
+                    ⚠️ يوجد عميل بنفس رقم الهاتف: <strong>{dupLead.name}</strong>
+                    {' '}
+                    <a href={`/crm?lead=${dupLead.id}`} target="_blank" rel="noopener noreferrer">
+                      عرض العميل
+                    </a>
+                  </span>
+                }
+              />
+            )}
           </Col>
           <Col span={12}>
             <Form.Item
