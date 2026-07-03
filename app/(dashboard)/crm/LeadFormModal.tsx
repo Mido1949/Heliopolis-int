@@ -208,7 +208,7 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
         <Row gutter={16}>
           <Col span={12}>
             <Form.Item name="phone" label="الهاتف (Phone)">
-              <Input placeholder="+201xxxxxxxxx" />
+              <Input placeholder="+201xxxxxxxxx" autoFocus onPressEnter={handleSubmit} />
             </Form.Item>
             {dupLead && (
               <Alert
