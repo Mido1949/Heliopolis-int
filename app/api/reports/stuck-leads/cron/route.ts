@@ -62,7 +62,51 @@ async function handle(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, date: today, checked, notified });
+  // ── Next-step reminders (US5/FR-010) ──
+  // Remind the owner of any OPEN manual next step (a tasks row,
+  // auto_created=false) whose due_date has passed. Reminder only — never
+  // changes the task/lead owner or stage. 24h per-task suppression.
+  const nowISO = new Date().toISOString();
+  let nextStepsNotified = 0;
+  const { data: dueSteps } = await supabase
+    .from('tasks')
+    .select('id, title, description, due_date, assigned_to, lead_id')
+    .eq('auto_created', false)
+    .eq('status', 'pending')
+    .is('completed_at', null)
+    .not('assigned_to', 'is', null)
+    .not('due_date', 'is', null)
+    .lte('due_date', nowISO);
+
+  for (const step of (dueSteps || []) as { id: string; title: string; description: string | null; due_date: string; assigned_to: string; lead_id: string | null }[]) {
+    if (!step.lead_id) continue; // a next step always has a lead
+    try {
+      // Suppress on the lead reference (what createNotification stores as
+      // reference_id) + type 'nudge' within 24h, so we don't re-remind daily.
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data: recent } = await supabase
+        .from('notifications')
+        .select('id')
+        .eq('type', 'nudge')
+        .eq('reference_id', step.lead_id)
+        .gte('created_at', cutoff)
+        .limit(1);
+      if (recent && recent.length > 0) continue;
+
+      const label = step.description || step.title;
+      await createNotification(
+        step.assigned_to,
+        `⏰ خطوة مستحقة: ${label}`,
+        step.lead_id,
+        { type: 'nudge' }
+      );
+      nextStepsNotified += 1;
+    } catch (err) {
+      console.error('[stuck-leads-cron] next-step reminder failed:', step.id, err);
+    }
+  }
+
+  return NextResponse.json({ ok: true, date: today, checked, notified, nextStepsNotified });
 }
 
 export async function GET(request: NextRequest) {
