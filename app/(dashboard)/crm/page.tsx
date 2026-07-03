@@ -66,6 +66,44 @@ export default function CRMPage() {
     setViewType(isStaff ? 'kanban' : 'myday');
   }, [authLoading, isStaff]);
 
+  // Bulk actions (US9) — table multi-select
+  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+  const [owners, setOwners] = useState<{ id: string; name: string }[]>([]);
+  const [bulkAssignUser, setBulkAssignUser] = useState<string | undefined>();
+  const [bulkStage, setBulkStage] = useState<string | undefined>();
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  useEffect(() => {
+    if (!isStaff) return;
+    supabase.from('profiles').select('id, name').order('name')
+      .then(({ data }) => setOwners((data || []) as { id: string; name: string }[]));
+  }, [isStaff, supabase]);
+
+  const runBulk = async (
+    action: 'claim' | 'assign' | 'advance',
+    payload: Record<string, unknown> = {}
+  ) => {
+    if (selectedRowKeys.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const res = await fetch('/api/leads/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedRowKeys, action, ...payload }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 403) { message.error('غير مسموح — للقادة والمديرين فقط'); return; }
+      if (!res.ok) { message.error(data.error || 'فشل الإجراء الجماعي'); return; }
+      const c = data.counts || {};
+      const failed = (c.error || 0) + (c.not_found || 0);
+      message.success(`تم: ${c.ok || 0}${c.already_taken ? ` · مأخوذ مسبقًا: ${c.already_taken}` : ''}${failed ? ` · فشل: ${failed}` : ''}`);
+      setSelectedRowKeys([]);
+      fetchLeads();
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   // Call stats
   const [callStats, setCallStats] = useState({ total: 0, today: 0, answered: 0 });
 
@@ -456,6 +494,46 @@ export default function CRMPage() {
         </Row>
       </div>
 
+      {/* Bulk action bar (US9) — table multi-select */}
+      {viewType === 'table' && selectedRowKeys.length > 0 && (
+        <div className="bg-white rounded-xl p-3 shadow-sm border border-slate-200 flex flex-wrap items-center gap-3">
+          <Text strong>محدد: {selectedRowKeys.length}</Text>
+          <Button loading={bulkBusy} onClick={() => runBulk('claim')}>استلام (Claim)</Button>
+          {isStaff && (
+            <>
+              <span className="w-px h-6 bg-slate-200" />
+              <Select
+                placeholder="تعيين لـ"
+                value={bulkAssignUser}
+                onChange={setBulkAssignUser}
+                showSearch
+                optionFilterProp="label"
+                style={{ width: 170 }}
+                options={owners.map((o) => ({ value: o.id, label: o.name }))}
+              />
+              <Button type="primary" disabled={!bulkAssignUser} loading={bulkBusy}
+                onClick={() => runBulk('assign', { assigned_to_user: bulkAssignUser })}
+                style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}>
+                تعيين
+              </Button>
+              <span className="w-px h-6 bg-slate-200" />
+              <Select
+                placeholder="نقل لمرحلة"
+                value={bulkStage}
+                onChange={setBulkStage}
+                style={{ width: 190 }}
+                options={PIPELINE_STAGES.map((s) => ({ value: s.value, label: `${s.emoji} ${s.labelAr}` }))}
+              />
+              <Button disabled={!bulkStage} loading={bulkBusy}
+                onClick={() => runBulk('advance', { pipeline_stage: bulkStage })}>
+                نقل المرحلة
+              </Button>
+            </>
+          )}
+          <Button type="text" className="mr-auto" onClick={() => setSelectedRowKeys([])}>إلغاء التحديد</Button>
+        </div>
+      )}
+
       {/* Content */}
       {viewType === 'myday' ? (
         <div className="mt-4">
@@ -469,6 +547,10 @@ export default function CRMPage() {
             rowKey="id"
             loading={loading}
             scroll={{ x: 1000 }}
+            rowSelection={{
+              selectedRowKeys,
+              onChange: (keys) => setSelectedRowKeys(keys as string[]),
+            }}
             pagination={{
               current: page,
               pageSize,
