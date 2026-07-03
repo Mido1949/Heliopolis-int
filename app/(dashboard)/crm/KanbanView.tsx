@@ -3,13 +3,12 @@
 import { useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Card, Tag, Typography, Button, message, Modal, Input } from 'antd';
-import { WhatsAppOutlined } from '@ant-design/icons';
-import { PIPELINE_STAGES, PIPELINE_ZONES } from '@/lib/constants';
+import { PIPELINE_STAGES, PIPELINE_ZONES, slaColor, stageAgeDays } from '@/lib/constants';
 import type { Lead, PipelineStage } from '@/types';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
-import { getWhatsAppUrl } from '@/lib/utils';
+import WhatsAppTemplateButton from './WhatsAppTemplateButton';
 
 const { Text, Title } = Typography;
 
@@ -19,11 +18,12 @@ interface KanbanViewProps {
   onRefresh: () => void;
 }
 
-function stageAgeDays(lead: Lead) {
-  const ts = lead.stage_timestamps?.[lead.pipeline_stage || 'NEW'];
-  if (!ts) return 0;
-  return Math.floor((Date.now() - new Date(ts).getTime()) / 86_400_000);
-}
+// SLA color → readable text color for the stage-age indicator on the card.
+const SLA_TEXT_COLOR: Record<'green' | 'amber' | 'red', string> = {
+  green: '#52C41A',
+  amber: '#FA8C16',
+  red: '#FF4D4F',
+};
 
 export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanViewProps) {
   const { user, isStaff } = useAuth();
@@ -205,12 +205,24 @@ export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanView
                                             ${lead.deal_value.toLocaleString()}
                                           </Text>
                                         )}
-                                        {/* stage age */}
-                                        {lead.stage_timestamps?.[lead.pipeline_stage || 'NEW'] && (
-                                          <div className="text-[10px] text-gray-400 mt-1">
-                                            {stageAgeDays(lead)} يوم في هذه المرحلة
-                                          </div>
-                                        )}
+                                        {/* stage age with SLA color (US4) */}
+                                        {lead.stage_timestamps?.[lead.pipeline_stage || 'NEW'] && (() => {
+                                          const sla = slaColor(lead);
+                                          return (
+                                            <div
+                                              className="text-[10px] mt-1 flex items-center gap-1"
+                                              style={{ color: sla ? SLA_TEXT_COLOR[sla] : '#9CA3AF' }}
+                                            >
+                                              {sla && (
+                                                <span
+                                                  className="inline-block w-2 h-2 rounded-full shrink-0"
+                                                  style={{ backgroundColor: SLA_TEXT_COLOR[sla] }}
+                                                />
+                                              )}
+                                              <span>{stageAgeDays(lead)} يوم في هذه المرحلة</span>
+                                            </div>
+                                          );
+                                        })()}
                                         <div className="mt-2 flex items-center justify-between gap-1">
                                           <div className="flex items-center gap-1 min-w-0">
                                             {/* owner or claim */}
@@ -230,14 +242,7 @@ export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanView
                                           <div className="flex items-center gap-1 shrink-0">
                                             <Text type="secondary" style={{ fontSize: '10px' }}>{lead.region || '—'}</Text>
                                             {lead.phone && (
-                                              <a
-                                                href={getWhatsAppUrl(lead.phone)}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                onClick={(e) => e.stopPropagation()}
-                                              >
-                                                <WhatsAppOutlined style={{ color: '#25D366', fontSize: '14px' }} />
-                                              </a>
+                                              <WhatsAppTemplateButton lead={lead} variant="icon" />
                                             )}
                                           </div>
                                         </div>

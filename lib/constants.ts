@@ -66,6 +66,42 @@ export const ACTIVE_PIPELINE_STAGES: ReadonlyArray<typeof PIPELINE_STAGES[number
   'NEW', 'WELCOME_SENT', 'NO_RESPONSE', 'INTERESTED', 'PRICING', 'QUOTED', 'NEGOTIATION',
 ];
 
+// Terminal stages carry no SLA urgency (deal is closed one way or another).
+export const TERMINAL_PIPELINE_STAGES: ReadonlyArray<typeof PIPELINE_STAGES[number]['value']> = [
+  'WON', 'LOST', 'POSTPONED',
+];
+
+// SLA card colors (spec 005 US4 / FR-008): how long a lead may sit in its
+// current stage before the card turns amber, then red. One editable place.
+export const SLA_THRESHOLDS = { amberDays: 2, redDays: 5 } as const;
+
+/** Whole days a lead has spent in its CURRENT stage (from stage_timestamps). */
+export function stageAgeDays(lead: {
+  pipeline_stage?: string | null;
+  stage_timestamps?: Record<string, string> | null;
+}): number {
+  const stage = lead.pipeline_stage || 'NEW';
+  const ts = lead.stage_timestamps?.[stage];
+  if (!ts) return 0;
+  return Math.max(0, Math.floor((Date.now() - new Date(ts).getTime()) / 86_400_000));
+}
+
+/**
+ * SLA urgency color for a lead card based on its stage age.
+ * Returns null for terminal stages (WON/LOST/POSTPONED) — no urgency color.
+ */
+export function slaColor(lead: {
+  pipeline_stage?: string | null;
+  stage_timestamps?: Record<string, string> | null;
+}): 'green' | 'amber' | 'red' | null {
+  const stage = lead.pipeline_stage || 'NEW';
+  if ((TERMINAL_PIPELINE_STAGES as readonly string[]).includes(stage)) return null;
+  const age = stageAgeDays(lead);
+  if (age >= SLA_THRESHOLDS.redDays) return 'red';
+  if (age >= SLA_THRESHOLDS.amberDays) return 'amber';
+  return 'green';
+}
+
 // Loss reasons (used when a lead moves to LOST)
 export const LOST_REASONS = [
   { value: 'price',      labelAr: 'السعر مرتفع' },
