@@ -4,14 +4,15 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   Drawer, Descriptions, Tag, Space, Button, Timeline, Typography, Divider, Tooltip, Tabs, Form, Select, Input, InputNumber, message, Row, Col, Checkbox,
 } from 'antd';
-import { WhatsAppOutlined, PhoneOutlined, MailOutlined, EditOutlined, FileTextOutlined, DownloadOutlined, PlusOutlined } from '@ant-design/icons';
+import { PhoneOutlined, MailOutlined, EditOutlined, FileTextOutlined, DownloadOutlined, PlusOutlined } from '@ant-design/icons';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { LEAD_SOURCES, PIPELINE_STAGES, LOST_REASONS } from '@/lib/constants';
-import { formatDate, getWhatsAppUrl } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 import type { Lead, BOQ, BOQItem, CallLog, CallType, CallOutcome, PipelineStage } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
+import WhatsAppTemplateButton from './WhatsAppTemplateButton';
 import dynamic from 'next/dynamic';
 
 const PDFDownloadButton = dynamic(() => import('@/components/boq/PDFDownloadButton'), {
@@ -410,14 +411,7 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
       <div className="flex gap-2 mb-6 px-1">
         {lead.phone && (
           <>
-            <Tooltip title="WhatsApp">
-              <Button
-                icon={<WhatsAppOutlined />}
-                href={getWhatsAppUrl(lead.phone)}
-                target="_blank"
-                style={{ color: '#25D366', borderColor: '#25D366' }}
-              />
-            </Tooltip>
+            <WhatsAppTemplateButton lead={lead} variant="button" />
             <Tooltip title="اتصال (Call)">
               <Button
                 icon={<PhoneOutlined />}
