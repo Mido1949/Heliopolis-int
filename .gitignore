@@ -42,3 +42,14 @@ next-env.d.ts
 # build artifacts
 build*.log
 build*.txt
+
+# customer PII / lead exports — never commit
+*.xlsx
+~$*.xlsx
+*leads*.csv
+leads_export*.csv
+Heliomax_*_Leads.xlsx
+
+# python caches
+__pycache__/
+*.pyc
