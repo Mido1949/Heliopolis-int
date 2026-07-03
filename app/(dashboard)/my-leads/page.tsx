@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Table, Tag, Button, Input, Select, Space, Tooltip, Empty, Spin, Row, Col, Typography,
 } from 'antd';
@@ -15,12 +15,15 @@ import { PIPELINE_STAGES, REGIONS } from '@/lib/constants';
 import { formatDate, getWhatsAppUrl } from '@/lib/utils';
 import type { Lead, PipelineStage } from '@/types';
 import LeadDrawer from '../crm/LeadDrawer';
+import LeadFormModal from '../crm/LeadFormModal';
+import MyDayList from './MyDayList';
 
 const { Title, Text } = Typography;
 
 export default function MyLeadsPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -30,6 +33,9 @@ export default function MyLeadsPage() {
   const [regionFilter, setRegionFilter] = useState<string | undefined>();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [mydayReload, setMydayReload] = useState(0);
 
   const fetchLeads = useCallback(async () => {
     if (!user) return;
@@ -57,6 +63,25 @@ export default function MyLeadsPage() {
   }, [user, supabase, stageFilter, regionFilter, search]);
 
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
+
+  // Open a specific lead's drawer when arriving via ?lead=<id> (e.g. from a notification).
+  useEffect(() => {
+    const leadId = searchParams.get('lead');
+    if (!leadId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('leads')
+        .select('*, assigned_user:profiles!leads_assigned_to_user_fkey(id, name)')
+        .eq('id', leadId)
+        .single();
+      if (!cancelled && data) {
+        setSelectedLead(data as Lead);
+        setDrawerOpen(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [searchParams, supabase]);
 
   const columns: ColumnsType<Lead> = [
     {
@@ -151,6 +176,16 @@ export default function MyLeadsPage() {
         </Button>
       </div>
 
+      {/* My Day — prioritized action list (SLA-red + due next steps) */}
+      <div>
+        <Title level={5} style={{ margin: '4px 0' }}>🗓️ يومي (My Day)</Title>
+        <Text type="secondary" className="block mb-2">العملاء اللي محتاجين إجراء دلوقتي — متأخرين في المرحلة أو خطوة مستحقة</Text>
+        <MyDayList
+          reloadToken={mydayReload}
+          onOpen={(l) => { setSelectedLead(l); setDrawerOpen(true); }}
+        />
+      </div>
+
       <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
         <Row gutter={[12, 12]}>
           <Col xs={24} md={10}>
@@ -214,8 +249,14 @@ export default function MyLeadsPage() {
         lead={selectedLead}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        onEdit={() => setDrawerOpen(false)}
-        onAssigned={fetchLeads}
+        onEdit={(l) => { setEditingLead(l); setModalOpen(true); setDrawerOpen(false); }}
+        onAssigned={() => { fetchLeads(); setMydayReload((n) => n + 1); }}
+      />
+      <LeadFormModal
+        open={modalOpen}
+        lead={editingLead}
+        onClose={() => setModalOpen(false)}
+        onSaved={() => { fetchLeads(); setMydayReload((n) => n + 1); }}
       />
     </div>
   );

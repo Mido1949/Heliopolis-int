@@ -11,7 +11,7 @@ import {
   MoreOutlined, FilterOutlined,
   EyeOutlined, EditOutlined, DeleteOutlined,
   TableOutlined, AppstoreOutlined, FileTextOutlined,
-  PhoneOutlined, ImportOutlined, UserOutlined,
+  PhoneOutlined, ImportOutlined, UserOutlined, CalendarOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
@@ -24,12 +24,15 @@ import LeadDrawer from './LeadDrawer';
 import LeadFormModal from './LeadFormModal';
 import KanbanView from './KanbanView';
 import ImportModal from './ImportModal';
+import MyDayList from '../my-leads/MyDayList';
 import { useAuth } from '@/context/AuthContext';
 
 const { Title, Text } = Typography;
 
+type ViewType = 'myday' | 'table' | 'kanban';
+
 export default function CRMPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isStaff, loading: authLoading } = useAuth();
   const searchParams = useSearchParams();
   const supabase = createClient();
 
@@ -51,8 +54,17 @@ export default function CRMPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
-  const [viewType, setViewType] = useState<'table' | 'kanban'>('kanban');
+  const [viewType, setViewType] = useState<ViewType>('kanban');
+  const viewInitRef = useRef(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
+
+  // US7: non-leaders land on "My Day" by default; leaders/managers keep the
+  // board. Set once after auth resolves so a manual view switch is respected.
+  useEffect(() => {
+    if (viewInitRef.current || authLoading) return;
+    viewInitRef.current = true;
+    setViewType(isStaff ? 'kanban' : 'myday');
+  }, [authLoading, isStaff]);
 
   // Call stats
   const [callStats, setCallStats] = useState({ total: 0, today: 0, answered: 0 });
@@ -395,8 +407,9 @@ export default function CRMPage() {
           <Col xs={24} md={6}>
             <Segmented
               value={viewType}
-              onChange={(value) => setViewType(value as 'table' | 'kanban')}
+              onChange={(value) => setViewType(value as ViewType)}
               options={[
+                { label: 'يومي (My Day)', value: 'myday', icon: <CalendarOutlined /> },
                 { label: 'جدول (Table)', value: 'table', icon: <TableOutlined /> },
                 { label: 'خطوات (Pipeline)', value: 'kanban', icon: <AppstoreOutlined /> },
               ]}
@@ -444,7 +457,11 @@ export default function CRMPage() {
       </div>
 
       {/* Content */}
-      {viewType === 'table' ? (
+      {viewType === 'myday' ? (
+        <div className="mt-4">
+          <MyDayList onOpen={(lead) => { setSelectedLead(lead); setDrawerOpen(true); }} />
+        </div>
+      ) : viewType === 'table' ? (
         <div className="bg-white rounded-xl overflow-hidden shadow-sm">
           <Table
             columns={columns}
@@ -464,8 +481,8 @@ export default function CRMPage() {
         </div>
       ) : (
         <div className="mt-4">
-          <KanbanView 
-            leads={leads} 
+          <KanbanView
+            leads={leads}
             onLeadClick={(lead) => { setSelectedLead(lead); setDrawerOpen(true); }}
             onRefresh={() => fetchLeads()}
           />
