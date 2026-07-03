@@ -26,20 +26,41 @@ function stageAgeDays(lead: Lead) {
 }
 
 export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanViewProps) {
-  const { user } = useAuth();
+  const { user, isStaff } = useAuth();
   const { currentOrgId } = useOrg();
   const supabase = createClient();
   const [pendingWon, setPendingWon] = useState<{ leadId: string; fromStage: string } | null>(null);
   const [dealValue, setDealValue] = useState<number | null>(null);
   const [dealName, setDealName] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+
+  // Manual-philosophy guard (T014): a non-owner, non-leader/manager may only
+  // claim a lead — never silently change its stage/owner via drag or the
+  // drawer. Owner + leaders (admin/Manager/CS|Tech Team Leader) act normally.
+  const canActOn = (lead: Lead) => isStaff || lead.assigned_to_user === user?.id;
 
   const claim = async (lead: Lead) => {
-    const { error } = await supabase.from('leads')
-      .update({ assigned_to_user: user?.id }).eq('id', lead.id);
-    if (error) return message.error('فشل الاستلام');
-    message.success('تم الاستلام');
-    onRefresh();
+    if (claimingId) return;
+    setClaimingId(lead.id);
+    try {
+      const res = await fetch(`/api/leads/${lead.id}/claim`, { method: 'POST' });
+      if (res.status === 409) {
+        message.warning('تم استلام هذا العميل بالفعل');
+        onRefresh();
+        return;
+      }
+      if (!res.ok) {
+        message.error('فشل الاستلام');
+        return;
+      }
+      message.success('تم الاستلام');
+      onRefresh();
+    } catch {
+      message.error('فشل الاستلام');
+    } finally {
+      setClaimingId(null);
+    }
   };
 
   const onDragEnd = async (result: DropResult) => {
@@ -51,6 +72,13 @@ export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanView
     const newStage = destination.droppableId as PipelineStage;
     const leadId = draggableId;
     const lead = leads.find(l => l.id === leadId);
+
+    if (lead && !canActOn(lead)) {
+      message.warning(
+        lead.assigned_to_user ? 'هذا العميل مُستلم من شخص آخر' : 'يجب استلام العميل أولاً قبل نقل مرحلته'
+      );
+      return;
+    }
 
     if (newStage === 'WON') {
       setDealName(lead?.name || '');
@@ -191,6 +219,7 @@ export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanView
                                             ) : (
                                               <Button
                                                 size="small"
+                                                loading={claimingId === lead.id}
                                                 style={{ fontSize: '10px', height: '22px', padding: '0 6px' }}
                                                 onClick={(e) => { e.stopPropagation(); claim(lead); }}
                                               >

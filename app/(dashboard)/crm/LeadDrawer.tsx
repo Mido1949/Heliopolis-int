@@ -49,13 +49,14 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
   const [loadingCalls, setLoadingCalls] = useState(false);
   const [isLoggingCall, setIsLoggingCall] = useState(false);
   const [form] = Form.useForm();
-  const { user } = useAuth();
+  const { user, isStaff } = useAuth();
   const { currentOrgId } = useOrg();
   const supabase = createClient();
   const [assignTeam, setAssignTeam] = useState<string | undefined>();
   const [assignUser, setAssignUser] = useState<string | undefined>();
   const [teamUsers, setTeamUsers] = useState<{ id: string; name: string }[]>([]);
   const [assigning, setAssigning] = useState(false);
+  const [claiming, setClaiming] = useState(false);
 
   // Activity tab state
   const [activityTab, setActivityTab] = useState<'all' | 'call' | 'note'>('all');
@@ -351,6 +352,36 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
 
   const sourceConfig = LEAD_SOURCES.find((s) => s.value === lead.source);
 
+  // Manual-philosophy guard (T014): only the assigned owner or a
+  // leader/manager (admin, Manager, CS/Tech Team Leader — via useAuth's
+  // isStaff) may change stage/owner directly. Everyone else must go through
+  // the explicit claim action, never a silent edit.
+  const isOwner = !!user && lead.assigned_to_user === user.id;
+  const canActDirectly = isStaff || isOwner;
+
+  const claimLead = async () => {
+    if (!user || claiming) return;
+    setClaiming(true);
+    try {
+      const res = await fetch(`/api/leads/${lead.id}/claim`, { method: 'POST' });
+      if (res.status === 409) {
+        message.warning('تم استلام هذا العميل بالفعل');
+        onAssigned?.();
+        return;
+      }
+      if (!res.ok) {
+        message.error('فشل الاستلام');
+        return;
+      }
+      message.success('تم الاستلام');
+      onAssigned?.();
+    } catch {
+      message.error('فشل الاستلام');
+    } finally {
+      setClaiming(false);
+    }
+  };
+
   return (
     <Drawer
       title={
@@ -430,45 +461,55 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                 )}
                 <Descriptions column={1} size="small" bordered className="mb-6">
                   <Descriptions.Item label="مرحلة القمع (Pipeline Stage)">
-                    <Select
-                      size="small"
-                      value={lead.pipeline_stage || 'NEW'}
-                      style={{ width: '100%' }}
-                      onChange={async (v) => {
-                        const now = new Date().toISOString();
-                        const newStage = v as PipelineStage;
-                        const stage_timestamps = { ...((lead.stage_timestamps as Record<string, string>) || {}), [newStage]: now };
-                        const { error } = await supabase.from('leads')
-                          .update({ pipeline_stage: newStage, stage_timestamps, updated_at: now })
-                          .eq('id', lead.id);
-                        if (error) return message.error('فشل تحديث المرحلة');
-                        supabase.from('lead_activities').insert({
-                          lead_id: lead.id, user_id: user?.id, type: 'status_change',
-                          body: `${lead.pipeline_stage || 'NEW'} → ${newStage}`,
-                          org_id: lead.org_id ?? currentOrgId,
-                        });
-                        message.success('تم تحديث المرحلة');
-                        onAssigned?.();
-                      }}
-                      options={PIPELINE_STAGES.map((s) => ({
-                        value: s.value,
-                        label: `${s.emoji} ${s.labelAr}`,
-                      }))}
-                    />
-                    {lead.pipeline_stage === 'LOST' && (
-                      <div className="mt-2">
+                    {canActDirectly ? (
+                      <>
                         <Select
                           size="small"
+                          value={lead.pipeline_stage || 'NEW'}
                           style={{ width: '100%' }}
-                          defaultValue={lead.lost_reason ?? undefined}
-                          placeholder="سبب الخسارة (Lost reason)"
                           onChange={async (v) => {
-                            await supabase.from('leads').update({ lost_reason: v }).eq('id', lead.id);
+                            const now = new Date().toISOString();
+                            const newStage = v as PipelineStage;
+                            const stage_timestamps = { ...((lead.stage_timestamps as Record<string, string>) || {}), [newStage]: now };
+                            const { error } = await supabase.from('leads')
+                              .update({ pipeline_stage: newStage, stage_timestamps, updated_at: now })
+                              .eq('id', lead.id);
+                            if (error) return message.error('فشل تحديث المرحلة');
+                            supabase.from('lead_activities').insert({
+                              lead_id: lead.id, user_id: user?.id, type: 'status_change',
+                              body: `${lead.pipeline_stage || 'NEW'} → ${newStage}`,
+                              org_id: lead.org_id ?? currentOrgId,
+                            });
+                            message.success('تم تحديث المرحلة');
                             onAssigned?.();
                           }}
-                          options={LOST_REASONS.map((r) => ({ value: r.value, label: r.labelAr }))}
+                          options={PIPELINE_STAGES.map((s) => ({
+                            value: s.value,
+                            label: `${s.emoji} ${s.labelAr}`,
+                          }))}
                         />
-                      </div>
+                        {lead.pipeline_stage === 'LOST' && (
+                          <div className="mt-2">
+                            <Select
+                              size="small"
+                              style={{ width: '100%' }}
+                              defaultValue={lead.lost_reason ?? undefined}
+                              placeholder="سبب الخسارة (Lost reason)"
+                              onChange={async (v) => {
+                                await supabase.from('leads').update({ lost_reason: v }).eq('id', lead.id);
+                                onAssigned?.();
+                              }}
+                              options={LOST_REASONS.map((r) => ({ value: r.value, label: r.labelAr }))}
+                            />
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <Tooltip title={lead.assigned_to_user ? 'فقط المالك أو قائد الفريق يمكنه تغيير المرحلة' : 'استلم الليد أولاً لتتمكن من تغيير مرحلته'}>
+                        <Tag color={PIPELINE_STAGES.find((s) => s.value === (lead.pipeline_stage || 'NEW'))?.color}>
+                          {PIPELINE_STAGES.find((s) => s.value === (lead.pipeline_stage || 'NEW'))?.labelAr || lead.pipeline_stage}
+                        </Tag>
+                      </Tooltip>
                     )}
                   </Descriptions.Item>
                   {lead.deal_value != null && (
@@ -547,15 +588,9 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                   <Button
                     block
                     type="primary"
+                    loading={claiming}
                     style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B', marginBottom: 8 }}
-                    onClick={async () => {
-                      if (!user) return;
-                      const { error } = await supabase.from('leads')
-                        .update({ assigned_to_user: user.id }).eq('id', lead.id);
-                      if (error) return message.error('فشل الاستلام');
-                      message.success('تم الاستلام');
-                      onAssigned?.();
-                    }}
+                    onClick={claimLead}
                   >
                     استلام (Claim)
                   </Button>
@@ -572,48 +607,56 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                   </div>
                 )}
 
-                {/* Manual assign — visible to all users */}
-                <div className="flex flex-col gap-2 mt-2">
-                  <Select
-                    placeholder="اختر الفريق"
-                    value={assignTeam}
-                    onChange={handleTeamChange}
-                    className="w-full"
-                    options={[
-                      { value: 'tech', label: 'Tech Team' },
-                      { value: 'cs',   label: 'CS Team'   },
-                    ]}
-                  />
-                  <Select
-                    placeholder="اختر المستخدم"
-                    value={assignUser}
-                    onChange={(v: string) => setAssignUser(v)}
-                    className="w-full"
-                    disabled={!assignTeam || teamUsers.length === 0}
-                    options={teamUsers.map((u) => ({ value: u.id, label: u.name }))}
-                    notFoundContent="لا يوجد مستخدمون في هذا الفريق"
-                  />
-                  <Button
-                    type="primary"
-                    block
-                    loading={assigning}
-                    disabled={!assignTeam || !assignUser}
-                    onClick={handleAssign}
-                    style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}
-                  >
-                    تعيين
-                  </Button>
-                  {lead?.assigned_by && (
+                {/* Manual assign/reassign — owner or leader/manager only (T014).
+                    A non-owner, non-leader must claim first rather than
+                    silently reassigning/re-teaming a lead they don't hold. */}
+                {canActDirectly ? (
+                  <div className="flex flex-col gap-2 mt-2">
+                    <Select
+                      placeholder="اختر الفريق"
+                      value={assignTeam}
+                      onChange={handleTeamChange}
+                      className="w-full"
+                      options={[
+                        { value: 'tech', label: 'Tech Team' },
+                        { value: 'cs',   label: 'CS Team'   },
+                      ]}
+                    />
+                    <Select
+                      placeholder="اختر المستخدم"
+                      value={assignUser}
+                      onChange={(v: string) => setAssignUser(v)}
+                      className="w-full"
+                      disabled={!assignTeam || teamUsers.length === 0}
+                      options={teamUsers.map((u) => ({ value: u.id, label: u.name }))}
+                      notFoundContent="لا يوجد مستخدمون في هذا الفريق"
+                    />
                     <Button
+                      type="primary"
                       block
                       loading={assigning}
-                      onClick={handleReturnToSender}
-                      style={{ marginTop: 8 }}
+                      disabled={!assignTeam || !assignUser}
+                      onClick={handleAssign}
+                      style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}
                     >
-                      ↩️ رجّع للمُرسِل
+                      تعيين
                     </Button>
-                  )}
-                </div>
+                    {lead?.assigned_by && (
+                      <Button
+                        block
+                        loading={assigning}
+                        onClick={handleReturnToSender}
+                        style={{ marginTop: 8 }}
+                      >
+                        ↩️ رجّع للمُرسِل
+                      </Button>
+                    )}
+                  </div>
+                ) : lead.assigned_to_user ? (
+                  <Text type="secondary" className="text-xs">
+                    هذا الليد مُستلم من عضو آخر — فقط المالك أو قائد الفريق يمكنه إعادة تعيينه.
+                  </Text>
+                ) : null}
               </>
             ),
           },
