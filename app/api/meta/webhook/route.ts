@@ -1,11 +1,22 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createHmac, timingSafeEqual } from 'crypto';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Never evaluate this route at build time — it needs runtime env for Supabase.
+export const dynamic = 'force-dynamic';
+
+// Lazily create the service-role client on first use (inside a request), so
+// `next build` collecting page data doesn't instantiate it without env vars.
+let _supabase: SupabaseClient | null = null;
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    _supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return _supabase;
+}
 
 // ── GET: Webhook Verification ────────────────────────────────────────────────
 
@@ -104,7 +115,7 @@ async function processLead(value: MetaLeadValue): Promise<string> {
   console.log('[meta-webhook processLead] SUPABASE_URL set:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
   console.log('[meta-webhook processLead] SERVICE_KEY set:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  const { data: inserted, error } = await supabase
+  const { data: inserted, error } = await getSupabase()
     .from('leads')
     .upsert(
       {
@@ -136,7 +147,7 @@ async function processLead(value: MetaLeadValue): Promise<string> {
 }
 
 async function notifyAdmins(leadId: string, name: string, phone: string): Promise<void> {
-  const { data: admins } = await supabase
+  const { data: admins } = await getSupabase()
     .from('profiles')
     .select('id, org_id')
     .in('role', ['admin', 'Manager']);
@@ -156,7 +167,7 @@ async function notifyAdmins(leadId: string, name: string, phone: string): Promis
     }));
   if (notifications.length === 0) return;
 
-  const { error } = await supabase.from('notifications').insert(notifications);
+  const { error } = await getSupabase().from('notifications').insert(notifications);
   if (error) {
     console.warn('Notification insert failed (non-fatal):', error);
   }
