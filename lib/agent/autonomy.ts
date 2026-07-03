@@ -2,24 +2,25 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createNotification } from '@/lib/notifications/in-app';
 
 /**
- * Helio autonomy engine. Runs on the brain cron (Sat–Thu, 10:00 & 14:00 Cairo).
- * Reviews the pipeline and acts autonomously — nudging assignees, escalating
- * long-stuck leads, creating missing first-call tasks, and gently rebalancing
- * workload drift. Every state-changing step is logged to `agent_actions`
- * (origin='autonomous') and is suppression-guarded so two runs/day never
- * double-notify. Uses the service-role client throughout (no RLS).
+ * Helio autonomy engine — REMINDERS ONLY (manual-philosophy guard, spec 005 US2).
+ *
+ * Runs on the brain cron (Sat–Thu, 10:00 & 14:00 Cairo). Reviews the pipeline
+ * and only ever REMINDS/SURFACES: it nudges assignees about stuck leads and
+ * escalates long-stuck leads to a team lead. It MUST NOT move a lead, change a
+ * stage, reassign an owner, or create tasks (FR-004) — those were removed. Every
+ * notification is logged to `agent_actions` (origin='autonomous') and is
+ * suppression-guarded so two runs/day never double-notify. Uses the
+ * service-role client throughout (no RLS). The `autonomy_paused` flag remains
+ * the global kill switch that now silences even these reminders.
  */
 
 const TERMINAL_STAGES = ['WON', 'LOST', 'POSTPONED'];
 const LEADER_ROLES = ['admin', 'Manager', 'CS Team Leader', 'Tech Team Leader'];
 
-// Per-run safety caps so a backlog can never produce a flood of actions.
+// Per-run safety caps so a backlog can never produce a flood of reminders.
 const MAX_STUCK = 60;
 const MAX_OVERDUE_TASKS = 40;
-const MAX_FIRST_CALL_TASKS = 25;
-const MAX_REBALANCE = 4;
 const ESCALATE_AFTER_DAYS = 7;
-const REBALANCE_GAP = 6; // min (max-min) active-lead gap within a team to act
 
 export interface AutonomyAction {
   action_type: string;
@@ -139,8 +140,6 @@ export async function runAutonomyEngine(service: SupabaseClient): Promise<Autono
     stuck_nudges: 0,
     escalations: 0,
     overdue_nudges: 0,
-    first_call_tasks: 0,
-    rebalances: 0,
   };
 
   const supHours = settings.nudge_suppression_hours;
@@ -254,156 +253,12 @@ export async function runAutonomyEngine(service: SupabaseClient): Promise<Autono
     }
   }
 
-  // ── 3. Leads with no first-call task → create one ──
-  const since21 = new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: freshLeads } = await service
-    .from('leads')
-    .select('id, name, assigned_to_user, org_id, pipeline_stage, created_at')
-    .in('pipeline_stage', ['NEW', 'CONTACTED'])
-    .not('assigned_to_user', 'is', null)
-    .gte('created_at', since21)
-    .limit(200);
-
-  for (const lead of (freshLeads || []) as { id: string; name: string; assigned_to_user: string; org_id: string | null; pipeline_stage: string }[]) {
-    if (counts.first_call_tasks >= MAX_FIRST_CALL_TASKS) break;
-    if (!lead.org_id) continue;
-
-    // Skip if the lead already has any task.
-    const { data: existingTask } = await service
-      .from('tasks')
-      .select('id')
-      .eq('lead_id', lead.id)
-      .limit(1);
-    if (existingTask && existingTask.length) continue;
-
-    // Skip if we already auto-created a first-call task for this lead recently.
-    const already = await recentlyActed(service, 'create_task', lead.id, lead.assigned_to_user, supHours);
-    if (already) continue;
-
-    const dueDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    const reasoning = `الليد "${lead.name}" مالوش مهمة أول مكالمة — أنشأت مهمة اتصال للمسؤول`;
-    try {
-      const { data: task, error } = await service
-        .from('tasks')
-        .insert({
-          title: `📞 أول مكالمة — ${lead.name}`,
-          lead_id: lead.id,
-          assigned_to: lead.assigned_to_user,
-          created_by: lead.assigned_to_user,
-          due_date: dueDate,
-          status: 'pending',
-          priority: 'high',
-          auto_created: true,
-          org_id: lead.org_id,
-        })
-        .select('id')
-        .single();
-      if (error) throw error;
-      await createNotification(lead.assigned_to_user, `📞 مهمة جديدة: أول مكالمة مع ${lead.name}`, lead.id, { type: 'assignment' });
-      await recordAction(service, {
-        action_type: 'create_task',
-        target_lead_id: lead.id,
-        target_user_id: lead.assigned_to_user,
-        task_id: task.id,
-        reasoning,
-        payload: { auto_created: true },
-      });
-      actions.push({ action_type: 'create_task', reasoning, target_lead_id: lead.id, target_user_id: lead.assigned_to_user });
-      counts.first_call_tasks++;
-    } catch (e) {
-      console.error('[autonomy] first-call task failed:', lead.id, e);
-    }
-  }
-
-  // ── 4. Conservative workload rebalance within each team ──
-  await rebalanceTeams(service, actions, counts);
+  // NOTE (spec 005 US2 / FR-004): the former sections 3 (autonomous
+  // first-call `create_task`) and 4 (workload `rebalanceTeams`, which moved
+  // already-claimed leads between teammates) were REMOVED. The engine no
+  // longer creates tasks or changes any lead's `assigned_to_user`/stage — it
+  // only reminds and escalates. Historical `create_task`/`rebalance` rows in
+  // `agent_actions` are intentionally left intact (still undoable).
 
   return { paused: false, ran_at: ranAt, actions, counts };
-}
-
-/**
- * Within each crm_team, if the active-lead gap between the most- and
- * least-loaded member is large, move up to a couple of the busiest member's
- * NEWest unworked leads to the lightest member. Bounded by MAX_REBALANCE and
- * fully undoable (previous assignee stored in payload).
- */
-async function rebalanceTeams(
-  service: SupabaseClient,
-  actions: AutonomyAction[],
-  counts: Record<string, number>
-): Promise<void> {
-  const { data: members } = await service
-    .from('profiles')
-    .select('id, name, crm_team')
-    .not('crm_team', 'is', null);
-  if (!members || members.length < 2) return;
-
-  // Active (non-terminal) leads per assignee.
-  const { data: activeLeads } = await service
-    .from('leads')
-    .select('id, name, assigned_to_user, assigned_to_team, pipeline_stage, created_at, org_id, stage_timestamps')
-    .not('pipeline_stage', 'in', `(${TERMINAL_STAGES.join(',')})`)
-    .not('assigned_to_user', 'is', null);
-
-  const byTeam: Record<string, { id: string; name: string }[]> = {};
-  (members as { id: string; name: string; crm_team: string }[]).forEach(m => {
-    (byTeam[m.crm_team] = byTeam[m.crm_team] || []).push({ id: m.id, name: m.name });
-  });
-
-  for (const [team, teamMembers] of Object.entries(byTeam)) {
-    if (counts.rebalances >= MAX_REBALANCE) break;
-    if (teamMembers.length < 2) continue;
-
-    const load: Record<string, number> = {};
-    teamMembers.forEach(m => { load[m.id] = 0; });
-    (activeLeads || [])
-      .filter((l: { assigned_to_user: string | null }) => l.assigned_to_user && l.assigned_to_user in load)
-      .forEach((l: { assigned_to_user: string }) => { load[l.assigned_to_user]++; });
-
-    const sorted = teamMembers.slice().sort((a, b) => load[b.id] - load[a.id]);
-    const busiest = sorted[0];
-    const lightest = sorted[sorted.length - 1];
-    const gap = load[busiest.id] - load[lightest.id];
-    if (gap < REBALANCE_GAP) continue;
-
-    const moveCount = Math.min(Math.floor(gap / 2), 2, MAX_REBALANCE - counts.rebalances);
-
-    // Pick the busiest member's NEWest unworked leads (stage NEW) to move.
-    const movable = (activeLeads || [])
-      .filter((l: { assigned_to_user: string | null; pipeline_stage: string | null }) =>
-        l.assigned_to_user === busiest.id && l.pipeline_stage === 'NEW')
-      .sort((a: { created_at: string }, b: { created_at: string }) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, moveCount) as {
-        id: string; name: string; assigned_to_user: string; pipeline_stage: string | null;
-        stage_timestamps: Record<string, string> | null;
-      }[];
-
-    for (const lead of movable) {
-      if (counts.rebalances >= MAX_REBALANCE) break;
-      const reasoning = `موازنة الحمل في فريق ${team}: نقلت الليد "${lead.name}" من ${busiest.name} (${load[busiest.id]} ليد) إلى ${lightest.name} (${load[lightest.id]} ليد)`;
-      try {
-        const now = new Date().toISOString();
-        const { error } = await service
-          .from('leads')
-          .update({ assigned_to_user: lightest.id, updated_at: now })
-          .eq('id', lead.id);
-        if (error) throw error;
-        await createNotification(lightest.id, `📥 تم تعيين ليد لك (موازنة حمل): ${lead.name}`, lead.id, { type: 'assignment' });
-        await recordAction(service, {
-          action_type: 'rebalance',
-          target_lead_id: lead.id,
-          target_user_id: lightest.id,
-          reasoning,
-          payload: { previous_assigned_to_user: busiest.id, team },
-        });
-        actions.push({ action_type: 'rebalance', reasoning, target_lead_id: lead.id, target_user_id: lightest.id });
-        counts.rebalances++;
-        load[busiest.id]--;
-        load[lightest.id]++;
-      } catch (e) {
-        console.error('[autonomy] rebalance failed:', lead.id, e);
-      }
-    }
-  }
 }
