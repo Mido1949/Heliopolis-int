@@ -2,17 +2,18 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  Drawer, Descriptions, Tag, Space, Button, Timeline, Typography, Divider, Tooltip, Tabs, Form, Select, Input, InputNumber, message, Row, Col, Checkbox,
+  Drawer, Descriptions, Tag, Space, Button, Timeline, Typography, Divider, Tooltip, Tabs, Form, Select, Input, InputNumber, message, Row, Col, Checkbox, DatePicker,
 } from 'antd';
-import { PhoneOutlined, MailOutlined, EditOutlined, FileTextOutlined, DownloadOutlined, PlusOutlined } from '@ant-design/icons';
+import { PhoneOutlined, MailOutlined, EditOutlined, FileTextOutlined, DownloadOutlined, PlusOutlined, CheckOutlined } from '@ant-design/icons';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { LEAD_SOURCES, PIPELINE_STAGES, LOST_REASONS } from '@/lib/constants';
+import { LEAD_SOURCES, PIPELINE_STAGES, LOST_REASONS, ACTIVE_PIPELINE_STAGES } from '@/lib/constants';
 import { formatDate } from '@/lib/utils';
 import type { Lead, BOQ, BOQItem, CallLog, CallType, CallOutcome, PipelineStage } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
 import WhatsAppTemplateButton from './WhatsAppTemplateButton';
+import dayjs from 'dayjs';
 import dynamic from 'next/dynamic';
 
 const PDFDownloadButton = dynamic(() => import('@/components/boq/PDFDownloadButton'), {
@@ -32,6 +33,13 @@ interface Activity {
   details: Record<string, unknown> | null;
   created_at: string;
   user_id: string;
+}
+
+interface NextStep {
+  id: string;
+  title: string;
+  description: string | null;
+  due_date: string | null;
 }
 
 interface LeadDrawerProps {
@@ -65,6 +73,27 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
   const [profileMap, setProfileMap] = useState<Record<string, string>>({});
   const [addingActivity, setAddingActivity] = useState(false);
   const lastFetchRef = useRef<{ leadId: string; time: number } | null>(null);
+
+  // Next Step (US5) — the lead's open manual task, shown at the top.
+  const [nextStep, setNextStep] = useState<NextStep | null>(null);
+  const [nsEditing, setNsEditing] = useState(false);
+  const [nsDesc, setNsDesc] = useState('');
+  const [nsDue, setNsDue] = useState<dayjs.Dayjs | null>(null);
+  const [nsSaving, setNsSaving] = useState(false);
+
+  const fetchNextStep = useCallback(async () => {
+    if (!lead) return;
+    const { data } = await supabase
+      .from('tasks')
+      .select('id, title, description, due_date')
+      .eq('lead_id', lead.id)
+      .eq('auto_created', false)
+      .eq('status', 'pending')
+      .order('due_date', { ascending: true, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    setNextStep((data as NextStep) || null);
+  }, [lead, supabase]);
 
   const fetchActivities = useCallback(async () => {
     if (!lead) return;
@@ -149,8 +178,16 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
       fetchBoqs();
       fetchCalls();
       fetchProfileMap();
+      fetchNextStep();
     }
-  }, [open, lead, fetchActivities, fetchBoqs, fetchCalls, fetchProfileMap]);
+  }, [open, lead, fetchActivities, fetchBoqs, fetchCalls, fetchProfileMap, fetchNextStep]);
+
+  // Reset the inline editor whenever the drawer opens on a different lead.
+  useEffect(() => {
+    setNsEditing(false);
+    setNsDesc('');
+    setNsDue(null);
+  }, [lead?.id, open]);
 
   useEffect(() => {
     if (open && lead) {
@@ -383,6 +420,61 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
     }
   };
 
+  // Next Step (US5): only the owner or a leader/manager may set/complete it.
+  const isActiveStage = (ACTIVE_PIPELINE_STAGES as readonly string[]).includes(lead.pipeline_stage || 'NEW');
+
+  const openNsEditor = () => {
+    setNsDesc(nextStep?.description || '');
+    setNsDue(nextStep?.due_date ? dayjs(nextStep.due_date) : null);
+    setNsEditing(true);
+  };
+
+  const saveNextStep = async () => {
+    if (!nsDesc.trim()) { message.warning('اكتب وصف الخطوة'); return; }
+    setNsSaving(true);
+    try {
+      const res = await fetch(`/api/leads/${lead.id}/next-step`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: nsDesc.trim(),
+          due_date: nsDue ? nsDue.toISOString() : null,
+        }),
+      });
+      if (res.status === 403) { message.error('غير مسموح — المالك أو القائد فقط'); return; }
+      if (!res.ok) { message.error('فشل حفظ الخطوة'); return; }
+      message.success('تم حفظ الخطوة التالية');
+      setNsEditing(false);
+      await fetchNextStep();
+      fetchActivities();
+    } catch {
+      message.error('فشل حفظ الخطوة');
+    } finally {
+      setNsSaving(false);
+    }
+  };
+
+  const completeNextStep = async () => {
+    if (!nextStep) return;
+    setNsSaving(true);
+    try {
+      const res = await fetch(`/api/leads/${lead.id}/next-step`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task_id: nextStep.id }),
+      });
+      if (res.status === 403) { message.error('غير مسموح — المالك أو القائد فقط'); return; }
+      if (!res.ok) { message.error('فشل إنجاز الخطوة'); return; }
+      message.success('تم إنجاز الخطوة');
+      await fetchNextStep();
+      fetchActivities();
+    } catch {
+      message.error('فشل إنجاز الخطوة');
+    } finally {
+      setNsSaving(false);
+    }
+  };
+
   return (
     <Drawer
       title={
@@ -437,6 +529,80 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
             />
           </Link>
         </Tooltip>
+      </div>
+
+      {/* Next Step (US5) — prominent at the top of the drawer */}
+      <div className="mb-6 px-1">
+        {nsEditing ? (
+          <div className="p-3 rounded-lg border border-dashed border-[#D72B2B] bg-red-50/40">
+            <Text strong className="block mb-2">الخطوة التالية (Next Step)</Text>
+            <Input.TextArea
+              rows={2}
+              value={nsDesc}
+              onChange={(e) => setNsDesc(e.target.value)}
+              placeholder="مثال: اتصال لتأكيد زيارة الموقع"
+              className="mb-2"
+            />
+            <DatePicker
+              showTime
+              className="w-full mb-2"
+              value={nsDue}
+              onChange={(d) => setNsDue(d)}
+              placeholder="تاريخ ووقت الاستحقاق"
+              format="YYYY-MM-DD HH:mm"
+            />
+            <div className="flex gap-2">
+              <Button
+                type="primary"
+                loading={nsSaving}
+                onClick={saveNextStep}
+                style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}
+              >
+                حفظ
+              </Button>
+              <Button onClick={() => setNsEditing(false)}>إلغاء</Button>
+            </div>
+          </div>
+        ) : nextStep ? (
+          <div className="p-3 rounded-lg border border-blue-200 bg-blue-50">
+            <div className="flex items-center justify-between mb-1">
+              <Text strong style={{ fontSize: 12, color: '#1A6FD4' }}>⭐ الخطوة التالية</Text>
+              {nextStep.due_date && (
+                <Tag
+                  color={new Date(nextStep.due_date) < new Date() ? 'red' : 'blue'}
+                  style={{ margin: 0, fontSize: 10 }}
+                >
+                  {formatDate(nextStep.due_date)}
+                </Tag>
+              )}
+            </div>
+            <Text className="block mb-2">{nextStep.description || nextStep.title}</Text>
+            {canActDirectly && (
+              <div className="flex gap-2">
+                <Button
+                  size="small"
+                  type="primary"
+                  icon={<CheckOutlined />}
+                  loading={nsSaving}
+                  onClick={completeNextStep}
+                  style={{ backgroundColor: '#16A34A', borderColor: '#16A34A' }}
+                >
+                  تم
+                </Button>
+                <Button size="small" icon={<EditOutlined />} onClick={openNsEditor}>تعديل</Button>
+              </div>
+            )}
+          </div>
+        ) : (
+          canActDirectly && isActiveStage && (
+            <button
+              onClick={openNsEditor}
+              className="w-full text-right p-3 rounded-lg border border-dashed border-gray-300 text-gray-500 hover:border-[#D72B2B] hover:text-[#D72B2B] transition-colors text-sm flex items-center gap-2"
+            >
+              <PlusOutlined /> أضِف خطوة تالية (Next Step)
+            </button>
+          )
+        )}
       </div>
 
       <Tabs
