@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { formatCurrency } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -53,9 +54,18 @@ function progressTextColor(pct: number) {
 
 export default function DashboardPage() {
   const supabase = createClient();
-  const { isAdmin, isManager, isTeamLeader, user } = useAuth();
+  const router = useRouter();
+  const { isAdmin, isManager, isTeamLeader, isStaff, loading: authLoading, user } = useAuth();
   const { currentOrgId } = useOrg();
   const canSeeFullReport = isAdmin || isManager || isTeamLeader;
+
+  // Feature 006 US2: reps (non-leaders) default to their focused My Day, even if
+  // they navigate straight to /dashboard. Leaders keep the full dashboard.
+  useEffect(() => {
+    if (!authLoading && user && !isStaff) {
+      router.replace('/my-leads');
+    }
+  }, [authLoading, user, isStaff, router]);
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({

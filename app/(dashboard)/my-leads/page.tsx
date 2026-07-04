@@ -6,7 +6,7 @@ import {
   Table, Tag, Button, Input, Select, Space, Tooltip, Empty, Spin, Row, Col, Typography,
 } from 'antd';
 import {
-  SearchOutlined, EyeOutlined, WhatsAppOutlined, PhoneOutlined, ArrowRightOutlined,
+  SearchOutlined, EyeOutlined, WhatsAppOutlined, PhoneOutlined, ArrowRightOutlined, PlusOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { createClient } from '@/lib/supabase/client';
@@ -166,14 +166,24 @@ export default function MyLeadsPage() {
           </Title>
           <Text type="secondary">العملاء المعينين لك فقط — RLS مفعّل</Text>
         </div>
-        <Button
-          icon={<ArrowRightOutlined />}
-          onClick={() => router.push('/boq/new')}
-          type="primary"
-          style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}
-        >
-          عرض سعر جديد
-        </Button>
+        <Space>
+          <Button
+            icon={<PlusOutlined />}
+            onClick={() => { setEditingLead(null); setModalOpen(true); }}
+            type="primary"
+            style={{ backgroundColor: '#0D2137', borderColor: '#0D2137' }}
+          >
+            عميل جديد
+          </Button>
+          <Button
+            icon={<ArrowRightOutlined />}
+            onClick={() => router.push('/boq/new')}
+            type="primary"
+            style={{ backgroundColor: '#D72B2B', borderColor: '#D72B2B' }}
+          >
+            عرض سعر جديد
+          </Button>
+        </Space>
       </div>
 
       {/* My Day — prioritized action list (SLA-red + due next steps) */}
@@ -229,7 +239,7 @@ export default function MyLeadsPage() {
               description={
                 <div>
                   <div className="text-slate-700 font-semibold mb-1">مفيش عملاء ليك لسه</div>
-                  <Text type="secondary">ابدأ بتسجيل عميل جديد من المساعد الذكي في الشات 🪄</Text>
+                  <Text type="secondary">ابدأ بتسجيل عميل من زر «＋ عميل جديد» فوق، أو اطلب عميل من بورد الـ CRM 🪄</Text>
                 </div>
               }
             />

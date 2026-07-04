@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import HelioAgent from '@/components/agent/HelioAgent';
-import NormalUserShell from './NormalUserShell';
 import NavigationLoader from './NavigationLoader';
 import { useAuth } from '@/context/AuthContext';
 import { useSessionManager } from '@/hooks/useSessionManager';
@@ -31,14 +30,11 @@ export default function Shell({ children }: ShellProps) {
   useSessionManager(user?.id ?? null, currentOrgId);
   useIdleLogout();
 
-  // Stage 2: role-based shell — normal CS / Tech users get the AI-first 3-column layout.
-  // Admin and Tech Team Leader keep the full sidebar + Navbar shell unchanged.
-  const isNormalUser = !!profile && profile.role !== 'admin' && profile.role !== 'Tech Team Leader';
-
-  if (isNormalUser) {
-    return <NormalUserShell>{children}</NormalUserShell>;
-  }
-
+  // Feature 006: every authenticated role now gets the full app shell (Sidebar +
+  // Navbar + board access). The chat-only NormalUserShell is retired as the forced
+  // container; the guided-capture flow it held is preserved in the repo and Helio
+  // remains available as the floating assistant below. Manual guarantees (atomic
+  // claim, reminders-only autonomy) are unchanged — this is a visibility change only.
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/login');
@@ -79,8 +75,8 @@ export default function Shell({ children }: ShellProps) {
         </div>
       </main>
 
-      {/* Floating AI agent — hidden for normal users (their chat is inside NormalUserShell) */}
-      {!isNormalUser && <HelioAgent />}
+      {/* Floating AI agent — Helio, available to every role as an optional assistant */}
+      <HelioAgent />
     </div>
   );
 }
