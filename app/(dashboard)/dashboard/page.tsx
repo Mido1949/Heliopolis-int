@@ -55,17 +55,20 @@ function progressTextColor(pct: number) {
 export default function DashboardPage() {
   const supabase = createClient();
   const router = useRouter();
-  const { isAdmin, isManager, isTeamLeader, isStaff, loading: authLoading, user } = useAuth();
+  const { isAdmin, isManager, isTeamLeader, isStaff, loading: authLoading, user, profile } = useAuth();
   const { currentOrgId, isLoading: orgLoading, loadError: orgLoadError, retry: retryOrg } = useOrg();
   const canSeeFullReport = isAdmin || isManager || isTeamLeader;
 
   // Feature 006 US2: reps (non-leaders) default to their focused My Day, even if
   // they navigate straight to /dashboard. Leaders keep the full dashboard.
+  // Require a resolved `profile` (not just authLoading===false, which can mean
+  // "gave up after retries") — otherwise a transient profile-fetch failure reads
+  // isStaff as false and bounces an admin to /my-leads.
   useEffect(() => {
-    if (!authLoading && user && !isStaff) {
+    if (!authLoading && user && profile && !isStaff) {
       router.replace('/my-leads');
     }
-  }, [authLoading, user, isStaff, router]);
+  }, [authLoading, user, profile, isStaff, router]);
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
