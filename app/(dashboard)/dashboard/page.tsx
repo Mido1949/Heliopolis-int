@@ -56,7 +56,7 @@ export default function DashboardPage() {
   const supabase = createClient();
   const router = useRouter();
   const { isAdmin, isManager, isTeamLeader, isStaff, loading: authLoading, user } = useAuth();
-  const { currentOrgId } = useOrg();
+  const { currentOrgId, isLoading: orgLoading, loadError: orgLoadError, retry: retryOrg } = useOrg();
   const canSeeFullReport = isAdmin || isManager || isTeamLeader;
 
   // Feature 006 US2: reps (non-leaders) default to their focused My Day, even if
@@ -90,7 +90,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function fetchDashboardData() {
-      if (!currentOrgId) return;
+      if (!currentOrgId) {
+        // OrgContext is bounded by its own timeout — once it finishes and still
+        // has no org (error, or user has none), this page must stop spinning too.
+        if (!orgLoading) setLoading(false);
+        return;
+      }
       setLoading(true);
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -187,7 +192,7 @@ export default function DashboardPage() {
     }
 
     fetchDashboardData();
-  }, [currentOrgId, isAdmin, isManager, isTeamLeader, user, canSeeFullReport]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentOrgId, orgLoading, isAdmin, isManager, isTeamLeader, user, canSeeFullReport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const topPerformer = leaderboard.length > 0 ? leaderboard[0] : null;
 
@@ -197,6 +202,22 @@ export default function DashboardPage() {
         <div className="flex flex-col items-center gap-2">
           <Loader2 className="h-10 w-10 animate-spin text-[#D72B2B]" />
           <p className="text-sm font-medium text-slate-500">جاري تحميل البيانات...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentOrgId) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-slate-500">
+          <p>{orgLoadError || 'تعذر تحميل بيانات الشركة — Couldn\'t load organization data.'}</p>
+          <button
+            onClick={() => retryOrg()}
+            className="px-4 py-2 rounded-lg bg-[#0D2137] text-white text-sm hover:opacity-90"
+          >
+            إعادة المحاولة — Retry
+          </button>
         </div>
       </div>
     );
