@@ -416,9 +416,10 @@ export default function CRMKSAPage() {
       ) : (
         <div className="mt-4">
           <KanbanView
-            leads={leads}
+            search={search}
+            regionIn={SAUDI_REGIONS as unknown as string[]}
+            restrictToUserId={!isAdmin && !isManager && user ? user.id : undefined}
             onLeadClick={(lead) => { setSelectedLead(lead); setDrawerOpen(true); }}
-            onRefresh={() => fetchLeads()}
           />
         </div>
       )}

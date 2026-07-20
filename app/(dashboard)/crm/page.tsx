@@ -566,9 +566,8 @@ export default function CRMPage() {
       ) : (
         <div className="mt-4">
           <KanbanView
-            leads={leads}
+            search={search}
             onLeadClick={(lead) => { setSelectedLead(lead); setDrawerOpen(true); }}
-            onRefresh={() => fetchLeads()}
           />
         </div>
       )}
