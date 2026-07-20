@@ -257,8 +257,8 @@ export default function DashboardPage() {
           <div className="mt-4">
             <p className="text-xs text-slate-500 font-medium flex justify-between">Active Deals <span>الصفقات النشطة</span></p>
             <div className="flex items-baseline gap-2">
-              <h3 className="text-2xl font-extrabold text-[#0D2137] mt-1">{stats.newLeads}</h3>
-              <span className="text-sm font-medium text-slate-400">{formatCurrency(stats.totalRevenue)}</span>
+              <h3 className="text-2xl font-extrabold text-[#0D2137] mt-1">{pipeline.activeCount}</h3>
+              <span className="text-sm font-medium text-slate-400">{formatCurrency(pipeline.pipelineValue)}</span>
             </div>
           </div>
         </div>

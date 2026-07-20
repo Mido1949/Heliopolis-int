@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const fetchProfile = async (userId: string, email?: string) => {
+  const fetchProfile = async (userId: string, email?: string, attempt = 0): Promise<void> => {
     try {
       await checkConnection();
       const { data, error } = await supabase
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .select('*')
         .eq('id', userId)
         .single();
-      
+
       if (error && error.code === 'PGRST116') {
         // Profile doesn't exist, try to create it
         console.log('Profile missing, creating for user:', userId);
@@ -68,11 +68,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!insertError && newProfile) {
           setProfile(newProfile);
         }
+      } else if (error) {
+        // Non-"missing row" errors (e.g. transient 503) must not be swallowed:
+        // a null profile silently demotes admins/leaders to rep-level UI.
+        throw error;
       } else if (data) {
         setProfile(data);
       }
     } catch (err) {
       console.error('Error in fetchProfile:', err);
+      if (attempt < 2) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        return fetchProfile(userId, email, attempt + 1);
+      }
     }
   };
 
@@ -121,8 +129,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user) await fetchProfile(user.id, user.email);
   };
 
-  const isAdmin = profile?.role === 'admin' || profile?.is_admin === true;
-  const isManager = profile?.role === 'Manager' || profile?.is_admin === true;
+  // profiles has no is_admin column — role is the single source of truth
+  const isAdmin = profile?.role === 'admin';
+  const isManager = profile?.role === 'Manager';
   const isCSLead = profile?.role === 'CS Team Leader';
   const isTechLead = profile?.role === 'Tech Team Leader';
   const isTeamLeader = isCSLead || isTechLead;

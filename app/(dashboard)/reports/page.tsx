@@ -226,16 +226,7 @@ export default function ReportsPage() {
     const rangeStartDate = globalRange[0].format('YYYY-MM-DD');
     const rangeEndDate = globalRange[1].format('YYYY-MM-DD');
 
-    const [
-      { data: profilesData },
-      { data: metaData },
-      { data: targetsData },
-      { data: monthLeadsData },
-      { data: tasksData },
-      { data: allLeadsData },
-      { data: boqData },
-      { data: afterSalesData },
-    ] = await Promise.all([
+    const results = await Promise.all([
       supabase.from('profiles').select('*').order('name'),
       supabase
         .from('leads')
@@ -275,7 +266,24 @@ export default function ReportsPage() {
         .select('status')
         .gte('created_at', rangeStart)
         .lte('created_at', rangeEnd),
-    ]);
+    ]).catch((err) => {
+      console.error('[Reports] fetch failed:', err);
+      return null;
+    });
+
+    // Network rejection must not leave the page on its spinner forever
+    if (!results) { setLoading(false); return; }
+
+    const [
+      { data: profilesData },
+      { data: metaData },
+      { data: targetsData },
+      { data: monthLeadsData },
+      { data: tasksData },
+      { data: allLeadsData },
+      { data: boqData },
+      { data: afterSalesData },
+    ] = results;
 
     const allProfiles = (profilesData as Profile[]) || [];
     setProfiles(allProfiles);

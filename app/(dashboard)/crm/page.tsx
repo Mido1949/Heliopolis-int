@@ -32,7 +32,7 @@ const { Title, Text } = Typography;
 type ViewType = 'myday' | 'table' | 'kanban';
 
 export default function CRMPage() {
-  const { isAdmin, isStaff, loading: authLoading } = useAuth();
+  const { isAdmin, isStaff, profile, loading: authLoading } = useAuth();
   const searchParams = useSearchParams();
   const supabase = createClient();
 
@@ -61,10 +61,12 @@ export default function CRMPage() {
   // US7: non-leaders land on "My Day" by default; leaders/managers keep the
   // board. Set once after auth resolves so a manual view switch is respected.
   useEffect(() => {
-    if (viewInitRef.current || authLoading) return;
+    // Wait for the profile too — locking in while it's null demotes
+    // admins/leaders to the (empty for them) My Day view.
+    if (viewInitRef.current || authLoading || !profile) return;
     viewInitRef.current = true;
     setViewType(isStaff ? 'kanban' : 'myday');
-  }, [authLoading, isStaff]);
+  }, [authLoading, isStaff, profile]);
 
   // Bulk actions (US9) — table multi-select
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
@@ -379,7 +381,7 @@ export default function CRMPage() {
         </Col>
         <Col>
           <Space>
-            <Link href="/crm/my-crm">
+            <Link href="/my-leads">
               <Button icon={<UserOutlined />}>
                 عملائي (My CRM)
               </Button>

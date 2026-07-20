@@ -7,12 +7,26 @@ import AutomationsStatus from './AutomationsStatus';
 import FilesKnowledgeBase from './FilesKnowledgeBase';
 
 export default function HubClient() {
-  const { org, isLoading } = useOrg();
+  const { org, isLoading, loadError, retry } = useOrg();
 
-  if (isLoading || !org) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64 text-slate-400">
         Loading hub...
+      </div>
+    );
+  }
+
+  if (loadError || !org) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3 text-slate-500">
+        <p>تعذر تحميل بيانات الشركة — Couldn&apos;t load company data.</p>
+        <button
+          onClick={() => retry()}
+          className="px-4 py-2 rounded-lg bg-[#0D2137] text-white text-sm hover:opacity-90"
+        >
+          إعادة المحاولة — Retry
+        </button>
       </div>
     );
   }

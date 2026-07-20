@@ -11,6 +11,8 @@ type OrgContextValue = {
   org: Organization | null;
   orgModules: OrgModule[];
   isLoading: boolean;
+  loadError: string | null;
+  retry: () => Promise<void>;
   isSuperAdmin: boolean;
   allOrgs: Organization[];
   hasModule: (moduleName: string) => boolean;
@@ -24,6 +26,8 @@ const OrgContext = createContext<OrgContextValue>({
   org: null,
   orgModules: [],
   isLoading: true,
+  loadError: null,
+  retry: async () => {},
   isSuperAdmin: false,
   allOrgs: [],
   hasModule: () => false,
@@ -34,6 +38,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
   const [org, setOrg] = useState<Organization | null>(null);
   const [orgModules, setOrgModules] = useState<OrgModule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [allOrgs, setAllOrgs] = useState<Organization[]>([]);
   const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
@@ -57,91 +62,100 @@ export function OrgProvider({ children }: { children: ReactNode }) {
 
   const loadOrg = async (targetOrgId?: string) => {
     setIsLoading(true);
+    setLoadError(null);
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError) console.error('[OrgContext] getUser error:', userError);
-    console.log('[OrgContext] user:', user?.email ?? 'none');
-    if (!user) { setIsLoading(false); return; }
+    // Any awaited call here can reject on network failure (e.g. transient 503);
+    // isLoading must resolve on every path or dependent pages hang forever.
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) console.error('[OrgContext] getUser error:', userError);
+      console.log('[OrgContext] user:', user?.email ?? 'none');
+      if (!user) return;
 
-    // 1. Check platform_admins
-    const { data: platformAdmin, error: adminError } = await supabase
-      .from('platform_admins')
-      .select('user_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
+      // 1. Check platform_admins
+      const { data: platformAdmin, error: adminError } = await supabase
+        .from('platform_admins')
+        .select('user_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-    console.log('[OrgContext] platformAdmin:', platformAdmin, 'error:', adminError);
-    if (adminError) console.error('[OrgContext] platform_admins error:', adminError);
+      console.log('[OrgContext] platformAdmin:', platformAdmin, 'error:', adminError);
+      if (adminError) console.error('[OrgContext] platform_admins error:', adminError);
 
-    const isAdmin = !!platformAdmin;
-    console.log('[OrgContext] isSuperAdmin:', isAdmin);
-    setIsSuperAdmin(isAdmin);
+      const isAdmin = !!platformAdmin;
+      console.log('[OrgContext] isSuperAdmin:', isAdmin);
+      setIsSuperAdmin(isAdmin);
 
-    // 2. Fetch all orgs for super_admin
-    let orgs: Organization[] = [];
-    if (isAdmin) {
-      const { data: allOrgData, error: orgsError } = await supabase
-        .from('organizations')
-        .select('*')
-        .order('name');
-
-      if (orgsError) console.error('[OrgContext] organizations error:', orgsError);
-      orgs = (allOrgData ?? []) as unknown as Organization[];
-      setAllOrgs(orgs);
-    }
-
-    // 3. Resolve which org to load
-    // Super admin: use passed targetOrgId, then localStorage, then first org
-    // Regular user: use their membership org
-    let resolvedOrgId: string | null = targetOrgId ?? null;
-    let resolvedOrg: Organization | null = null;
-
-    if (!resolvedOrgId) {
-      if (isAdmin && orgs.length > 0) {
-        const savedId = typeof window !== 'undefined' ? localStorage.getItem(SELECTED_ORG_KEY) : null;
-        const savedOrg = savedId ? orgs.find(o => o.id === savedId) : null;
-        resolvedOrgId = savedOrg?.id ?? orgs[0].id;
-        resolvedOrg = savedOrg ?? orgs[0];
-      } else {
-        // Regular user — get from membership (use limit(1) since super_admin may have many)
-        const { data: memberships, error: memberError } = await supabase
-          .from('organization_members')
-          .select('org_id, organizations(*)')
-          .eq('user_id', user.id)
-          .limit(1);
-
-        if (memberError) console.error('[OrgContext] organization_members error:', memberError);
-
-        const membership = memberships?.[0];
-        if (!membership) { setIsLoading(false); return; }
-
-        resolvedOrgId = membership.org_id;
-        resolvedOrg = membership.organizations as unknown as Organization;
-      }
-    }
-
-    // If we have the orgId but not the org object, fetch it
-    if (resolvedOrgId && !resolvedOrg) {
-      const found = orgs.find(o => o.id === resolvedOrgId);
-      if (found) {
-        resolvedOrg = found;
-      } else {
-        const { data: orgData, error: orgError } = await supabase
+      // 2. Fetch all orgs for super_admin
+      let orgs: Organization[] = [];
+      if (isAdmin) {
+        const { data: allOrgData, error: orgsError } = await supabase
           .from('organizations')
           .select('*')
-          .eq('id', resolvedOrgId)
-          .single();
+          .order('name');
 
-        if (orgError) console.error('[OrgContext] fetch org error:', orgError);
-        resolvedOrg = orgData as unknown as Organization;
+        if (orgsError) console.error('[OrgContext] organizations error:', orgsError);
+        orgs = (allOrgData ?? []) as unknown as Organization[];
+        setAllOrgs(orgs);
       }
+
+      // 3. Resolve which org to load
+      // Super admin: use passed targetOrgId, then localStorage, then first org
+      // Regular user: use their membership org
+      let resolvedOrgId: string | null = targetOrgId ?? null;
+      let resolvedOrg: Organization | null = null;
+
+      if (!resolvedOrgId) {
+        if (isAdmin && orgs.length > 0) {
+          const savedId = typeof window !== 'undefined' ? localStorage.getItem(SELECTED_ORG_KEY) : null;
+          const savedOrg = savedId ? orgs.find(o => o.id === savedId) : null;
+          resolvedOrgId = savedOrg?.id ?? orgs[0].id;
+          resolvedOrg = savedOrg ?? orgs[0];
+        } else {
+          // Regular user — get from membership (use limit(1) since super_admin may have many)
+          const { data: memberships, error: memberError } = await supabase
+            .from('organization_members')
+            .select('org_id, organizations(*)')
+            .eq('user_id', user.id)
+            .limit(1);
+
+          if (memberError) console.error('[OrgContext] organization_members error:', memberError);
+
+          const membership = memberships?.[0];
+          if (!membership) return;
+
+          resolvedOrgId = membership.org_id;
+          resolvedOrg = membership.organizations as unknown as Organization;
+        }
+      }
+
+      // If we have the orgId but not the org object, fetch it
+      if (resolvedOrgId && !resolvedOrg) {
+        const found = orgs.find(o => o.id === resolvedOrgId);
+        if (found) {
+          resolvedOrg = found;
+        } else {
+          const { data: orgData, error: orgError } = await supabase
+            .from('organizations')
+            .select('*')
+            .eq('id', resolvedOrgId)
+            .single();
+
+          if (orgError) console.error('[OrgContext] fetch org error:', orgError);
+          resolvedOrg = orgData as unknown as Organization;
+        }
+      }
+
+      setCurrentOrgId(resolvedOrgId);
+      setOrg(resolvedOrg);
+
+      if (resolvedOrgId) await loadOrgModules(resolvedOrgId);
+    } catch (err) {
+      console.error('[OrgContext] loadOrg failed:', err);
+      setLoadError(err instanceof Error ? err.message : 'Failed to load organization');
+    } finally {
+      setIsLoading(false);
     }
-
-    setCurrentOrgId(resolvedOrgId);
-    setOrg(resolvedOrg);
-
-    if (resolvedOrgId) await loadOrgModules(resolvedOrgId);
-    setIsLoading(false);
   };
 
   useEffect(() => {
@@ -165,6 +179,8 @@ export function OrgProvider({ children }: { children: ReactNode }) {
         org,
         orgModules,
         isLoading,
+        loadError,
+        retry: () => loadOrg(),
         isSuperAdmin,
         allOrgs,
         hasModule,

@@ -21,6 +21,9 @@ const LEADER_ROLES = ['admin', 'Manager', 'CS Team Leader', 'Tech Team Leader'];
 const MAX_STUCK = 60;
 const MAX_OVERDUE_TASKS = 40;
 const ESCALATE_AFTER_DAYS = 7;
+// Escalations repeat far less often than nudges: once a leader has been told,
+// telling them again every suppression window is noise, not signal.
+const ESCALATION_SUPPRESSION_HOURS = 72;
 
 export interface AutonomyAction {
   action_type: string;
@@ -166,6 +169,7 @@ export async function runAutonomyEngine(service: SupabaseClient): Promise<Autono
     .not('pipeline_stage', 'in', `(${TERMINAL_STAGES.join(',')})`)
     .or(`last_contact_date.lt.${staleThreshold},and(last_contact_date.is.null,updated_at.lt.${staleThreshold})`)
     .not('assigned_to_user', 'is', null)
+    .order('updated_at', { ascending: true })
     .limit(MAX_STUCK);
 
   for (const lead of (stuck || []) as LeadRow[]) {
@@ -173,11 +177,13 @@ export async function runAutonomyEngine(service: SupabaseClient): Promise<Autono
     const days = Math.max(1, daysSince(stalenessRef));
     const assignee = lead.assigned_to_user!;
 
-    // Escalate long-stuck leads to a team lead (once per suppression window).
+    // Escalate long-stuck leads to a team lead. Once a lead is in escalation
+    // territory the leader owns the follow-up: skip the assignee nudge too,
+    // so one lead never produces a reminder + escalation pair in the same run.
     if (days >= ESCALATE_AFTER_DAYS) {
       const leader = leaderByTeam[lead.assigned_to_team || ''] || anyLeader;
       if (leader && leader.id !== assignee && counts.escalations < MAX_STUCK) {
-        const already = await recentlyActed(service, 'escalate', lead.id, leader.id, supHours);
+        const already = await recentlyActed(service, 'escalate', lead.id, leader.id, ESCALATION_SUPPRESSION_HOURS);
         if (!already) {
           const reasoning = `الليد "${lead.name}" واقف في ${lead.pipeline_stage} من ${days} أيام — صعّدته لـ ${leader.name}`;
           try {
@@ -196,6 +202,7 @@ export async function runAutonomyEngine(service: SupabaseClient): Promise<Autono
           }
         }
       }
+      continue;
     }
 
     // Nudge the assignee (suppressed).

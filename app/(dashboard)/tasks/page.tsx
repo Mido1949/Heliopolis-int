@@ -306,7 +306,7 @@ export default function TasksPage() {
         <Col>
           <Title level={4} style={{ margin: 0 }}>المهام (Tasks)</Title>
           <Text type="secondary">
-            {pendingCount} مهمة معلقة — Pending Tasks
+            {pendingCount} من مهامك معلقة — My Pending Tasks
           </Text>
         </Col>
         {canManage && (
@@ -454,7 +454,7 @@ export default function TasksPage() {
         {/* Task Management - Right Panel (Admin/Manager Only) */}
         {canManage ? (
           <div className="bg-white rounded-xl p-4 shadow-sm">
-            <Title level={5} className="mb-4">إدارة المهام (Task Management)</Title>
+            <Title level={5} className="mb-4">إدارة مهام الفريق (Team Task Management)</Title>
 
             {/* Stats */}
             <Row gutter={16} className="mb-4">

@@ -22,8 +22,9 @@ export default function AnalyticsClient({ leadsByStatus }: Props) {
           </Col>
         ))}
       </Row>
-      <Card title="More analytics coming soon">
-        Connect your Shopify store in Settings to see revenue, orders, and conversion data.
+      <Card title="المزيد قريباً — More analytics coming soon">
+        تقارير الإيرادات والتحويل التفصيلية متاحة في صفحة التقارير — Detailed revenue and
+        conversion reporting is available on the Reports page.
       </Card>
     </div>
   );

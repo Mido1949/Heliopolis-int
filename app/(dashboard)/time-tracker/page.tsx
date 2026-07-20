@@ -229,14 +229,18 @@ export default function TimeTrackerPage() {
   const todayLogs = logs.filter(l => new Date(l.started_at).toDateString() === today.toDateString());
   const todayTotal = todayLogs.reduce((s, l) => s + l.duration_seconds, 0);
 
-  const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const weekLogs = logs.filter(l => new Date(l.started_at) >= weekAgo);
+  // Work week runs Saturday–Thursday: anchor to the most recent Saturday
+  // instead of a rolling 7-day window (which starts on an arbitrary weekday).
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - ((today.getDay() + 1) % 7));
+  weekStart.setHours(0, 0, 0, 0);
+  const weekLogs = logs.filter(l => new Date(l.started_at) >= weekStart);
   const weekTotal = weekLogs.reduce((s, l) => s + l.duration_seconds, 0);
 
-  // Weekly summary — group by day
+  // Weekly summary — group by day, Saturday first
   const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() - (6 - i));
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
     return d;
   });
   const weeklyData = weekDays.map(d => {
@@ -247,6 +251,7 @@ export default function TimeTrackerPage() {
       date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       hours: totalHrs,
       tasks: dayLogs.length,
+      isToday: d.toDateString() === today.toDateString(),
     };
   });
 
@@ -450,7 +455,7 @@ export default function TimeTrackerPage() {
               {weeklyData.map((d, i) => {
                 const maxH = Math.max(...weeklyData.map(x => x.hours), 1);
                 const barH = (d.hours / maxH) * 120;
-                const isToday = i === weeklyData.length - 1;
+                const isToday = d.isToday;
                 return (
                   <Tooltip key={i} title={`${d.date}: ${d.hours.toFixed(1)}h — ${d.tasks} tasks`}>
                     <div className="flex flex-col items-center flex-1">
