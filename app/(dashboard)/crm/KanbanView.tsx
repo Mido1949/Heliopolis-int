@@ -1,21 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Card, Tag, Typography, Button, message, Modal, Input } from 'antd';
 import { PIPELINE_STAGES, PIPELINE_ZONES, slaColor, stageAgeDays } from '@/lib/constants';
 import type { Lead, PipelineStage } from '@/types';
 import { createClient } from '@/lib/supabase/client';
+import { withTimeout } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
 import WhatsAppTemplateButton from './WhatsAppTemplateButton';
 
 const { Text, Title } = Typography;
 
+const STAGE_PAGE_SIZE = 50;
+
 interface KanbanViewProps {
-  leads: Lead[];
+  search?: string;
+  // crm-ksa scopes its board to Saudi regions and, for non-admin/manager reps,
+  // to their own leads only — mirrors that page's own fetchLeads filters.
+  regionIn?: string[];
+  restrictToUserId?: string;
   onLeadClick: (lead: Lead) => void;
-  onRefresh: () => void;
 }
 
 // SLA color → readable text color for the stage-age indicator on the card.
@@ -25,7 +31,7 @@ const SLA_TEXT_COLOR: Record<'green' | 'amber' | 'red', string> = {
   red: '#FF4D4F',
 };
 
-export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanViewProps) {
+export default function KanbanView({ search, regionIn, restrictToUserId, onLeadClick }: KanbanViewProps) {
   const { user, isStaff } = useAuth();
   const { currentOrgId } = useOrg();
   const supabase = createClient();
@@ -35,10 +41,70 @@ export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanView
   const [submitting, setSubmitting] = useState(false);
   const [claimingId, setClaimingId] = useState<string | null>(null);
 
+  // Each stage column loads (and paginates) its own leads instead of the
+  // board grouping one globally-paginated list client-side — otherwise a
+  // small page size means most stages render empty even when they hold
+  // hundreds of leads (the query's global order puts them all in one place).
+  const [stageLeads, setStageLeads] = useState<Record<string, Lead[]>>({});
+  const [stageCounts, setStageCounts] = useState<Record<string, number>>({});
+  const [stagePages, setStagePages] = useState<Record<string, number>>({});
+  const [loadingStages, setLoadingStages] = useState<Record<string, boolean>>({});
+
   // Manual-philosophy guard (T014): a non-owner, non-leader/manager may only
   // claim a lead — never silently change its stage/owner via drag or the
   // drawer. Owner + leaders (admin/Manager/CS|Tech Team Leader) act normally.
   const canActOn = (lead: Lead) => isStaff || lead.assigned_to_user === user?.id;
+
+  const leads = useMemo(() => Object.values(stageLeads).flat(), [stageLeads]);
+
+  const buildStageQuery = useCallback((stage: string) => {
+    let q = supabase
+      .from('leads')
+      .select('*, assigned_user:profiles!leads_assigned_to_user_fkey(id, name)', { count: 'exact' })
+      .eq('pipeline_stage', stage);
+    if (search) {
+      const safe = search.replace(/[,()\*]/g, ' ').trim();
+      if (safe) q = q.or(`name.ilike.%${safe}%,company.ilike.%${safe}%,phone.ilike.%${safe}%`);
+    }
+    if (regionIn && regionIn.length > 0) q = q.in('region', regionIn);
+    if (restrictToUserId) q = q.eq('assigned_to_user', restrictToUserId);
+    return q.order('updated_at', { ascending: false });
+  }, [supabase, search, regionIn, restrictToUserId]);
+
+  const loadStagePage = useCallback(async (stage: string, page: number) => {
+    setLoadingStages((p) => ({ ...p, [stage]: true }));
+    try {
+      const from = (page - 1) * STAGE_PAGE_SIZE;
+      const to = page * STAGE_PAGE_SIZE - 1;
+      const { data, count } = await withTimeout(
+        buildStageQuery(stage).range(from, to),
+        15000,
+        'Stage leads'
+      );
+      setStageLeads((prev) => ({
+        ...prev,
+        [stage]: page === 1 ? ((data || []) as Lead[]) : [...(prev[stage] || []), ...((data || []) as Lead[])],
+      }));
+      setStageCounts((prev) => ({ ...prev, [stage]: count ?? 0 }));
+      setStagePages((prev) => ({ ...prev, [stage]: page }));
+    } catch {
+      message.error('فشل تحميل بيانات المرحلة');
+    } finally {
+      setLoadingStages((p) => ({ ...p, [stage]: false }));
+    }
+  }, [buildStageQuery]);
+
+  const refreshStages = useCallback((stages: string[]) => {
+    Array.from(new Set(stages)).forEach((s) => loadStagePage(s, 1));
+  }, [loadStagePage]);
+
+  // Fire all ten stage loads independently (not Promise.all) so each column
+  // populates as its own request finishes instead of the whole board waiting
+  // on the slowest one.
+  useEffect(() => {
+    PIPELINE_STAGES.forEach((s) => loadStagePage(s.value, 1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, currentOrgId, regionIn, restrictToUserId]);
 
   const claim = async (lead: Lead) => {
     if (claimingId) return;
@@ -47,7 +113,7 @@ export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanView
       const res = await fetch(`/api/leads/${lead.id}/claim`, { method: 'POST' });
       if (res.status === 409) {
         message.warning('تم استلام هذا العميل بالفعل');
-        onRefresh();
+        refreshStages([lead.pipeline_stage || 'NEW']);
         return;
       }
       if (!res.ok) {
@@ -55,7 +121,7 @@ export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanView
         return;
       }
       message.success('تم الاستلام');
-      onRefresh();
+      refreshStages([lead.pipeline_stage || 'NEW']);
     } catch {
       message.error('فشل الاستلام');
     } finally {
@@ -88,7 +154,7 @@ export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanView
     }
 
     const now = new Date().toISOString();
-    const moved = leads.find((l) => l.id === leadId);
+    const moved = lead;
     const stage_timestamps = { ...(moved?.stage_timestamps || {}), [newStage]: now };
 
     const { error } = await supabase.from('leads')
@@ -103,7 +169,7 @@ export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanView
       body: `${moved?.pipeline_stage || 'NEW'} → ${newStage}`,
       org_id: moved?.org_id ?? currentOrgId,
     });
-    onRefresh();
+    refreshStages([source.droppableId, newStage]);
   };
 
   const confirmWon = async () => {
@@ -133,9 +199,10 @@ export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanView
       org_id: moved?.org_id ?? currentOrgId,
     });
 
+    const fromStage = pendingWon.fromStage;
     setSubmitting(false);
     setPendingWon(null);
-    onRefresh();
+    refreshStages([fromStage, 'WON']);
   };
 
   // Group columns by zone
@@ -144,13 +211,20 @@ export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanView
     stages: PIPELINE_STAGES.filter((s) => s.zone === z.value),
   }));
 
-  const columns = PIPELINE_STAGES.map((s) => ({
-    key: s.value,
-    title: `${s.emoji} ${s.labelAr}`,
-    color: s.color,
-    zone: s.zone,
-    items: leads.filter((l) => (l.pipeline_stage || 'NEW') === s.value),
-  }));
+  const columns = PIPELINE_STAGES.map((s) => {
+    const items = stageLeads[s.value] || [];
+    const total = stageCounts[s.value] ?? items.length;
+    return {
+      key: s.value,
+      title: `${s.emoji} ${s.labelAr}`,
+      color: s.color,
+      zone: s.zone,
+      items,
+      total,
+      hasMore: items.length < total,
+      loading: !!loadingStages[s.value],
+    };
+  });
 
   return (
     <>
@@ -171,7 +245,7 @@ export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanView
                         <div className="flex justify-between items-center mb-4 px-1">
                           <Title level={5} style={{ margin: 0, fontSize: '13px' }}>{col.title}</Title>
                           <Tag color={stage.color} style={{ fontSize: '10px' }}>
-                            {col.items.length}
+                            {col.loading && col.items.length === 0 ? '…' : col.total}
                           </Tag>
                         </div>
 
@@ -183,6 +257,9 @@ export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanView
                               className={`flex-grow space-y-3 p-1 transition-colors rounded-lg ${snapshot.isDraggingOver ? 'bg-gray-200' : ''}`}
                               style={{ minHeight: 100 }}
                             >
+                              {col.loading && col.items.length === 0 && (
+                                <div className="text-center py-6 text-gray-400 text-xs">جاري التحميل...</div>
+                              )}
                               {col.items.map((lead, index) => (
                                 <Draggable key={lead.id} draggableId={lead.id} index={index}>
                                   {(prov, snap) => (
@@ -255,6 +332,19 @@ export default function KanbanView({ leads, onLeadClick, onRefresh }: KanbanView
                             </div>
                           )}
                         </Droppable>
+
+                        {col.hasMore && (
+                          <Button
+                            size="small"
+                            type="dashed"
+                            block
+                            loading={col.loading}
+                            onClick={() => loadStagePage(stage.value, (stagePages[stage.value] || 1) + 1)}
+                            style={{ marginTop: 8 }}
+                          >
+                            تحميل المزيد ({col.total - col.items.length}) — Load more
+                          </Button>
+                        )}
                       </div>
                     </div>
                   );
