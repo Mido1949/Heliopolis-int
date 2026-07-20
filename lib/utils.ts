@@ -40,3 +40,18 @@ export function formatDuration(seconds: number): string {
   const m = Math.floor((seconds % 3600) / 60);
   return `${h}h ${m}m`;
 }
+
+/**
+ * Races a promise against a timeout. try/catch/finally only release a
+ * loading spinner when the underlying promise settles — a request that
+ * hangs (network stall, dead connection) without ever resolving or
+ * rejecting leaves `finally` unreached forever. This forces settlement.
+ */
+export function withTimeout<T>(promise: PromiseLike<T>, ms = 10000, label = 'Request'): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}

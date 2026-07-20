@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { withTimeout } from '@/lib/utils';
 import type { User } from '@supabase/supabase-js';
 import type { Profile } from '@/types';
 
@@ -30,7 +31,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkConnection = async () => {
     try {
-      const { error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
+      const { error } = await withTimeout(
+        supabase.from('profiles').select('count', { count: 'exact', head: true }),
+        8000,
+        'Connection check'
+      );
       if (error) {
         console.error('DB Connection Check Failed:', error);
         setDbStatus('offline');
@@ -45,11 +50,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchProfile = async (userId: string, email?: string, attempt = 0): Promise<void> => {
     try {
       await checkConnection();
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      const { data, error } = await withTimeout(
+        supabase.from('profiles').select('*').eq('id', userId).single(),
+        8000,
+        'Profile fetch'
+      );
 
       if (error && error.code === 'PGRST116') {
         // Profile doesn't exist, try to create it

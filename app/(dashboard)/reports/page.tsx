@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { withTimeout } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
 import { Form, Select, InputNumber, Button, message, Tag, Tabs } from 'antd';
@@ -226,7 +227,7 @@ export default function ReportsPage() {
     const rangeStartDate = globalRange[0].format('YYYY-MM-DD');
     const rangeEndDate = globalRange[1].format('YYYY-MM-DD');
 
-    const results = await Promise.all([
+    const results = await withTimeout(Promise.all([
       supabase.from('profiles').select('*').order('name'),
       supabase
         .from('leads')
@@ -266,12 +267,13 @@ export default function ReportsPage() {
         .select('status')
         .gte('created_at', rangeStart)
         .lte('created_at', rangeEnd),
-    ]).catch((err) => {
+    ]), 15000, 'Reports fetch').catch((err) => {
       console.error('[Reports] fetch failed:', err);
       return null;
     });
 
-    // Network rejection must not leave the page on its spinner forever
+    // Network rejection OR a stalled request that never settles must not
+    // leave the page on its spinner forever.
     if (!results) { setLoading(false); return; }
 
     const [

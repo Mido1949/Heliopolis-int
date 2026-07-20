@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { withTimeout } from '@/lib/utils';
 import type { Organization, OrgModule } from '@/types/org';
 
 type OrgContextValue = {
@@ -64,9 +65,19 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setLoadError(null);
 
-    // Any awaited call here can reject on network failure (e.g. transient 503);
-    // isLoading must resolve on every path or dependent pages hang forever.
+    // A network stall never rejects the underlying promise — only a timeout
+    // forces settlement so isLoading can't hang forever on a dead request.
     try {
+      await withTimeout(doLoadOrg(targetOrgId), 10000, 'Organization load');
+    } catch (err) {
+      console.error('[OrgContext] loadOrg failed:', err);
+      setLoadError(err instanceof Error ? err.message : 'Failed to load organization');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const doLoadOrg = async (targetOrgId?: string) => {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) console.error('[OrgContext] getUser error:', userError);
       console.log('[OrgContext] user:', user?.email ?? 'none');
@@ -150,12 +161,6 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       setOrg(resolvedOrg);
 
       if (resolvedOrgId) await loadOrgModules(resolvedOrgId);
-    } catch (err) {
-      console.error('[OrgContext] loadOrg failed:', err);
-      setLoadError(err instanceof Error ? err.message : 'Failed to load organization');
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   useEffect(() => {

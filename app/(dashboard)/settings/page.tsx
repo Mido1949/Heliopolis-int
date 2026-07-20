@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { User, Mail, Shield, Users, Trophy, Clock, Camera, Save, Loader2, Phone } from 'lucide-react';
 import type { Profile, CrmTeam } from '@/types';
-import { formatDuration, getInitials } from '@/lib/utils';
+import { formatDuration, getInitials, withTimeout } from '@/lib/utils';
 import { App, Select, Tabs } from 'antd';
 import PriceListManager from '@/components/boq/PriceListManager';
 
@@ -27,16 +27,16 @@ export default function SettingsPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await withTimeout(supabase.auth.getUser(), 8000, 'Auth check');
         if (!user) return;
 
         // Profile
-        const { data: pData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-        
+        const { data: pData } = await withTimeout(
+          supabase.from('profiles').select('*').eq('id', user.id).single(),
+          8000,
+          'Profile fetch'
+        );
+
         if (pData) {
           setProfile(pData as Profile);
           setName(pData.name);
@@ -45,11 +45,12 @@ export default function SettingsPage() {
         }
 
         // Time Logs
-        const { data: tData } = await supabase
-            .from('time_logs')
-            .select('duration_seconds')
-            .eq('user_id', user.id);
-        
+        const { data: tData } = await withTimeout(
+          supabase.from('time_logs').select('duration_seconds').eq('user_id', user.id),
+          8000,
+          'Time logs fetch'
+        );
+
         if (tData) {
             const total = tData.reduce((acc, log) => acc + (log.duration_seconds || 0), 0);
             setTotalTime(total);

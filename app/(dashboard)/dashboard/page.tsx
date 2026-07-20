@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, withTimeout } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
@@ -109,7 +109,7 @@ export default function DashboardPage() {
           { data: targetsData },
           { data: monthLeadsData },
           { data: pipelineLeads },
-        ] = await Promise.all([
+        ] = await withTimeout(Promise.all([
           supabase.from('leads').select('*', { count: 'exact', head: true }).eq('org_id', currentOrgId),
           supabase.from('leads').select('*', { count: 'exact', head: true }).eq('org_id', currentOrgId).eq('status', 'New'),
           supabase.from('boqs').select('grand_total').eq('org_id', currentOrgId).eq('status', 'Paid'),
@@ -121,7 +121,7 @@ export default function DashboardPage() {
           supabase.from('sales_targets').select('user_id, target_value').eq('org_id', currentOrgId).eq('target_type', 'leads').gte('period_start', monthStart.slice(0, 10)).lte('period_end', monthEnd.slice(0, 10)),
           supabase.from('leads').select('assigned_to_user').eq('org_id', currentOrgId).gte('created_at', monthStart).lte('created_at', monthEnd).not('assigned_to_user', 'is', null),
           supabase.from('leads').select('pipeline_stage, deal_value').eq('org_id', currentOrgId),
-        ]);
+        ]), 15000, 'Dashboard fetch');
 
         const totalRevenue = wonBoqs?.reduce((acc, curr) => acc + Number(curr.grand_total), 0) || 0;
 
