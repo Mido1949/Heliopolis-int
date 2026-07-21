@@ -90,8 +90,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    // supabase-js deadlocks if an async Supabase call is awaited directly
+    // inside onAuthStateChange: the callback runs inside the auth client's
+    // internal lock, and fetchProfile's queries try to re-acquire that same
+    // lock to attach the session token, so they never resolve (see
+    // https://supabase.com/docs/guides/troubleshooting/why-is-my-supabase-api-call-not-returning-PGzXw0).
+    // Deferring with setTimeout(0) runs the Supabase calls after the callback
+    // (and its lock) has returned.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         // T034: handle each event explicitly
         switch (event) {
           case 'TOKEN_REFRESHED':
@@ -106,21 +113,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               window.location.assign('/login');
             }
             break;
-          case 'USER_UPDATED':
+          case 'USER_UPDATED': {
             setUser(session?.user ?? null);
-            if (session?.user) await fetchProfile(session.user.id, session.user.email);
+            const u = session?.user;
+            if (u) setTimeout(() => { fetchProfile(u.id, u.email); }, 0);
             break;
+          }
           case 'SIGNED_IN':
           case 'INITIAL_SESSION':
           default: {
             const u = session?.user ?? null;
             setUser(u);
             if (u) {
-              await fetchProfile(u.id, u.email);
+              setTimeout(() => {
+                fetchProfile(u.id, u.email).finally(() => setLoading(false));
+              }, 0);
             } else {
               setProfile(null);
+              setLoading(false);
             }
-            setLoading(false);
             break;
           }
         }
