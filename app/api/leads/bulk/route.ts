@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import type { CookieOptions } from '@supabase/ssr';
 import { createNotification } from '@/lib/notifications/in-app';
 import type { PipelineStage } from '@/types';
+import { statusForStage } from '@/lib/leads/stageStatus';
 
 export const dynamic = 'force-dynamic';
 
@@ -144,7 +145,7 @@ export async function POST(request: NextRequest) {
         const stage_timestamps = { ...(lead.stage_timestamps || {}), [newStage]: now };
         const { error } = await supabase
           .from('leads')
-          .update({ pipeline_stage: newStage, stage_timestamps, updated_at: now })
+          .update({ pipeline_stage: newStage, status: statusForStage(newStage), stage_timestamps, updated_at: now })
           .eq('id', id);
         if (error) { results.push({ id, status: 'error', error: error.message }); continue; }
         await supabase.from('lead_activities').insert({

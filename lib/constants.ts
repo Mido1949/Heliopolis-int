@@ -32,13 +32,24 @@ export const LEAD_SOURCES = [
   { value: 'Phone',    labelAr: 'هاتف',       color: '#FF9800' },
 ] as const;
 
-// Lead Statuses (legacy — kept for backward compatibility)
+// Lead Statuses (legacy — kept for backward compatibility, mirrored 1:1 from
+// PIPELINE_STAGES below via lib/leads/stageStatus.ts). Previously only 5 of
+// the 10 stages had a distinct status — WELCOME_SENT, NO_RESPONSE, PRICING,
+// NEGOTIATION, and POSTPONED all fell through to 'New', silently miscounting
+// any lead in those stages on every status-based chart (Analytics, Reports,
+// Dashboard). Now one entry per stage, same order, same Arabic labels/colors
+// as PIPELINE_STAGES so status- and stage-based views agree visually.
 export const LEAD_STATUSES = [
   { value: 'New', labelAr: 'جديد', color: '#1890FF' },
+  { value: 'Contacted', labelAr: 'تم الترحيب', color: '#13C2C2' },
+  { value: 'No Response', labelAr: 'لم يرد', color: '#8C8C8C' },
   { value: 'Interested', labelAr: 'مهتم', color: '#FAAD14' },
-  { value: 'Quote Sent', labelAr: 'تم إرسال العرض', color: '#722ED1' },
+  { value: 'Pricing', labelAr: 'جاري التسعير', color: '#722ED1' },
+  { value: 'Quote Sent', labelAr: 'تم إرسال العرض', color: '#2F54EB' },
+  { value: 'Negotiation', labelAr: 'تفاوض', color: '#FAAD14' },
   { value: 'Won', labelAr: 'تم الفوز', color: '#52C41A' },
   { value: 'Lost', labelAr: 'خسران', color: '#FF4D4F' },
+  { value: 'Postponed', labelAr: 'مؤجل', color: '#EB2F96' },
 ] as const;
 
 // Pipeline Zones (visual grouping + notification routing — NOT permission locks)

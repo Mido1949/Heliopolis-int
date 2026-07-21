@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { CookieOptions } from '@supabase/ssr';
 import type { PipelineStage } from '@/types';
+import { statusForStage } from '@/lib/leads/stageStatus';
 
 const VALID_STAGES: PipelineStage[] = [
   'NEW','WELCOME_SENT','NO_RESPONSE','INTERESTED','PRICING','QUOTED',
@@ -83,7 +84,7 @@ export async function PATCH(
     update.last_contact_date = now;
   }
   // Backward compat: mirror into old status column
-  update.status = legacyStatusFor(pipeline_stage);
+  update.status = statusForStage(pipeline_stage);
 
   const { data, error } = await supabase
     .from('leads')
@@ -97,15 +98,4 @@ export async function PATCH(
   }
 
   return NextResponse.json(data);
-}
-
-function legacyStatusFor(stage: PipelineStage): string {
-  switch (stage) {
-    case 'NEW': return 'New';
-    case 'INTERESTED': return 'Interested';
-    case 'QUOTED': return 'Quote Sent';
-    case 'WON': return 'Won';
-    case 'LOST': return 'Lost';
-    default: return 'New';
-  }
 }

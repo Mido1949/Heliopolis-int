@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { normalizePhone } from '@/lib/phone';
+import { statusForStage } from '@/lib/leads/stageStatus';
 
 export interface ScrapedBusiness {
   name?: string; phone?: string; company?: string; email?: string;
@@ -52,6 +53,7 @@ export async function intakeLeads(
           email: biz.email,
           source,
           pipeline_stage: 'NEW',
+          status: statusForStage('NEW'),
           stage_timestamps: { NEW: now },
           assigned_to_user: null,
           assigned_to_team: null,

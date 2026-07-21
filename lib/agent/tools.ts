@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createNotification } from '@/lib/notifications/in-app';
 import type { PipelineStage } from '@/types';
+import { statusForStage } from '@/lib/leads/stageStatus';
 
 export interface ToolContext {
   callerClient: SupabaseClient;
@@ -462,6 +463,7 @@ async function assignLead(input: Record<string, unknown>, ctx: ToolContext): Pro
       assigned_to_user: targetUserId,
       assigned_by: ctx.callerId,
       pipeline_stage: newStage,
+      status: statusForStage(newStage),
       stage_timestamps: { ...((current.stage_timestamps as Record<string, string>) || {}), [newStage]: now },
       last_contact_date: now,
       updated_at: now,

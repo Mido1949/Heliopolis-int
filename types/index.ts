@@ -9,7 +9,17 @@ export type UserTeam = 'Tech Team' | 'Sales Team' | 'Management';
 export type CrmTeam = 'tech' | 'cs';
 export type LeadSource = 'WhatsApp' | 'Meta' | 'Meta Ad' | 'Direct' | 'Phone';
 export type LeadClientType = 'موزع' | 'شركة تكييف' | 'مقاول' | 'عميل منفرد';
-export type LeadStatus = 'New' | 'Interested' | 'Quote Sent' | 'Won' | 'Lost';
+export type LeadStatus =
+  | 'New'
+  | 'Contacted'
+  | 'No Response'
+  | 'Interested'
+  | 'Pricing'
+  | 'Quote Sent'
+  | 'Negotiation'
+  | 'Won'
+  | 'Lost'
+  | 'Postponed';
 export type PipelineStage =
   | 'NEW'
   | 'WELCOME_SENT'

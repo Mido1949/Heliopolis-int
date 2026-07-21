@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import type { CookieOptions } from '@supabase/ssr';
 import { createNotification } from '@/lib/notifications/in-app';
 import type { PipelineStage } from '@/types';
+import { statusForStage } from '@/lib/leads/stageStatus';
 
 interface AssignBody {
   lead_id: string;
@@ -77,6 +78,7 @@ export async function POST(request: NextRequest) {
       assigned_to_user: targetUserId,
       assigned_by: user.id,
       pipeline_stage: newStage,
+      status: statusForStage(newStage),
       stage_timestamps,
       last_contact_date: now,
       updated_at: now,
