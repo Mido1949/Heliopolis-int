@@ -23,9 +23,13 @@ export const NAV_ITEMS = [
   { key: 'reports', labelAr: 'التقارير والأهداف', labelEn: 'Reports', icon: 'barChart', path: '/reports' },
 ] as const;
 
-// Lead Sources
+// Lead Sources — every value here must exist in the DB's leads_source_check
+// constraint, or the insert is rejected. 'Meta Ad' used to sit at the top of
+// this list (and was the new-lead form's default), but the constraint only
+// allows WhatsApp/Meta/Direct/Phone/BOQ Builder — so every manually added
+// lead failed to save from 2026-07-01 until this was removed. 'Meta' already
+// covers it; don't reintroduce a value without widening the constraint too.
 export const LEAD_SOURCES = [
-  { value: 'Meta Ad',  labelAr: 'إعلان ميتا', color: '#1877F2' },
   { value: 'WhatsApp', labelAr: 'واتساب',     color: '#25D366' },
   { value: 'Meta',     labelAr: 'ميتا',       color: '#1877F2' },
   { value: 'Direct',   labelAr: 'مباشر',      color: '#0D2137' },

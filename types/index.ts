@@ -7,7 +7,7 @@
 export type UserRole = 'admin' | 'Sales Engineer' | 'Manager' | 'Telesales' | 'Call Center' | 'CS Team Leader' | 'Tech Team Leader';
 export type UserTeam = 'Tech Team' | 'Sales Team' | 'Management';
 export type CrmTeam = 'tech' | 'cs';
-export type LeadSource = 'WhatsApp' | 'Meta' | 'Meta Ad' | 'Direct' | 'Phone';
+export type LeadSource = 'WhatsApp' | 'Meta' | 'Direct' | 'Phone' | 'BOQ Builder';
 export type LeadClientType = 'موزع' | 'شركة تكييف' | 'مقاول' | 'عميل منفرد';
 export type LeadStatus =
   | 'New'

@@ -168,7 +168,7 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
         form={form}
         layout="vertical"
         requiredMark={false}
-        initialValues={{ source: 'Meta Ad', pipeline_stage: 'NEW' }}
+        initialValues={{ source: 'Meta', pipeline_stage: 'NEW' }}
       >
         <Row gutter={16}>
           <Col span={12}>

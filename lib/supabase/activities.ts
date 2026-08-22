@@ -1,6 +1,11 @@
 import { createClient } from './client';
 
-export type ActivityType = 'status_change' | 'note_added' | 'edit' | 'creation' | 'call' | 'note' | 'assignment';
+// Must stay in sync with the DB's lead_activities_type_check constraint —
+// a value missing there is rejected at insert time, and most call sites log
+// activities fire-and-forget, so the failure is silent.
+export type ActivityType =
+  | 'status_change' | 'note_added' | 'edit' | 'creation' | 'call' | 'note'
+  | 'assignment' | 'next_step_set' | 'next_step_done';
 
 export async function logLeadActivity(
   leadId: string,
