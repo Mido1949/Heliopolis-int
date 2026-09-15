@@ -9,7 +9,6 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
-import OrgSwitcher from './OrgSwitcher';
 
 const { Text } = Typography;
 
@@ -181,9 +180,6 @@ export default function Navbar({ lang, onToggleLang }: NavbarProps) {
         <h2 className="text-lg md:text-xl font-bold text-[#0D2137] truncate">
           {pageTitle}
         </h2>
-
-        {/* Org Switcher — super_admin only */}
-        <OrgSwitcher />
       </div>
 
       <div className="flex items-center gap-3 md:gap-6">

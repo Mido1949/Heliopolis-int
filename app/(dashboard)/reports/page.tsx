@@ -173,6 +173,8 @@ export default function ReportsPage() {
     dayjs().startOf('month'), dayjs(),
   ]);
   const [exportPreset, setExportPreset] = useState<'today' | 'week' | 'month' | 'custom'>('month');
+  const [userExportId, setUserExportId] = useState<string | undefined>();
+  const [userExporting, setUserExporting] = useState(false);
 
   const applyExportPreset = (preset: 'today' | 'week' | 'month') => {
     setExportPreset(preset);
@@ -418,6 +420,38 @@ export default function ReportsPage() {
     if (error) { message.error('فشل الحذف'); return; }
     message.success('تم الحذف');
     setTargets(prev => prev.filter(t => t.id !== id));
+  };
+
+  // ── Per-user report download ───────────────────────────────────────────────
+  // The API builds the CSV server-side with the service role, so a leader can
+  // pull a team member's rows without needing read policies for them here.
+  const handleUserExport = async () => {
+    if (!userExportId) return;
+    setUserExporting(true);
+    try {
+      const from = exportRange[0].format('YYYY-MM-DD');
+      const to = exportRange[1].format('YYYY-MM-DD');
+      const res = await fetch(
+        `/api/reports/user?userId=${encodeURIComponent(userExportId)}&from=${from}&to=${to}`,
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const who = profiles.find(p => p.id === userExportId)?.name || 'user';
+      a.download = `${who}-${from}_${to}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Per-user export failed:', err);
+      alert(`تعذر تحميل التقرير: ${err instanceof Error ? err.message : 'خطأ غير معروف'}`);
+    } finally {
+      setUserExporting(false);
+    }
   };
 
   // ── Full CSV Export ────────────────────────────────────────────────────────
@@ -1027,6 +1061,38 @@ export default function ReportsPage() {
           {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           {exporting ? 'جاري التصدير...' : 'تحميل التقرير الشامل CSV'}
         </button>
+      </SectionCard>
+
+      {/* ── Section 6: Per-user report ── */}
+      <SectionCard
+        title="تقرير موظف واحد"
+        subtitle="Download one team member's report"
+        icon={<Users className="w-5 h-5" />}
+      >
+        <p className="text-sm text-slate-600 mb-4">
+          تقرير كامل لموظف واحد: ملخص أرقامه · كل العملاء المسندين له · مكالماته · عروض الأسعار اللي عملها.
+          بيستخدم نفس الفترة المختارة فوق ({exportRange[0].format('DD/MM/YYYY')} — {exportRange[1].format('DD/MM/YYYY')}).
+        </p>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Select
+            placeholder="اختر الموظف"
+            value={userExportId}
+            onChange={setUserExportId}
+            showSearch
+            optionFilterProp="label"
+            style={{ minWidth: 240 }}
+            options={profiles.map(p => ({ value: p.id, label: `${p.name} — ${p.role}` }))}
+          />
+          <button
+            onClick={handleUserExport}
+            disabled={!userExportId || userExporting}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#0D2137] text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {userExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            {userExporting ? 'جاري التحميل...' : 'تحميل تقرير الموظف'}
+          </button>
+        </div>
       </SectionCard>
     </div>
           ),

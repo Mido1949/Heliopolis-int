@@ -10,9 +10,11 @@ import type { Profile, CrmTeam } from '@/types';
 import { formatDuration, getInitials, withTimeout } from '@/lib/utils';
 import { App, Select, Tabs } from 'antd';
 import PriceListManager from '@/components/boq/PriceListManager';
+import { useOrg } from '@/context/OrgContext';
 
 export default function SettingsPage() {
   const { message } = App.useApp();
+  const { isSuperAdmin, allOrgs, currentOrgId, switchOrg, isLoading: orgLoading } = useOrg();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [totalTime, setTotalTime] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -360,6 +362,36 @@ export default function SettingsPage() {
                 key: 'price-list',
                 label: 'قائمة الأسعار (Price List)',
                 children: <PriceListManager />,
+              }]
+            : []),
+          // The org switcher used to sit in the navbar. It moved here so the top
+          // bar stays clean without super admins losing access to their other orgs.
+          ...(isSuperAdmin && allOrgs.length > 0
+            ? [{
+                key: 'organization',
+                label: 'الشركة (Organization)',
+                children: (
+                  <Card className="border-none shadow-sm">
+                    <CardHeader className="border-b border-slate-100">
+                      <CardTitle className="text-xl">تبديل الشركة (Switch organization)</CardTitle>
+                      <CardDescription>
+                        كل البيانات في البرنامج بتتفلتر على الشركة المختارة هنا.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <Select
+                        value={currentOrgId ?? undefined}
+                        onChange={(orgId: string) => { void switchOrg(orgId); }}
+                        loading={orgLoading}
+                        style={{ minWidth: 260 }}
+                        options={allOrgs.map(o => ({
+                          value: o.id,
+                          label: `${o.name} — ${o.industry ?? ''}`.trim(),
+                        }))}
+                      />
+                    </CardContent>
+                  </Card>
+                ),
               }]
             : []),
         ]}

@@ -127,6 +127,8 @@ export interface CommandCenterData {
   dailyReport: ActivityRow[];
   /** The three most recently created leads. */
   recentLeads: RecentLead[];
+  /** New leads per day over the last 7 days, oldest → newest. */
+  leadsTrend: number[];
   /** Leaderboard, highest score first. */
   performers: { id: string; name: string; role: string; score: number; note: string }[];
   /** Monthly leads target → the completion ring in the rail. */
@@ -427,6 +429,20 @@ export function useCommandCenterData({ orgId, orgName, canSeeTeam, userId }: Use
         };
       });
 
+      // Last 7 days of intake for the welcome strip's sparkline — derived from
+      // the leads already in memory, so it costs no extra query.
+      const trendBuckets: Record<string, number> = {};
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        trendBuckets[d.toISOString().slice(0, 10)] = 0;
+      }
+      for (const l of leads) {
+        const k = (l.created_at || '').slice(0, 10);
+        if (k in trendBuckets) trendBuckets[k] += 1;
+      }
+      const leadsTrend = Object.values(trendBuckets);
+
       const recentLeads: RecentLead[] = [...leads]
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 3)
@@ -632,6 +648,7 @@ export function useCommandCenterData({ orgId, orgName, canSeeTeam, userId }: Use
         team: teamRows,
         dailyReport,
         recentLeads,
+        leadsTrend,
         performers,
         target: {
           target: targetTotal > 0 ? targetTotal : null,

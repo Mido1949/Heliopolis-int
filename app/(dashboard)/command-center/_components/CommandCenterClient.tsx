@@ -15,6 +15,7 @@ import {
   Target,
   Trophy,
   UserPlus,
+  Wallet,
   Users,
   Zap,
 } from 'lucide-react';
@@ -32,6 +33,8 @@ import TopPerformersCard from './cards/TopPerformersCard';
 import DecisionMemoCard from './cards/DecisionMemoCard';
 import SignalList from './cards/SignalList';
 import OperationsCard from './cards/OperationsCard';
+import WelcomeHero from '@/components/dashboard/WelcomeHero';
+import StatCard from '@/components/dashboard/StatCard';
 import DailyActivityCard from './cards/DailyActivityCard';
 import RecentLeadsCard from './cards/RecentLeadsCard';
 
@@ -116,6 +119,9 @@ export default function CommandCenterClient() {
 
   const shows = (id: string) => section === 'overview' || section === id;
 
+  // The hero strip reuses the pipeline table's already-computed rows.
+  const heroRow = (label: string) => data?.pipelineRows.find(r => r.label === label);
+
   if (orgLoading || (loading && !data)) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -152,28 +158,62 @@ export default function CommandCenterClient() {
 
   return (
     <div className="space-y-5 pb-8">
-      {/* Header */}
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-extrabold text-[#0D2137]">
-            {lang === 'ar' ? 'مركز القيادة' : 'Command Center'}
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {data.orgName} —{' '}
-            {lang === 'ar'
-              ? 'كل وحدة في شاشة واحدة، مع رابط لكل قسم'
-              : 'every module on one screen, each linking to its full view'}
-          </p>
-        </div>
-        <button
-          onClick={() => reload()}
-          disabled={loading}
-          className="inline-flex w-fit items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-          {lang === 'ar' ? 'تحديث' : 'Refresh'}
-        </button>
-      </header>
+      <WelcomeHero
+        name={profile?.name || ''}
+        lang={lang}
+        subtitle={
+          lang === 'ar'
+            ? `ده اللي بيحصل في ${data.orgName} النهاردة`
+            : `Here's what's happening at ${data.orgName} today`
+        }
+        actions={
+          <button
+            onClick={() => reload()}
+            disabled={loading}
+            className="inline-flex w-fit items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            {lang === 'ar' ? 'تحديث' : 'Refresh'}
+          </button>
+        }
+      />
+
+      {/* Welcome strip — the four numbers worth knowing before anything else. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          tone="violet"
+          icon={<UserPlus className="h-5 w-5" />}
+          label={lang === 'ar' ? 'عملاء جدد الشهر ده' : 'New leads this month'}
+          value={heroRow('New leads')?.value ?? '—'}
+          deltaPercent={heroRow('New leads')?.delta}
+          deltaCaption={lang === 'ar' ? 'عن الشهر اللي فات' : 'vs last month'}
+          trend={data.leadsTrend}
+        />
+        <StatCard
+          tone="green"
+          icon={<Trophy className="h-5 w-5" />}
+          label={lang === 'ar' ? 'صفقات مكتملة' : 'Deals won'}
+          value={heroRow('Deals won')?.value ?? '—'}
+          deltaPercent={heroRow('Deals won')?.delta}
+          deltaCaption={lang === 'ar' ? 'عن الشهر اللي فات' : 'vs last month'}
+          trend={data.leadsTrend}
+        />
+        <StatCard
+          tone="blue"
+          icon={<Wallet className="h-5 w-5" />}
+          label={lang === 'ar' ? 'خط الأنابيب النشط' : 'Active pipeline'}
+          value={heroRow('Active pipeline')?.value ?? '—'}
+          trend={data.leadsTrend}
+        />
+        <StatCard
+          tone="amber"
+          icon={<Target className="h-5 w-5" />}
+          label={lang === 'ar' ? 'هدف الشهر' : 'Monthly target'}
+          value={data.target.target !== null ? `${data.target.progress}%` : '—'}
+          progress={data.target.target !== null ? data.target.progress : 0}
+          progressCaption={targetCaption}
+        />
+      </div>
 
       <div className="flex flex-col gap-5">
         <div className="grid min-w-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-12">

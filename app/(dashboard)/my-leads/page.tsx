@@ -17,11 +17,13 @@ import type { Lead, PipelineStage } from '@/types';
 import LeadDrawer from '../crm/LeadDrawer';
 import LeadFormModal from '../crm/LeadFormModal';
 import MyDayList from './MyDayList';
+import MyStatsStrip from './MyStatsStrip';
+import WelcomeHero from '@/components/dashboard/WelcomeHero';
 
 const { Title, Text } = Typography;
 
 export default function MyLeadsPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
@@ -159,13 +161,11 @@ export default function MyLeadsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <Title level={4} style={{ margin: 0 }}>
-            عملائي (My Leads)
-          </Title>
-          <Text type="secondary">العملاء المعينين لك فقط — RLS مفعّل</Text>
-        </div>
+      <WelcomeHero
+        name={profile?.name || ''}
+        lang="ar"
+        subtitle="ده شغلك النهاردة — العملاء المعينين ليك واللي محتاجين إجراء"
+        actions={
         <Space>
           <Button
             icon={<PlusOutlined />}
@@ -184,7 +184,10 @@ export default function MyLeadsPage() {
             عرض سعر جديد
           </Button>
         </Space>
-      </div>
+        }
+      />
+
+      <MyStatsStrip reloadToken={mydayReload} />
 
       {/* My Day — prioritized action list (SLA-red + due next steps) */}
       <div>
