@@ -21,6 +21,7 @@ import {
   CheckSquare,
   Wrench,
   Brain,
+  Gauge,
 } from 'lucide-react';
 import { NAV_ITEMS } from '@/lib/constants';
 import { getInitials } from '@/lib/utils';
@@ -29,6 +30,7 @@ import type { Profile } from '@/types';
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   dashboard: <LayoutDashboard className="w-5 h-5" />,
+  gauge: <Gauge className="w-5 h-5" />,
   hub: <Building2 className="w-5 h-5" />,
   contacts: <Users className="w-5 h-5" />,
   fileText: <FileText className="w-5 h-5" />,
@@ -47,6 +49,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 // Maps NAV_ITEMS key → module name in the DB (null = always visible)
 const NAV_MODULE_MAP: Record<string, string | null> = {
   dashboard:    null,
+  'command-center': null,
   hub:          'company_hub',
   crm:          'crm',
   'crm-ksa':    'crm',
@@ -65,6 +68,7 @@ const NAV_MODULE_MAP: Record<string, string | null> = {
 // Nav items restricted to specific roles (in addition to module gating).
 const ROLE_RESTRICTED: Record<string, string[]> = {
   helio: ['admin', 'Manager', 'CS Team Leader', 'Tech Team Leader'],
+  'command-center': ['admin', 'Manager', 'CS Team Leader', 'Tech Team Leader'],
 };
 
 interface SidebarProps {
