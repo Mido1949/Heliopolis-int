@@ -10,6 +10,8 @@ import { ACTIVE_PIPELINE_STAGES, slaColor, stageAgeDays } from '@/lib/constants'
 interface LeadRow {
   id: string;
   name: string | null;
+  source: string | null;
+  status: string | null;
   pipeline_stage: string | null;
   deal_value: number | null;
   created_at: string;
@@ -84,6 +86,30 @@ export interface ListItem {
   tone: 'good' | 'warn' | 'bad';
 }
 
+/** One row of the daily activity report, with that rep's monthly target progress. */
+export interface ActivityRow {
+  userId: string;
+  userName: string;
+  userRole: string;
+  leadsCreated: number;
+  updatesDone: number;
+  callsMade: number;
+  boqsCreated: number;
+  total: number;
+  /** Monthly leads target for this rep; null when none is set. */
+  target: number | null;
+  actual: number;
+  progress: number;
+}
+
+export interface RecentLead {
+  id: string;
+  name: string;
+  source: string;
+  status: string;
+  createdAt: string;
+}
+
 export interface CommandCenterData {
   orgName: string;
   updatedAt: string;
@@ -97,6 +123,10 @@ export interface CommandCenterData {
   funnel: { label: string; labelAr: string; count: number; value: number }[];
   /** Quadrant map of the team: activity (x) vs output (y). */
   team: TeamMember[];
+  /** Daily activity report rows (ported from the old /dashboard). */
+  dailyReport: ActivityRow[];
+  /** The three most recently created leads. */
+  recentLeads: RecentLead[];
   /** Leaderboard, highest score first. */
   performers: { id: string; name: string; role: string; score: number; note: string }[];
   /** Monthly leads target → the completion ring in the rail. */
@@ -209,7 +239,9 @@ export function useCommandCenterData({ orgId, orgName, canSeeTeam, userId }: Use
         Promise.all([
           supabase
             .from('leads')
-            .select('id, name, pipeline_stage, deal_value, created_at, assigned_to_user, stage_timestamps')
+            .select(
+              'id, name, source, status, pipeline_stage, deal_value, created_at, assigned_to_user, stage_timestamps',
+            )
             .eq('org_id', orgId),
           supabase.from('boqs').select('status, grand_total, created_at').eq('org_id', orgId),
           supabase.from('profiles').select('id, name, score, role').eq('org_id', orgId),
@@ -366,9 +398,45 @@ export function useCommandCenterData({ orgId, orgName, canSeeTeam, userId }: Use
         }));
 
       // ── Monthly target ring ────────────────────────────────────────────────
+      const targetByUser: Record<string, number> = {};
+      for (const t of targets) targetByUser[t.user_id] = Number(t.target_value || 0);
       const targetTotal = targets.reduce((acc, t) => acc + Number(t.target_value || 0), 0);
       const targetProgress =
         targetTotal > 0 ? Math.min(100, Math.round((newThisMonth / targetTotal) * 100)) : 0;
+
+      // ── Daily activity report (ported from /dashboard) ─────────────────────
+      const dailyReport: ActivityRow[] = activity.map(row => {
+        const target = targetByUser[row.user_id] ?? null;
+        const actual = perUserLeadsThisMonth[row.user_id] || 0;
+        return {
+          userId: row.user_id,
+          userName: row.user_name,
+          userRole: row.user_role,
+          leadsCreated: Number(row.leads_created),
+          updatesDone: Number(row.updates_done),
+          callsMade: Number(row.calls_made),
+          boqsCreated: Number(row.boqs_created),
+          total:
+            Number(row.leads_created) +
+            Number(row.updates_done) +
+            Number(row.calls_made) +
+            Number(row.boqs_created),
+          target,
+          actual,
+          progress: target && target > 0 ? Math.round((actual / target) * 100) : 0,
+        };
+      });
+
+      const recentLeads: RecentLead[] = [...leads]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 3)
+        .map(l => ({
+          id: l.id,
+          name: l.name || '—',
+          source: l.source || '—',
+          status: l.status || l.pipeline_stage || 'NEW',
+          createdAt: l.created_at,
+        }));
 
       // ── Operations ─────────────────────────────────────────────────────────
       const tasksOpen = tasks.filter(t => t.status === 'pending').length;
@@ -562,6 +630,8 @@ export function useCommandCenterData({ orgId, orgName, canSeeTeam, userId }: Use
           { label: 'Won', labelAr: 'مكتمل', count: wonCount, value: wonValue },
         ],
         team: teamRows,
+        dailyReport,
+        recentLeads,
         performers,
         target: {
           target: targetTotal > 0 ? targetTotal : null,

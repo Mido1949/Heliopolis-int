@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { Search, Globe, ChevronDown, Menu } from 'lucide-react';
+import { Search, Globe, ChevronDown } from 'lucide-react';
 import { BellOutlined } from '@ant-design/icons';
 import { NAV_ITEMS } from '@/lib/constants';
 import { Badge, Popover, List, Typography, Button, Spin } from 'antd';
@@ -49,11 +49,9 @@ interface Notification {
 interface NavbarProps {
   lang: 'ar' | 'en';
   onToggleLang: () => void;
-  collapsed: boolean;
-  onToggleMobileMenu: () => void;
 }
 
-export default function Navbar({ lang, onToggleLang, collapsed, onToggleMobileMenu }: NavbarProps) {
+export default function Navbar({ lang, onToggleLang }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
@@ -177,20 +175,8 @@ export default function Navbar({ lang, onToggleLang, collapsed, onToggleMobileMe
   );
 
   return (
-    <header
-      className={`fixed top-0 end-0 z-40 h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 md:px-6 transition-all duration-300 ${
-        collapsed ? 'md:start-[72px] start-0' : 'md:start-[200px] start-0'
-      }`}
-    >
+    <header className="fixed top-0 start-0 end-0 z-40 h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 md:px-6">
       <div className="flex items-center gap-2 md:gap-4">
-        {/* Mobile menu button */}
-        <button 
-          onClick={onToggleMobileMenu}
-          className="md:hidden p-2 -ms-2 text-slate-600 hover:text-[#0D2137] rounded-lg hover:bg-slate-50 transition-colors"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
-
         {/* Page Title */}
         <h2 className="text-lg md:text-xl font-bold text-[#0D2137] truncate">
           {pageTitle}

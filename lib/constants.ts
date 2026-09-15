@@ -7,7 +7,6 @@ export const COMPANY_NAME = 'HelioMax';
 
 // Navigation Items
 export const NAV_ITEMS = [
-  { key: 'dashboard', labelAr: 'لوحة التحكم', labelEn: 'Dashboard', icon: 'dashboard', path: '/dashboard' },
   { key: 'command-center', labelAr: 'مركز القيادة', labelEn: 'Command Center', icon: 'gauge', path: '/command-center' },
   { key: 'hub', labelAr: 'مركز الشركة', labelEn: 'Company Hub', icon: 'hub', path: '/hub' },
   { key: 'crm', labelAr: 'إدارة العملاء', labelEn: 'CRM', icon: 'contacts', path: '/crm' },

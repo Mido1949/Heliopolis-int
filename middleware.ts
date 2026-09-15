@@ -101,7 +101,7 @@ export async function middleware(request: NextRequest) {
         .single();
 
       if (!orgModule) {
-        return NextResponse.redirect(new URL('/dashboard?module_disabled=1', request.url));
+        return NextResponse.redirect(new URL('/command-center?module_disabled=1', request.url));
       }
     }
   }

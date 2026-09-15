@@ -159,8 +159,6 @@ export default function NormalUserShell({ children }: NormalUserShellProps) {
   const [showMyReport, setShowMyReport] = useState(false);
 
   const [lang, setLang] = useState<'ar' | 'en'>('ar');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [collapsed] = useState(false);
 
   // Chat state
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -698,12 +696,7 @@ export default function NormalUserShell({ children }: NormalUserShellProps) {
 
   return (
     <div className="min-h-screen bg-[#F4F6F8] font-sans text-slate-900" dir="rtl">
-      <Navbar
-        lang={lang}
-        onToggleLang={toggleLang}
-        collapsed={collapsed}
-        onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)}
-      />
+      <Navbar lang={lang} onToggleLang={toggleLang} />
 
       {/* 3-column layout — full height below navbar */}
       <main className="pt-16 min-h-screen">

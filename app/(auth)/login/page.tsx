@@ -227,14 +227,14 @@ export default function LoginPage() {
 
   const handleLoginSuccess = useCallback(() => {
     setLoginDone(true);
-    // Feature 006 US2: leaders land on the dashboard; reps land on their focused
+    // Feature 006 US2: leaders land on the command center; reps land on their focused
     // My Day (My Leads) so the newly-exposed board doesn't overwhelm them.
     const LEADER_ROLES = ['admin', 'Manager', 'CS Team Leader', 'Tech Team Leader'];
     const isLeader = !!selectedUser && LEADER_ROLES.includes(selectedUser.role);
-    const dest = isLeader ? '/dashboard' : '/my-leads';
+    const dest = isLeader ? '/command-center' : '/my-leads';
     pushMsg({
       from: 'bot',
-      text: `✅ أهلاً وسهلاً ${selectedUser?.name || ''}!\n${isLeader ? 'بنقلك للوحة التحكم...' : 'بنقلك ليومك وعملائك...'}`,
+      text: `✅ أهلاً وسهلاً ${selectedUser?.name || ''}!\n${isLeader ? 'بنقلك لمركز القيادة...' : 'بنقلك ليومك وعملائك...'}`,
     });
     setStep('success');
     setTimeout(() => {

@@ -27,7 +27,7 @@ export default function DashboardError({
           <Button type="primary" key="retry" danger onClick={reset}>
             إعادة المحاولة
           </Button>,
-          <Button key="home" href="/dashboard">
+          <Button key="home" href="/command-center">
             الرئيسية
           </Button>,
         ]}

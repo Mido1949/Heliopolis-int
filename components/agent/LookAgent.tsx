@@ -308,6 +308,7 @@ export default function LookAgent() {
     hasGreetedRef.current = true;
 
     const PAGE_LABELS: Record<string, string> = {
+      '/command-center': 'مركز القيادة',
       '/dashboard':    'لوحة التحكم',
       '/crm':          'إدارة الليدات',
       '/boq':          'عروض الأسعار',

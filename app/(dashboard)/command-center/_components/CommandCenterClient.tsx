@@ -1,6 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import {
   Activity,
   AlertTriangle,
@@ -12,6 +14,7 @@ import {
   RefreshCw,
   Target,
   Trophy,
+  UserPlus,
   Users,
   Zap,
 } from 'lucide-react';
@@ -19,9 +22,9 @@ import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useCommandCenterData } from './useCommandCenterData';
-import ModuleRail, { type RailSection } from './ModuleRail';
+import { useRegisterRailSections, type RailSection } from '@/context/RailContext';
 import ModuleCard from './ModuleCard';
-import StatusRing from './StatusRing';
+import StatusRing from '@/components/layout/StatusRing';
 import MetricTable from './cards/MetricTable';
 import FunnelCard from './cards/FunnelCard';
 import TeamMapCard from './cards/TeamMapCard';
@@ -29,6 +32,19 @@ import TopPerformersCard from './cards/TopPerformersCard';
 import DecisionMemoCard from './cards/DecisionMemoCard';
 import SignalList from './cards/SignalList';
 import OperationsCard from './cards/OperationsCard';
+import DailyActivityCard from './cards/DailyActivityCard';
+import RecentLeadsCard from './cards/RecentLeadsCard';
+
+// recharts is heavy and only the trends card needs it — keep it out of the
+// initial bundle.
+const DashboardCharts = dynamic(() => import('../../dashboard/DashboardCharts'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-48 items-center justify-center">
+      <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
+    </div>
+  ),
+});
 
 /**
  * Command Center — the hub page of the hub-and-spoke layout.
@@ -40,7 +56,9 @@ import OperationsCard from './cards/OperationsCard';
 export default function CommandCenterClient() {
   const { lang, dir } = useLanguage();
   const rtl = dir === 'rtl';
-  const { user, isAdmin, isManager, isTeamLeader } = useAuth();
+  const router = useRouter();
+  const { user, profile, loading: authLoading, isAdmin, isManager, isTeamLeader, isStaff } =
+    useAuth();
   const { org, currentOrgId, isLoading: orgLoading, loadError: orgLoadError, retry: retryOrg } = useOrg();
   const canSeeTeam = isAdmin || isManager || isTeamLeader;
 
@@ -53,6 +71,16 @@ export default function CommandCenterClient() {
     userId: user?.id ?? null,
   });
 
+  // This page is now the post-login landing page and `/` redirects here, so
+  // reps get bounced to their focused My Day exactly as /dashboard used to do.
+  // Require a resolved `profile`: a transient profile-fetch failure reads
+  // isStaff as false and would bounce an admin.
+  useEffect(() => {
+    if (!authLoading && user && profile && !isStaff) {
+      router.replace('/my-leads');
+    }
+  }, [authLoading, user, profile, isStaff, router]);
+
   const sections: RailSection[] = useMemo(
     () => [
       { id: 'overview', label: 'Overview', labelAr: 'نظرة عامة', icon: <Gauge className="h-4 w-4" /> },
@@ -64,6 +92,27 @@ export default function CommandCenterClient() {
     ],
     [],
   );
+
+  const targetCaption = data
+    ? data.target.target !== null
+      ? lang === 'ar'
+        ? `${data.target.actual} / ${data.target.target} عميل هذا الشهر`
+        : `${data.target.actual} / ${data.target.target} leads this month`
+      : lang === 'ar'
+        ? 'لم يتم تحديد هدف شهري'
+        : 'No monthly target set'
+    : '';
+
+  // Publish this page's sections into the shared app rail. Must run before the
+  // early returns below — it's a hook.
+  useRegisterRailSections({
+    sections,
+    activeId: section,
+    onSelect: setSection,
+    ring: data ? { progress: data.target.progress, caption: targetCaption } : null,
+    groupLabel: 'Command Center',
+    groupLabelAr: 'مركز القيادة',
+  });
 
   const shows = (id: string) => section === 'overview' || section === id;
 
@@ -101,15 +150,6 @@ export default function CommandCenterClient() {
 
   if (!data) return null;
 
-  const targetCaption =
-    data.target.target !== null
-      ? lang === 'ar'
-        ? `${data.target.actual} / ${data.target.target} عميل هذا الشهر`
-        : `${data.target.actual} / ${data.target.target} leads this month`
-      : lang === 'ar'
-        ? 'لم يتم تحديد هدف شهري'
-        : 'No monthly target set';
-
   return (
     <div className="space-y-5 pb-8">
       {/* Header */}
@@ -135,15 +175,7 @@ export default function CommandCenterClient() {
         </button>
       </header>
 
-      <div className="flex flex-col gap-5 lg:flex-row">
-        <ModuleRail
-          sections={sections}
-          activeId={section}
-          onSelect={setSection}
-          ring={{ progress: data.target.progress, caption: targetCaption }}
-          lang={lang}
-        />
-
+      <div className="flex flex-col gap-5">
         <div className="grid min-w-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-12">
           {/* Mobile/tablet ring — the rail hides it below lg */}
           <div className="col-span-1 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:hidden">
@@ -298,6 +330,51 @@ export default function CommandCenterClient() {
               rtl={rtl}
             >
               <OperationsCard ops={data.ops} lang={lang} />
+            </ModuleCard>
+          )}
+
+          {shows('pipeline') && (
+            <ModuleCard
+              title="Recent Leads"
+              titleAr="آخر العملاء"
+              icon={<UserPlus className="h-4 w-4" />}
+              href="/crm"
+              linkLabel={lang === 'ar' ? 'كل العملاء' : 'All leads'}
+              span="third"
+              rtl={rtl}
+            >
+              <RecentLeadsCard leads={data.recentLeads} lang={lang} />
+            </ModuleCard>
+          )}
+
+          {shows('team') && (
+            <ModuleCard
+              title="Daily Activity"
+              titleAr="النشاط اليومي"
+              icon={<ClipboardList className="h-4 w-4" />}
+              badge={new Date().toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'short',
+              })}
+              href="/reports"
+              linkLabel={lang === 'ar' ? 'التقارير والأهداف' : 'Reports & targets'}
+              span="twoThirds"
+              rtl={rtl}
+            >
+              <DailyActivityCard rows={data.dailyReport} lang={lang} />
+            </ModuleCard>
+          )}
+
+          {shows('economics') && (
+            <ModuleCard
+              title="Trends & Breakdown"
+              titleAr="الاتجاهات والتوزيع"
+              icon={<PieChart className="h-4 w-4" />}
+              span="full"
+              rtl={rtl}
+            >
+              <DashboardCharts />
             </ModuleCard>
           )}
         </div>

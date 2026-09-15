@@ -58,7 +58,7 @@ export async function updateSession(request: NextRequest) {
   // Redirect authenticated users away from login
   if (user && request.nextUrl.pathname === '/login') {
     const url = request.nextUrl.clone();
-    url.pathname = '/dashboard';
+    url.pathname = '/command-center';
     return NextResponse.redirect(url);
   }
 
