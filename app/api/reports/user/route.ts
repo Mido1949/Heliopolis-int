@@ -54,8 +54,9 @@ function toCsv(rows: (string | number | null)[][]): string {
 /**
  * GET /api/reports/user?userId=&from=&to=
  *
- * One team member's full activity over a date range, as a CSV an admin can
- * download and send on. Leaders only, and only for members of their own org.
+ * One team member's full activity over a date range, as a CSV that can be
+ * downloaded and sent on. A leader may request any member of their own org; a
+ * rep may request only their own.
  */
 export async function GET(request: NextRequest) {
   const cookieStore = cookies();
@@ -84,10 +85,6 @@ export async function GET(request: NextRequest) {
     .eq('id', user.id)
     .single();
 
-  if (!caller || !LEADER_ROLES.includes(caller.role)) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-  }
-
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('userId');
   const from = searchParams.get('from');
@@ -95,6 +92,14 @@ export async function GET(request: NextRequest) {
 
   if (!userId || !from || !to) {
     return NextResponse.json({ error: 'userId, from and to are required' }, { status: 400 });
+  }
+
+  // A leader exports anyone in their own org; anyone else may export only
+  // themselves, which is the download button on /my-report. Same CSV either
+  // way, and the org check below still applies to both.
+  const isSelf = userId === user.id;
+  if (!caller || (!isSelf && !LEADER_ROLES.includes(caller.role))) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
   const fromISO = `${from}T00:00:00.000Z`;

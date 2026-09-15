@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  Download,
   FileText,
   Loader2,
   Phone,
@@ -52,13 +53,15 @@ function shiftDate(iso: string, days: number): string {
  * drops the report payload it was handed.
  */
 export default function MyReportClient() {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const today = new Date().toISOString().slice(0, 10);
 
   const [date, setDate] = useState(today);
   const [report, setReport] = useState<PersonalReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const load = useCallback(async (forDate: string) => {
     setLoading(true);
@@ -76,6 +79,33 @@ export default function MyReportClient() {
   }, []);
 
   useEffect(() => { void load(date); }, [load, date]);
+
+  /**
+   * Same CSV an admin pulls from /reports, scoped to this user and this day.
+   * /api/reports/user lets a non-leader through only for their own id.
+   */
+  const download = useCallback(async () => {
+    if (!user?.id) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const res = await fetch(`/api/reports/user?userId=${user.id}&from=${date}&to=${date}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = `my-report-${date}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(href);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'خطأ غير معروف');
+    } finally {
+      setExporting(false);
+    }
+  }, [user?.id, date]);
 
   const wonValue = (report?.outcomes.won || []).reduce(
     (sum, w) => sum + Number(w.deal_value || 0),
@@ -95,32 +125,54 @@ export default function MyReportClient() {
         lang="ar"
         subtitle={`تقريرك ليوم ${date}`}
         actions={
-          <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => setDate(d => shiftDate(d, -1))}
-              className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100"
-              title="اليوم السابق"
+              onClick={download}
+              disabled={exporting || !user?.id}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50"
+              title="نزّل تقرير اليوم ده كملف CSV"
             >
-              <ChevronRight className="h-4 w-4" />
+              {exporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              تحميل التقرير
             </button>
-            <input
-              type="date"
-              value={date}
-              max={today}
-              onChange={e => e.target.value && setDate(e.target.value)}
-              className="border-none bg-transparent text-xs font-semibold text-slate-600 focus:outline-none"
-            />
-            <button
-              onClick={() => setDate(d => (d < today ? shiftDate(d, 1) : d))}
-              disabled={date >= today}
-              className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
-              title="اليوم التالي"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
+              <button
+                onClick={() => setDate(d => shiftDate(d, -1))}
+                className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100"
+                title="اليوم السابق"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+              <input
+                type="date"
+                value={date}
+                max={today}
+                onChange={e => e.target.value && setDate(e.target.value)}
+                className="border-none bg-transparent text-xs font-semibold text-slate-600 focus:outline-none"
+              />
+              <button
+                onClick={() => setDate(d => (d < today ? shiftDate(d, 1) : d))}
+                disabled={date >= today}
+                className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+                title="اليوم التالي"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         }
       />
+
+      {exportError && (
+        <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
+          <p className="text-sm text-amber-900">تعذر تحميل الملف: {exportError}</p>
+        </div>
+      )}
 
       {loading && (
         <div className="flex h-40 items-center justify-center">
