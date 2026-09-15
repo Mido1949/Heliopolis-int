@@ -21,9 +21,15 @@ interface LeadFormModalProps {
   onClose: () => void;
   onSaved: () => void;
   defaultRegion?: string;
+  /**
+   * Market the new lead belongs to. Sent explicitly because the DB trigger
+   * infers country from the creator's own profile — right for a rep, wrong
+   * for an admin adding a Saudi lead from /crm-ksa.
+   */
+  defaultCountry?: 'EG' | 'SA';
 }
 
-export default function LeadFormModal({ open, lead, onClose, onSaved, defaultRegion }: LeadFormModalProps) {
+export default function LeadFormModal({ open, lead, onClose, onSaved, defaultRegion, defaultCountry }: LeadFormModalProps) {
   const { user } = useAuth();
   const { currentOrgId } = useOrg();
   const [form] = Form.useForm();
@@ -117,6 +123,7 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
           .insert({
             ...payload,
             org_id: currentOrgId,
+            ...(defaultCountry ? { country: defaultCountry } : {}),
             assigned_to_user: values.assigned_to_user || user?.id,
             created_by: user?.id,
           })

@@ -19,7 +19,8 @@ interface KanbanViewProps {
   search?: string;
   // crm-ksa scopes its board to Saudi regions and, for non-admin/manager reps,
   // to their own leads only — mirrors that page's own fetchLeads filters.
-  regionIn?: string[];
+  /** Market to show. Omit to show whatever RLS allows the viewer. */
+  country?: 'EG' | 'SA';
   restrictToUserId?: string;
   onLeadClick: (lead: Lead) => void;
 }
@@ -31,7 +32,7 @@ const SLA_TEXT_COLOR: Record<'green' | 'amber' | 'red', string> = {
   red: '#FF4D4F',
 };
 
-export default function KanbanView({ search, regionIn, restrictToUserId, onLeadClick }: KanbanViewProps) {
+export default function KanbanView({ search, country, restrictToUserId, onLeadClick }: KanbanViewProps) {
   const { user, isStaff } = useAuth();
   const { currentOrgId } = useOrg();
   const supabase = createClient();
@@ -66,10 +67,10 @@ export default function KanbanView({ search, regionIn, restrictToUserId, onLeadC
       const safe = search.replace(/[,()\*]/g, ' ').trim();
       if (safe) q = q.or(`name.ilike.%${safe}%,company.ilike.%${safe}%,phone.ilike.%${safe}%`);
     }
-    if (regionIn && regionIn.length > 0) q = q.in('region', regionIn);
+    if (country) q = q.eq('country', country);
     if (restrictToUserId) q = q.eq('assigned_to_user', restrictToUserId);
     return q.order('updated_at', { ascending: false });
-  }, [supabase, search, regionIn, restrictToUserId]);
+  }, [supabase, search, country, restrictToUserId]);
 
   const loadStagePage = useCallback(async (stage: string, page: number) => {
     setLoadingStages((p) => ({ ...p, [stage]: true }));
@@ -104,7 +105,7 @@ export default function KanbanView({ search, regionIn, restrictToUserId, onLeadC
   useEffect(() => {
     PIPELINE_STAGES.forEach((s) => loadStagePage(s.value, 1));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, currentOrgId, regionIn, restrictToUserId]);
+  }, [search, currentOrgId, country, restrictToUserId]);
 
   const claim = async (lead: Lead) => {
     if (claimingId) return;

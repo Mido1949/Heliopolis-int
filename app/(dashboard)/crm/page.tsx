@@ -163,7 +163,11 @@ export default function CRMPage() {
     try {
       let query = supabase
         .from('leads')
-        .select('*, assigned_user:profiles!leads_assigned_to_user_fkey(id, name)', { count: 'exact' });
+        .select('*, assigned_user:profiles!leads_assigned_to_user_fkey(id, name)', { count: 'exact' })
+        // This is the Egyptian book. RLS already hides the other market from
+        // Saudi and Egyptian staff, but admins see both, so say it explicitly
+        // or /crm and /crm-ksa would show an admin the same rows.
+        .eq('country', 'EG');
 
       if (search) {
         const safe = search.replace(/[,()\*]/g, ' ').trim();
@@ -567,6 +571,7 @@ export default function CRMPage() {
         <div className="mt-4">
           <KanbanView
             search={search}
+            country="EG"
             onLeadClick={(lead) => { setSelectedLead(lead); setDrawerOpen(true); }}
           />
         </div>
@@ -585,6 +590,7 @@ export default function CRMPage() {
       <LeadFormModal
         open={modalOpen}
         lead={editingLead}
+        defaultCountry="EG"
         onClose={() => { setModalOpen(false); setEditingLead(null); }}
         onSaved={() => { setModalOpen(false); setEditingLead(null); fetchLeads(); }}
       />

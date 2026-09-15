@@ -16,7 +16,7 @@ import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { LEAD_STATUSES, LEAD_SOURCES, SAUDI_REGIONS } from '@/lib/constants';
+import { LEAD_STATUSES, LEAD_SOURCES } from '@/lib/constants';
 import { formatDate, getWhatsAppUrl } from '@/lib/utils';
 import type { Lead } from '@/types';
 import LeadDrawer from '../crm/LeadDrawer';
@@ -60,9 +60,11 @@ export default function CRMKSAPage() {
         { count: todayCalls },
         { count: answeredCalls },
       ] = await Promise.all([
-        supabase.from('call_logs').select('*', { count: 'exact', head: true }),
-        supabase.from('call_logs').select('*', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
-        supabase.from('call_logs').select('*', { count: 'exact', head: true }).eq('outcome', 'Answered'),
+        // Saudi calls only — this counted every call in the company before,
+        // so the KSA page reported Egypt's call volume as its own.
+        supabase.from('call_logs').select('*', { count: 'exact', head: true }).eq('country', 'SA'),
+        supabase.from('call_logs').select('*', { count: 'exact', head: true }).eq('country', 'SA').gte('created_at', today.toISOString()),
+        supabase.from('call_logs').select('*', { count: 'exact', head: true }).eq('country', 'SA').eq('outcome', 'Answered'),
       ]);
 
       setCallStats({
@@ -85,7 +87,7 @@ export default function CRMKSAPage() {
       let query = supabase
         .from('leads')
         .select('*, assigned_user:profiles!leads_assigned_to_user_fkey(id, name)', { count: 'exact' })
-        .in('region', SAUDI_REGIONS as unknown as string[])
+        .eq('country', 'SA')
         .order('created_at', { ascending: false })
         .range((p - 1) * pageSize, p * pageSize - 1);
 
@@ -417,7 +419,7 @@ export default function CRMKSAPage() {
         <div className="mt-4">
           <KanbanView
             search={search}
-            regionIn={SAUDI_REGIONS as unknown as string[]}
+            country="SA"
             restrictToUserId={!isAdmin && !isManager && user ? user.id : undefined}
             onLeadClick={(lead) => { setSelectedLead(lead); setDrawerOpen(true); }}
           />
@@ -440,6 +442,7 @@ export default function CRMKSAPage() {
         onClose={() => { setModalOpen(false); setEditingLead(null); }}
         onSaved={() => { setModalOpen(false); setEditingLead(null); fetchLeads(); }}
         defaultRegion="Riyadh"
+        defaultCountry="SA"
       />
 
       {/* Import Modal */}

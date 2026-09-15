@@ -17,6 +17,7 @@ export const NAV_ITEMS = [
   { key: 'scraper', labelAr: 'استخراج البيانات', labelEn: 'Scraper', icon: 'search', path: '/scraper' },
   { key: 'calls', labelAr: 'المكالمات', labelEn: 'Calls', icon: 'phone', path: '/calls' },
   { key: 'tasks', labelAr: 'المهام', labelEn: 'Tasks', icon: 'tasks', path: '/tasks' },
+  { key: 'visits', labelAr: 'الزيارات الميدانية', labelEn: 'Field Visits', icon: 'mapPin', path: '/visits' },
   { key: 'after-sales', labelAr: 'خدمة ما بعد البيع', labelEn: 'After Sales', icon: 'wrench', path: '/after-sales' },
   { key: 'ai-assistant', labelAr: 'المساعد الذكي', labelEn: 'AI Assistant', icon: 'robot', path: '/ai-assistant' },
   { key: 'helio', labelAr: 'مركز هيليو', labelEn: 'Helio', icon: 'brain', path: '/helio' },
