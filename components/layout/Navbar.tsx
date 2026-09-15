@@ -41,6 +41,8 @@ interface Notification {
   message: string;
   body?: string;
   type: string;
+  reference_id?: string | null;
+  reference_type?: string | null;
   is_read: boolean;
   created_at: string;
 }
@@ -123,15 +125,40 @@ export default function Navbar({ lang, onToggleLang }: NavbarProps) {
     setUnreadCount(prev => Math.max(0, prev - 1));
   };
 
+  // Destination for a notification, by the types lib/notifications/in-app.ts
+  // actually writes. The previous list checked types this app never produces
+  // ('lead_assigned', 'boq_status', …), so every click was a no-op.
+  const destinationFor = (n: Notification): string | null => {
+    // Anything carrying a lead reference opens that lead directly — both /crm
+    // and /my-leads accept ?lead=<id> and open the drawer on it.
+    if (n.reference_type === 'lead' && n.reference_id) {
+      return `/my-leads?lead=${n.reference_id}`;
+    }
+    switch (n.type) {
+      case 'personal_report':
+        return '/my-report';
+      case 'company_report_sent':
+      case 'scrape_summary':
+        return '/reports';
+      case 'stuck_lead':
+      case 'lead_intake':
+      case 'assignment':
+      case 'nudge':
+      case 'escalation':
+        return '/my-leads';
+      case 'agent_digest':
+        return '/helio';
+      case 'low_stock':
+        return '/inventory';
+      default:
+        return null;
+    }
+  };
+
   const handleNotificationClick = (n: Notification) => {
     markAsRead(n.id, n.is_read);
-    if (n.type === 'lead_assigned' || n.type === 'call_logged') {
-      router.push('/crm');
-    } else if (n.type === 'boq_status') {
-      router.push('/boq');
-    } else if (n.type === 'low_stock') {
-      router.push('/inventory');
-    }
+    const dest = destinationFor(n);
+    if (dest) router.push(dest);
   };
 
   const notificationContent = (

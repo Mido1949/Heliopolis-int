@@ -11,6 +11,7 @@ import { formatDuration, getInitials, withTimeout } from '@/lib/utils';
 import { App, Select, Tabs } from 'antd';
 import PriceListManager from '@/components/boq/PriceListManager';
 import { useOrg } from '@/context/OrgContext';
+import PushOptIn from '@/components/push/PushOptIn';
 
 export default function SettingsPage() {
   const { message } = App.useApp();
@@ -364,6 +365,27 @@ export default function SettingsPage() {
                 children: <PriceListManager />,
               }]
             : []),
+          {
+            key: 'notifications',
+            label: 'الإشعارات (Notifications)',
+            children: (
+              <Card className="border-none shadow-sm">
+                <CardHeader className="border-b border-slate-100">
+                  <CardTitle className="text-xl">إشعارات المتصفح</CardTitle>
+                  <CardDescription>
+                    لما تفعّلها، هتوصلك الإشعارات على الجهاز ده حتى لو البرنامج مقفول —
+                    ليد جديد، ليد واقف، تذكير متابعة، وتقريرك اليومي.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <PushOptIn />
+                  <p className="mt-4 text-xs text-slate-400">
+                    التفعيل بيتم لكل جهاز لوحده. لو بتستخدم الموبايل واللابتوب، فعّلها على الاتنين.
+                  </p>
+                </CardContent>
+              </Card>
+            ),
+          },
           // The org switcher used to sit in the navbar. It moved here so the top
           // bar stays clean without super admins losing access to their other orgs.
           ...(isSuperAdmin && allOrgs.length > 0

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { sendPushToUser } from '@/lib/push/send';
 
 interface NotificationMeta {
   type: string;
@@ -17,6 +18,20 @@ const TITLES_BY_TYPE: Record<string, string> = {
   company_report_sent: '📈 تقرير الشركة',
   agent_digest: '🧠 ملخص هيليو',
   scrape_summary: '🔍 ملخص السحب الأسبوعي',
+};
+
+// Where a push for this type should land. Mirrors destinationFor() in the
+// navbar bell, so a notification opens the same screen either way.
+const PUSH_URL_BY_TYPE: Record<string, string> = {
+  personal_report: '/my-report',
+  company_report_sent: '/reports',
+  scrape_summary: '/reports',
+  stuck_lead: '/my-leads',
+  lead_intake: '/my-leads',
+  assignment: '/my-leads',
+  nudge: '/my-leads',
+  escalation: '/my-leads',
+  agent_digest: '/helio',
 };
 
 /**
@@ -65,6 +80,20 @@ export async function createNotification(
     .single();
 
   if (error) throw error;
+
+  // Browser push, best-effort: the row is already committed, so a push failure
+  // must not surface as a failed notification. sendPushToUser never throws, but
+  // guard anyway — this runs inside crons that should not die here.
+  try {
+    await sendPushToUser(userId, {
+      title: TITLES_BY_TYPE[type] || '🔔 إشعار',
+      body: message,
+      url: leadId ? `/my-leads?lead=${leadId}` : (PUSH_URL_BY_TYPE[type] || '/'),
+      type,
+    });
+  } catch (e) {
+    console.warn('Push send failed:', e);
+  }
 
   // Realtime broadcast on user channel
   if (data && supabase.channel) {
