@@ -22,6 +22,7 @@ const PDFDownloadButton = dynamic(() => import('@/components/boq/PDFDownloadButt
 });
 
 import { Y_BRANCH_TYPE, Y_BRANCH_DEFAULT_PRICE } from '@/components/boq/BOQEditor';
+import { formatEGP, formatUSD } from '@/lib/currency';
 
 const { Text, Title } = Typography;
 
@@ -675,7 +676,10 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                   {lead.deal_value != null && (
                     <Descriptions.Item label="قيمة الصفقة (Deal Value)">
                       <Text strong style={{ color: '#52C41A' }}>
-                        ${lead.deal_value.toLocaleString()}
+                        {formatEGP(lead.deal_value)}
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: 11, marginInlineStart: 6 }}>
+                        ({formatUSD(lead.deal_value)})
                       </Text>
                     </Descriptions.Item>
                   )}
@@ -914,7 +918,11 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                   </div>
                 ) : (
                   boqs.map((boq) => {
-                    const grandTotalUSD = boq.grand_total / (boq.exchange_rate || 50);
+                    // grand_total is stored in USD (it sums boq_items.unit_price,
+                    // which comes from the USD price list). EGP is that times the
+                    // quote's own rate — this used to divide, showing a $10,000
+                    // quote as "10,000 EGP ($200)".
+                    const grandTotalUsd = Number(boq.grand_total) || 0;
                     return (
                       <div key={boq.id} className="border border-gray-100 rounded-lg p-3 hover:border-accent transition-colors">
                         <div className="flex items-center justify-between mb-2">
@@ -926,10 +934,10 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                         <div className="flex items-center justify-between">
                           <div className="flex flex-col">
                             <span className="font-bold text-accent text-xs">
-                              {new Intl.NumberFormat('en-EG').format(boq.grand_total)} EGP
+                              {formatEGP(grandTotalUsd, boq.exchange_rate)}
                             </span>
                             <span className="text-[10px] text-muted-foreground">
-                              ({new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(grandTotalUSD)})
+                              ({formatUSD(grandTotalUsd)})
                             </span>
                           </div>
                           <Space size="small">

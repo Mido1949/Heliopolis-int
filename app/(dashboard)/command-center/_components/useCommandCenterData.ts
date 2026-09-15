@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { withTimeout } from '@/lib/utils';
 import { ACTIVE_PIPELINE_STAGES, slaColor, stageAgeDays } from '@/lib/constants';
+import { formatEGP, formatEgpAmount, usdToEgp } from '@/lib/currency';
 
 // ── Raw row shapes ───────────────────────────────────────────────────────────
 
@@ -20,6 +21,7 @@ interface LeadRow {
 interface BoqRow {
   status: string | null;
   grand_total: number | null;
+  exchange_rate: number | null;
   created_at: string;
 }
 
@@ -123,14 +125,20 @@ export interface CommandCenterData {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const EGP = new Intl.NumberFormat('en-EG', {
-  style: 'currency',
-  currency: 'EGP',
-  maximumFractionDigits: 0,
-});
+/**
+ * Amounts reaching this page are stored in USD (leads.deal_value, and
+ * boqs.grand_total, which sums USD unit prices). Internal screens report in
+ * EGP, so convert at display time. Quote figures pass the quote's own
+ * boqs.exchange_rate; lead values have no rate of their own and fall back to
+ * the app-wide default.
+ */
+function money(usd: number, rate?: number | null): string {
+  return formatEGP(usd, rate);
+}
 
-function money(n: number): string {
-  return EGP.format(Math.round(n));
+/** For revenue, already converted per quote at that quote's own rate. */
+function egp(amount: number): string {
+  return formatEgpAmount(amount);
 }
 
 function num(n: number): string {
@@ -211,7 +219,7 @@ export function useCommandCenterData({ orgId, orgName, canSeeTeam, userId }: Use
             .from('leads')
             .select('id, name, pipeline_stage, deal_value, created_at, assigned_to_user, stage_timestamps')
             .eq('org_id', orgId),
-          supabase.from('boqs').select('status, grand_total, created_at').eq('org_id', orgId),
+          supabase.from('boqs').select('status, grand_total, exchange_rate, created_at').eq('org_id', orgId),
           supabase.from('profiles').select('id, name, score, role').eq('org_id', orgId),
           supabase.from('tasks').select('id, status, due_date'),
           supabase
@@ -317,7 +325,8 @@ export function useCommandCenterData({ orgId, orgName, canSeeTeam, userId }: Use
       let revenuePrevMonth = 0;
 
       for (const boq of boqs) {
-        const total = Number(boq.grand_total || 0);
+        // Convert per quote: each BOQ keeps the rate it was priced at.
+        const total = usdToEgp(Number(boq.grand_total || 0), boq.exchange_rate);
         if (boq.status && boq.status !== 'Draft') {
           if (inRange(boq.created_at, monthStart, monthEnd)) quotesSent += 1;
           if (inRange(boq.created_at, prevStart, prevEnd)) quotesSentPrev += 1;
@@ -533,9 +542,9 @@ export function useCommandCenterData({ orgId, orgName, canSeeTeam, userId }: Use
           { label: 'New leads', labelAr: 'عملاء جدد', value: num(newThisMonth), delta: newDelta },
           { label: 'Quotes sent', labelAr: 'عروض مرسلة', value: num(quotesSent), delta: delta(quotesSent, quotesSentPrev) },
           { label: 'Deals won', labelAr: 'صفقات مكتملة', value: num(wonThisMonth), delta: delta(wonThisMonth, wonPrevMonth) },
-          { label: 'Collected revenue', labelAr: 'إيرادات محصلة', value: money(revenueThisMonth), delta: delta(revenueThisMonth, revenuePrevMonth) },
+          { label: 'Collected revenue', labelAr: 'إيرادات محصلة', value: egp(revenueThisMonth), delta: delta(revenueThisMonth, revenuePrevMonth) },
           { label: 'Active pipeline', labelAr: 'خط الأنابيب النشط', value: money(activeValue), delta: null },
-          { label: 'Lifetime collected', labelAr: 'إجمالي التحصيل', value: money(revenue), delta: null },
+          { label: 'Lifetime collected', labelAr: 'إجمالي التحصيل', value: egp(revenue), delta: null },
         ],
         economicsRows: [
           { label: 'Avg deal value', labelAr: 'متوسط قيمة الصفقة', value: money(avgDeal), delta: null },

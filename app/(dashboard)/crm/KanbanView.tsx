@@ -10,6 +10,7 @@ import { withTimeout } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
 import WhatsAppTemplateButton from './WhatsAppTemplateButton';
+import { formatEGP } from '@/lib/currency';
 
 const { Text, Title } = Typography;
 
@@ -279,7 +280,7 @@ export default function KanbanView({ search, regionIn, restrictToUserId, onLeadC
                                         {lead.company && <Text type="secondary" style={{ fontSize: '12px', display: 'block' }}>{lead.company}</Text>}
                                         {lead.deal_value != null && stage.value === 'WON' && (
                                           <Text strong style={{ fontSize: '12px', color: '#52C41A' }}>
-                                            ${lead.deal_value.toLocaleString()}
+                                            {formatEGP(lead.deal_value)}
                                           </Text>
                                         )}
                                         {/* stage age with SLA color (US4) */}

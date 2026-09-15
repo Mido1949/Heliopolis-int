@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { formatEGP } from "./currency"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -14,8 +15,14 @@ export function getDirection(lang: string): "rtl" | "ltr" {
   return lang === "ar" ? "rtl" : "ltr";
 }
 
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
+/**
+ * Format a stored USD amount for an internal screen — which reads in EGP.
+ * Amounts in this app are priced and stored in USD (see lib/currency.ts);
+ * this converts at the app-wide rate. Pass a row's own rate where one exists
+ * (boqs.exchange_rate) by calling formatEGP directly instead.
+ */
+export function formatCurrency(amountUsd: number): string {
+  return formatEGP(amountUsd);
 }
 
 export function formatDate(dateString: string): string {
