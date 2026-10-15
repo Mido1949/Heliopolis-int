@@ -13,6 +13,7 @@ import type { Lead, BOQ, BOQItem, CallLog, CallType, CallOutcome, PipelineStage 
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
 import WhatsAppTemplateButton from './WhatsAppTemplateButton';
+import WhatsAppThread from './WhatsAppThread';
 import dayjs from 'dayjs';
 import dynamic from 'next/dynamic';
 
@@ -979,6 +980,11 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                 )}
               </div>
             ),
+          },
+          {
+            key: 'whatsapp',
+            label: 'واتساب (WhatsApp)',
+            children: <WhatsAppThread leadId={lead.id} />,
           },
           {
             key: '3',
