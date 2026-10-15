@@ -26,6 +26,19 @@ export async function intakeLeads(
   const perRep: Record<string, number> = {};
   const createdLeadIds: string[] = [];
 
+  // leads.org_id is NOT NULL with no default: take the org from an admin profile.
+  const { data: admin } = await supabase
+    .from('profiles')
+    .select('org_id')
+    .eq('role', 'admin')
+    .not('org_id', 'is', null)
+    .limit(1)
+    .maybeSingle();
+  if (!admin?.org_id) {
+    console.error('Intake aborted: no admin profile with org_id');
+    return { created, duplicates, errors: businesses.length, perRep, createdLeadIds };
+  }
+
   for (const biz of businesses) {
     try {
       if (!biz.phone) { errors += 1; continue; }
@@ -57,12 +70,16 @@ export async function intakeLeads(
           stage_timestamps: { NEW: now },
           assigned_to_user: null,
           assigned_to_team: null,
-          org_id: null,
+          org_id: admin.org_id,
           notes: biz.website ? 'Website: ' + biz.website : undefined,
         })
         .select('id')
         .single();
-      if (insertErr || !lead) { errors += 1; continue; }
+      if (insertErr || !lead) {
+        errors += 1;
+        console.error('Intake insert failed:', insertErr?.message);
+        continue;
+      }
 
       createdLeadIds.push(lead.id);
       created += 1;
