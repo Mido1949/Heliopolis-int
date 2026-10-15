@@ -156,7 +156,8 @@ async function createLead(m: ParsedMessage): Promise<string> {
       stage_timestamps: { NEW: now },
       assigned_to_user: null,
       assigned_to_team: null,
-      org_id: null,
+      // leads.org_id is NOT NULL — an explicit null overrides the column default.
+      org_id: await orgId(),
       country: m.country,
     })
     .select('id')
@@ -165,6 +166,22 @@ async function createLead(m: ParsedMessage): Promise<string> {
 
   await notifyAdmins(data.id, m);
   return data.id;
+}
+
+// The CRM has one org; take it from an admin profile rather than hardcoding it.
+let _orgId: string | null = null;
+async function orgId(): Promise<string> {
+  if (_orgId) return _orgId;
+  const { data, error } = await db()
+    .from('profiles')
+    .select('org_id')
+    .eq('role', 'admin')
+    .not('org_id', 'is', null)
+    .limit(1)
+    .maybeSingle();
+  if (error || !data?.org_id) throw error ?? new Error('no admin profile with org_id');
+  _orgId = data.org_id as string;
+  return _orgId;
 }
 
 async function notifyAdmins(leadId: string, m: ParsedMessage): Promise<void> {
