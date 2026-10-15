@@ -16,8 +16,8 @@ export default function DataDeletionPage() {
         <h2 className="text-xl font-semibold mb-3">How to Request Deletion</h2>
         <p className="text-slate-600 leading-relaxed mb-4">
           Send an email to{' '}
-          <a href="mailto:admin@gchv.com" className="text-blue-600 underline font-medium">
-            admin@gchv.com
+          <a href="mailto:sales@helioplis.com" className="text-blue-600 underline font-medium">
+            sales@helioplis.com
           </a>{' '}
           with the subject line <strong>&ldquo;Data Deletion Request&rdquo;</strong> and include:
         </p>

@@ -18,7 +18,7 @@ export default function PrivacyPage() {
         <p className="text-slate-600 leading-relaxed">
           When you submit a lead form — whether through our website, Meta (Facebook/Instagram)
           ads, WhatsApp, or direct contact — your information is stored securely in our CRM
-          system. It is accessible only to authorized GCHV staff.
+          system. It is accessible only to authorized HelioMax staff.
         </p>
       </section>
 
@@ -48,8 +48,8 @@ export default function PrivacyPage() {
         <h2 className="text-xl font-semibold mb-3">5. Contact Us</h2>
         <p className="text-slate-600 leading-relaxed">
           For any privacy-related questions, please contact us at{' '}
-          <a href="mailto:admin@gchv.com" className="text-blue-600 underline">
-            admin@gchv.com
+          <a href="mailto:sales@helioplis.com" className="text-blue-600 underline">
+            sales@helioplis.com
           </a>
           .
         </p>
