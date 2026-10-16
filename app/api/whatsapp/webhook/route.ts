@@ -71,19 +71,28 @@ export async function POST(request: Request) {
   return NextResponse.json({ stored, failed, statuses: statuses.length });
 }
 
+// Either check is enough. 360dialog relays Meta's x-hub-signature-256, signed
+// with 360dialog's own app secret, so a signature that fails our secret must
+// still fall through to the ?key= check instead of rejecting the request.
 function authorized(request: Request, raw: string): boolean {
+  return signatureValid(request, raw) || keyValid(request);
+}
+
+function signatureValid(request: Request, raw: string): boolean {
   const sig = request.headers.get('x-hub-signature-256');
   // The WhatsApp app (heliomax api) may not be the app behind the lead-form
   // webhook, so it gets its own secret and falls back to the shared one.
   const secret = process.env.WHATSAPP_APP_SECRET || process.env.META_APP_SECRET;
-  if (sig && secret) {
-    const expected = `sha256=${createHmac('sha256', secret).update(raw).digest('hex')}`;
-    try {
-      return timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
-    } catch {
-      return false;
-    }
+  if (!sig || !secret) return false;
+  const expected = `sha256=${createHmac('sha256', secret).update(raw).digest('hex')}`;
+  try {
+    return timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+  } catch {
+    return false;
   }
+}
+
+function keyValid(request: Request): boolean {
   const key = process.env.WHATSAPP_WEBHOOK_KEY;
   const given = new URL(request.url).searchParams.get('key');
   if (!key || !given) return false;
