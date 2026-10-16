@@ -21,6 +21,7 @@ import {
   Brain,
   Gauge,
   MapPin,
+  MessageCircle,
 } from 'lucide-react';
 import { NAV_ITEMS } from '@/lib/constants';
 import { getInitials } from '@/lib/utils';
@@ -46,6 +47,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   wrench: <Wrench className="h-4 w-4" />,
   brain: <Brain className="h-4 w-4" />,
   mapPin: <MapPin className="h-4 w-4" />,
+  whatsapp: <MessageCircle className="h-4 w-4" />,
 };
 
 // Maps NAV_ITEMS key → module name in the DB (null = always visible)
@@ -62,6 +64,7 @@ const NAV_MODULE_MAP: Record<string, string | null> = {
   calls:        'calls_meetings',
   tasks:        null,
   visits:       null,
+  whatsapp:     null,
   'after-sales': 'after_sales',
   'ai-assistant': 'ai_assistant',
   helio:        null,
