@@ -92,6 +92,10 @@ export function bodyOf(m: Any): { body: string | null; mediaId: string | null } 
       return { body: `تفاعل ${m.reaction?.emoji ?? ''}`.trim(), mediaId: null };
     case 'template':
       return { body: 'رسالة قالب (Template)', mediaId: null };
+    // Meta withholds some messages from the API (view-once media, polls, or
+    // "message unavailable" 131060); the phone still has them.
+    case 'unsupported':
+      return { body: '⚠️ رسالة مش ظاهرة هنا — افتحها من موبايل الشركة', mediaId: null };
     default:
       return { body: t ? `[${t}]` : null, mediaId: null };
   }
