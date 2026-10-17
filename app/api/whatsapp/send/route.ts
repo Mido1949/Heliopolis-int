@@ -97,5 +97,25 @@ export async function POST(request: Request) {
 
   await admin.from('leads').update({ last_contact_date: now }).eq('id', lead.id);
 
+  // Mido's rule: whoever answers an unassigned chat owns the lead. Only an
+  // unassigned lead is claimed; a colleague's lead stays theirs.
+  const { data: me } = await admin.from('profiles').select('crm_team').eq('id', user.id).maybeSingle();
+  const { data: claimed } = await admin
+    .from('leads')
+    .update({ assigned_to_user: user.id, assigned_to_team: me?.crm_team ?? null, assigned_by: user.id })
+    .eq('id', lead.id)
+    .is('assigned_to_user', null)
+    .is('assigned_to', null)
+    .select('id, org_id');
+  if (claimed?.length) {
+    await admin.from('lead_activities').insert({
+      lead_id: lead.id,
+      user_id: user.id,
+      type: 'assignment',
+      body: 'استلم الليد بالرد على واتساب',
+      org_id: claimed[0].org_id,
+    });
+  }
+
   return NextResponse.json({ ok: true, wamid });
 }
