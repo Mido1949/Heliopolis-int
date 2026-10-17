@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Empty, Input, Spin, Tag, Typography, message } from 'antd';
+import { PaperClipOutlined, CloseOutlined } from '@ant-design/icons';
 import { createClient } from '@/lib/supabase/client';
 import dayjs from 'dayjs';
 
@@ -22,6 +23,9 @@ interface WaMessage {
 }
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
+// WhatsApp takes videos and voice notes up to 16 MB and documents up to 100 MB;
+// 16 MB keeps the server hop quick.
+const MAX_FILE = 16 * 1024 * 1024;
 
 /**
  * The lead's WhatsApp conversation, both sides, as captured by
@@ -33,7 +37,9 @@ export default function WhatsAppThread({ leadId }: { leadId: string }) {
   const [rows, setRows] = useState<WaMessage[] | null>(null);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
+  const picker = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     const { data } = await createClient()
@@ -62,15 +68,45 @@ export default function WhatsAppThread({ leadId }: { leadId: string }) {
     bottom.current?.scrollIntoView({ block: 'end' });
   }, [rows?.length]);
 
+  const pick = (f: File | undefined) => {
+    if (!f) return;
+    if (f.size > MAX_FILE) {
+      message.error('الملف أكبر من 16 ميجا');
+      return;
+    }
+    setFile(f);
+  };
+
   const send = async () => {
     const body = text.trim();
-    if (!body) return;
+    if (!body && !file) return;
     setSending(true);
     try {
+      let attachment: { path: string; name: string; type: string } | undefined;
+      if (file) {
+        // Straight to Storage through a signed slot: Vercel caps request bodies at 4.5 MB.
+        const slot = await fetch('/api/whatsapp/upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ leadId, filename: file.name }),
+        });
+        const s = await slot.json().catch(() => ({}));
+        if (!slot.ok) {
+          message.error(s.error ?? 'الملف مترفعش');
+          return;
+        }
+        const { error } = await createClient().storage.from('wa-media').uploadToSignedUrl(s.path, s.token, file, { contentType: file.type || undefined });
+        if (error) {
+          console.error('[wa-thread] upload failed', error);
+          message.error('الملف مترفعش، جرّب تاني');
+          return;
+        }
+        attachment = { path: s.path, name: file.name, type: file.type };
+      }
       const res = await fetch('/api/whatsapp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leadId, text: body }),
+        body: JSON.stringify({ leadId, text: body, file: attachment }),
       });
       const out = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -78,6 +114,7 @@ export default function WhatsAppThread({ leadId }: { leadId: string }) {
         return;
       }
       setText('');
+      setFile(null);
       load();
     } finally {
       setSending(false);
@@ -128,8 +165,28 @@ export default function WhatsAppThread({ leadId }: { leadId: string }) {
 
       {open ? (
         <div className="space-y-1">
+          {file && (
+            <div className="flex items-center gap-2 text-xs p-2 rounded bg-gray-50 border">
+              <PaperClipOutlined />
+              <span className="truncate">{file.name}</span>
+              <span className="text-gray-400">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
+              <Button size="small" type="text" icon={<CloseOutlined />} onClick={() => setFile(null)} disabled={sending} />
+            </div>
+          )}
           <div className="flex gap-2 items-end">
+            <input
+              ref={picker}
+              type="file"
+              hidden
+              accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.dwg"
+              onChange={(e) => {
+                pick(e.target.files?.[0]);
+                e.target.value = '';
+              }}
+            />
+            <Button icon={<PaperClipOutlined />} onClick={() => picker.current?.click()} disabled={sending} title="إرفاق صورة أو ملف" />
             <Input.TextArea
+              onPaste={(e) => pick(e.clipboardData.files?.[0])}
               value={text}
               onChange={(e) => setText(e.target.value)}
               onPressEnter={(e) => {
@@ -139,10 +196,10 @@ export default function WhatsAppThread({ leadId }: { leadId: string }) {
                 }
               }}
               autoSize={{ minRows: 1, maxRows: 5 }}
-              placeholder="اكتب رد… (Enter للإرسال، Shift+Enter لسطر جديد)"
+              placeholder={file ? 'تعليق على الملف (اختياري)…' : 'اكتب رد… (Enter للإرسال، Shift+Enter لسطر جديد)'}
               disabled={sending}
             />
-            <Button type="primary" onClick={send} loading={sending} disabled={!text.trim()} style={{ background: '#25D366' }}>
+            <Button type="primary" onClick={send} loading={sending} disabled={!text.trim() && !file} style={{ background: '#25D366' }}>
               إرسال
             </Button>
           </div>

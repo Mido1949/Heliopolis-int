@@ -7,9 +7,26 @@ export const dynamic = 'force-dynamic';
 // The one number on 360dialog (Coexistence). Replies only go out from it.
 const BUSINESS_PHONE = process.env.WA_360_BUSINESS_PHONE || '201006600259';
 const WINDOW_MS = 24 * 60 * 60 * 1000;
+const D360 = 'https://waba-v2.360dialog.io';
+const BUCKET = 'wa-media';
+
+// WhatsApp's own limits per kind; anything else, or bigger, goes as a document.
+const IMAGE_TYPES = ['image/jpeg', 'image/png'];
+const VIDEO_TYPES = ['video/mp4', 'video/3gpp'];
+const AUDIO_TYPES = ['audio/aac', 'audio/mp4', 'audio/mpeg', 'audio/amr', 'audio/ogg'];
+const LABELS: Record<string, string> = { image: '📷 صورة', video: '🎬 فيديو', document: '📄 ملف', audio: '🎤 رسالة صوتية' };
+
+function kindOf(type: string, size: number): 'image' | 'video' | 'audio' | 'document' {
+  if (IMAGE_TYPES.includes(type) && size <= 5 * 1024 * 1024) return 'image';
+  if (VIDEO_TYPES.includes(type) && size <= 16 * 1024 * 1024) return 'video';
+  if (AUDIO_TYPES.includes(type.split(';')[0]) && size <= 16 * 1024 * 1024) return 'audio';
+  return 'document';
+}
 
 /**
- * POST { leadId, text } — a rep replies to a lead from the CRM.
+ * POST { leadId, text, file? } — a rep replies to a lead from the CRM.
+ * file = { path, name, type } of an upload made through
+ * /api/whatsapp/upload-url; text then becomes its caption.
  *
  * Free-form text is only allowed inside Meta's 24-hour customer-service
  * window (free of charge); outside it Meta requires a paid template, so the
@@ -24,14 +41,19 @@ export async function POST(request: Request) {
   const apiKey = process.env.D360_API_KEY;
   if (!apiKey) return NextResponse.json({ error: 'واتساب مش متوصل (D360_API_KEY ناقص)' }, { status: 503 });
 
-  let body: { leadId?: string; text?: string };
+  let body: { leadId?: string; text?: string; file?: { path?: string; name?: string; type?: string } };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
-  const text = body.text?.trim();
-  if (!body.leadId || !text) return NextResponse.json({ error: 'leadId و text مطلوبين' }, { status: 400 });
+  const text = body.text?.trim() ?? '';
+  const file = body.file;
+  if (!body.leadId || (!text && !file?.path)) return NextResponse.json({ error: 'leadId و text أو ملف مطلوبين' }, { status: 400 });
+  // A rep may only send what they uploaded themselves.
+  if (file?.path && !file.path.startsWith(`outgoing/${user.id}/`)) {
+    return NextResponse.json({ error: 'ملف غير صالح' }, { status: 400 });
+  }
   if (text.length > 4096) return NextResponse.json({ error: 'الرسالة أطول من 4096 حرف' }, { status: 400 });
 
   const { data: lead } = await supabase
@@ -59,15 +81,43 @@ export async function POST(request: Request) {
     );
   }
 
-  const res = await fetch('https://waba-v2.360dialog.io/messages', {
+  // A file goes to WhatsApp's media store first; the message then points at it.
+  let msgType = 'text';
+  let payload: Record<string, unknown> = { body: text };
+  let mediaId: string | null = null;
+  let blob: Blob | null = null;
+  if (file?.path) {
+    const { data: stored } = await admin.storage.from(BUCKET).download(file.path);
+    if (!stored) return NextResponse.json({ error: 'الملف مترفعش، جرّب تاني' }, { status: 400 });
+    const type = file.type || stored.type || 'application/octet-stream';
+    blob = new Blob([await stored.arrayBuffer()], { type });
+    msgType = kindOf(type, blob.size);
+
+    const form = new FormData();
+    form.append('messaging_product', 'whatsapp');
+    form.append('type', type);
+    form.append('file', blob, file.name || 'file');
+    const up = await fetch(`${D360}/media`, { method: 'POST', headers: { 'D360-API-KEY': apiKey }, body: form });
+    const upOut = await up.json().catch(() => ({}));
+    mediaId = upOut?.id ? String(upOut.id) : null;
+    if (!up.ok || !mediaId) {
+      console.error('[wa-send] media upload rejected', up.status, JSON.stringify(upOut).slice(0, 500));
+      return NextResponse.json({ error: 'واتساب رفض الملف', detail: upOut?.error ?? upOut }, { status: 502 });
+    }
+    payload = { id: mediaId };
+    if (text && msgType !== 'audio') payload.caption = text;
+    if (msgType === 'document') payload.filename = file.name || 'file';
+  }
+
+  const res = await fetch(`${D360}/messages`, {
     method: 'POST',
     headers: { 'D360-API-KEY': apiKey, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
       to: lead.phone_normalized,
-      type: 'text',
-      text: { body: text },
+      type: msgType,
+      [msgType]: payload,
     }),
   });
   const out = await res.json().catch(() => ({}));
@@ -85,8 +135,11 @@ export async function POST(request: Request) {
     customer_phone: lead.phone_normalized,
     direction: 'out',
     origin: 'api',
-    msg_type: 'text',
-    body: text,
+    msg_type: msgType,
+    body: mediaId ? [LABELS[msgType], text || (msgType === 'document' ? file?.name : '')].filter(Boolean).join(' — ') : text,
+    media_id: mediaId,
+    // The thread's media viewer reads mime type and filename from raw.
+    raw: mediaId ? { [msgType]: { id: mediaId, mime_type: blob?.type, filename: file?.name, caption: text || undefined } } : null,
     status: 'sent',
     sent_at: now,
     country: lead.country === 'SA' ? 'SA' : 'EG',
@@ -94,6 +147,14 @@ export async function POST(request: Request) {
   });
   // The message is already sent; a failed log row must not look like a failed send.
   if (insErr) console.error('[wa-send] sent but not logged', wamid, insErr);
+
+  // Keep the file under its media id, where the thread's viewer looks for it,
+  // and drop the upload slot.
+  if (mediaId && blob && file?.path) {
+    const { error: cacheErr } = await admin.storage.from(BUCKET).upload(mediaId, blob, { contentType: blob.type, upsert: true });
+    if (cacheErr) console.error('[wa-send] media cache failed', mediaId, cacheErr);
+    await admin.storage.from(BUCKET).remove([file.path]);
+  }
 
   await admin.from('leads').update({ last_contact_date: now }).eq('id', lead.id);
 
