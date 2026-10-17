@@ -35,7 +35,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ medi
   const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
   const cached = await admin.storage.from(BUCKET).download(mediaId);
-  if (cached.data) return send(cached.data, cached.data.type || meta.mime_type, meta.filename);
+  if (cached.data) return send(request, cached.data, cached.data.type || meta.mime_type, meta.filename);
 
   const apiKey = process.env.D360_API_KEY;
   if (!apiKey) return NextResponse.json({ error: 'D360_API_KEY missing' }, { status: 503 });
@@ -58,14 +58,35 @@ export async function GET(request: Request, { params }: { params: Promise<{ medi
   // Still serve it; the next view just fetches from Meta again.
   if (error) console.error('[wa-media] cache upload failed', mediaId, error);
 
-  return send(blob, type, meta.filename);
+  return send(request, blob, type, meta.filename);
 }
 
-function send(body: Blob, type: string | undefined, filename: string | undefined) {
+// Audio and video players need byte ranges (206) to read the duration and
+// play; a plain 200 leaves the player stuck at 0:00.
+async function send(request: Request, body: Blob, type: string | undefined, filename: string | undefined) {
+  const buf = Buffer.from(await body.arrayBuffer());
+  const size = buf.length;
   const headers: Record<string, string> = {
     'Content-Type': type || 'application/octet-stream',
     'Cache-Control': 'private, max-age=86400',
+    'Accept-Ranges': 'bytes',
   };
   if (filename) headers['Content-Disposition'] = `inline; filename*=UTF-8''${encodeURIComponent(filename)}`;
-  return new NextResponse(body, { headers });
+
+  const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get('range') ?? '');
+  if (range && (range[1] || range[2])) {
+    // "bytes=-500" means the last 500 bytes.
+    let start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+    let end = range[1] && range[2] ? Number(range[2]) : size - 1;
+    end = Math.min(end, size - 1);
+    if (start > end || start >= size) {
+      return new NextResponse(null, { status: 416, headers: { ...headers, 'Content-Range': `bytes */${size}` } });
+    }
+    start = Math.max(0, start);
+    headers['Content-Range'] = `bytes ${start}-${end}/${size}`;
+    headers['Content-Length'] = String(end - start + 1);
+    return new NextResponse(new Uint8Array(buf.subarray(start, end + 1)), { status: 206, headers });
+  }
+  headers['Content-Length'] = String(size);
+  return new NextResponse(new Uint8Array(buf), { headers });
 }
