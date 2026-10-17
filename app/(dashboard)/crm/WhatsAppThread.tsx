@@ -16,6 +16,8 @@ interface WaMessage {
   referral: { headline?: string; source_url?: string } | null;
   sent_at: string;
   business_phone: string;
+  msg_type: string;
+  media_id: string | null;
   sender: { name: string | null } | null;
 }
 
@@ -36,7 +38,7 @@ export default function WhatsAppThread({ leadId }: { leadId: string }) {
   const load = useCallback(async () => {
     const { data } = await createClient()
       .from('wa_messages')
-      .select('id, direction, origin, body, status, referral, sent_at, business_phone, sender:profiles!wa_messages_sent_by_fkey(name)')
+      .select('id, direction, origin, body, status, referral, sent_at, business_phone, msg_type, media_id, sender:profiles!wa_messages_sent_by_fkey(name)')
       .eq('lead_id', leadId)
       .order('sent_at', { ascending: true })
       .limit(500);
@@ -109,7 +111,7 @@ export default function WhatsAppThread({ leadId }: { leadId: string }) {
                     ours ? 'bg-[#d9fdd3]' : 'bg-white'
                   }`}
                 >
-                  <div>{r.body ?? '—'}</div>
+                  {r.media_id ? <Media m={r} /> : <div>{r.body ?? '—'}</div>}
                   <div className="mt-1 text-[10px] text-gray-500 flex gap-2 justify-end">
                     {ours && <span>{r.origin === 'api' ? (r.sender?.name ?? 'الـ CRM') : 'الموبايل'}</span>}
                     {r.origin === 'history' && <span>أرشيف</span>}
@@ -157,4 +159,40 @@ export default function WhatsAppThread({ leadId }: { leadId: string }) {
       )}
     </div>
   );
+}
+
+/** Photo, voice note, video or file, streamed through /api/whatsapp/media. */
+function Media({ m }: { m: WaMessage }) {
+  const [failed, setFailed] = useState(false);
+  const src = `/api/whatsapp/media/${m.media_id}`;
+  // The body is the label plus any caption or filename: "📷 صورة — caption".
+  const caption = m.body?.split(' — ').slice(1).join(' — ');
+  if (failed) return <div>{m.body} <span className="text-[10px] text-gray-500">(الملف مش متاح)</span></div>;
+  switch (m.msg_type) {
+    case 'image':
+    case 'sticker':
+      return (
+        <div>
+          <a href={src} target="_blank" rel="noreferrer">
+            <img src={src} alt={caption || 'صورة'} loading="lazy" onError={() => setFailed(true)} className="max-h-72 max-w-full rounded" />
+          </a>
+          {caption && <div className="mt-1">{caption}</div>}
+        </div>
+      );
+    case 'audio':
+      return <audio controls preload="none" src={src} onError={() => setFailed(true)} className="max-w-[260px]" />;
+    case 'video':
+      return (
+        <div>
+          <video controls preload="metadata" src={src} onError={() => setFailed(true)} className="max-h-72 max-w-full rounded" />
+          {caption && <div className="mt-1">{caption}</div>}
+        </div>
+      );
+    default:
+      return (
+        <a href={src} target="_blank" rel="noreferrer" className="text-blue-700 underline">
+          {m.body ?? '📄 ملف'}
+        </a>
+      );
+  }
 }
