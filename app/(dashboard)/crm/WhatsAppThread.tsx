@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, Empty, Input, Spin, Tag, Typography, message } from 'antd';
+import { Button, Empty, Input, Spin, Switch, Tag, Typography, message } from 'antd';
 import { PaperClipOutlined, CloseOutlined } from '@ant-design/icons';
 import { createClient } from '@/lib/supabase/client';
 import dayjs from 'dayjs';
@@ -19,6 +19,7 @@ interface WaMessage {
   business_phone: string;
   msg_type: string;
   media_id: string | null;
+  is_bot: boolean;
   sender: { name: string | null } | null;
 }
 
@@ -44,7 +45,7 @@ export default function WhatsAppThread({ leadId }: { leadId: string }) {
   const load = useCallback(async () => {
     const { data } = await createClient()
       .from('wa_messages')
-      .select('id, direction, origin, body, status, referral, sent_at, business_phone, msg_type, media_id, sender:profiles!wa_messages_sent_by_fkey(name)')
+      .select('id, direction, origin, body, status, referral, sent_at, business_phone, msg_type, media_id, is_bot, sender:profiles!wa_messages_sent_by_fkey(name)')
       .eq('lead_id', leadId)
       .order('sent_at', { ascending: true })
       .limit(500);
@@ -130,6 +131,7 @@ export default function WhatsAppThread({ leadId }: { leadId: string }) {
 
   return (
     <div className="space-y-2">
+      <BotSwitch leadId={leadId} />
       {ad && (
         <div className="p-2 rounded-lg bg-blue-50 border border-blue-100 text-xs">
           <Tag color="blue">من إعلان</Tag> {ad.headline ?? ad.source_url ?? 'Click-to-WhatsApp'}
@@ -150,7 +152,7 @@ export default function WhatsAppThread({ leadId }: { leadId: string }) {
                 >
                   {r.media_id ? <Media m={r} /> : <div>{r.body ?? '—'}</div>}
                   <div className="mt-1 text-[10px] text-gray-500 flex gap-2 justify-end">
-                    {ours && <span>{r.origin === 'api' ? (r.sender?.name ?? 'الـ CRM') : 'الموبايل'}</span>}
+                    {ours && <span>{r.is_bot ? '🤖 البوت' : r.origin === 'api' ? (r.sender?.name ?? 'الـ CRM') : 'الموبايل'}</span>}
                     {r.origin === 'history' && <span>أرشيف</span>}
                     <span>{dayjs(r.sent_at).format('DD/MM HH:mm')}</span>
                     {ours && r.status && <span>{r.status === 'read' ? '✓✓ اتقرت' : r.status === 'delivered' ? '✓✓' : r.status === 'failed' ? '✗' : '✓'}</span>}
@@ -252,4 +254,54 @@ function Media({ m }: { m: WaMessage }) {
         </a>
       );
   }
+}
+
+/**
+ * The reply bot's switches for this chat: any rep can silence it here; leaders
+ * also see the global on/off. The bot also snoozes itself for 12 hours after
+ * handing a chat to the team.
+ */
+function BotSwitch({ leadId }: { leadId: string }) {
+  const [s, setS] = useState<{ enabled: boolean; canToggleGlobal: boolean; paused: boolean; snoozedUntil: string | null } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/whatsapp/bot/settings?leadId=${leadId}`);
+    if (res.ok) setS(await res.json());
+  }, [leadId]);
+  useEffect(() => { load(); }, [load]);
+
+  const post = async (payload: Record<string, unknown>) => {
+    setBusy(true);
+    try {
+      const res = await fetch('/api/whatsapp/bot/settings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) message.error(out.error ?? 'متغيرش');
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!s || (!s.enabled && !s.canToggleGlobal)) return null;
+  const quiet = s.paused || Boolean(s.snoozedUntil);
+  return (
+    <div className="flex flex-wrap items-center gap-3 p-2 rounded-lg bg-gray-50 border text-xs">
+      <span>🤖 بوت الرد</span>
+      {s.enabled && (
+        <span className="flex items-center gap-1">
+          <Switch size="small" checked={!quiet} loading={busy} onChange={(on) => post({ leadId, paused: !on })} />
+          {s.paused ? 'مقفول للعميل ده' : s.snoozedUntil ? `ساكت لحد ${dayjs(s.snoozedUntil).format('DD/MM HH:mm')} (سلّم للفريق)` : 'شغال للعميل ده'}
+        </span>
+      )}
+      {s.canToggleGlobal && (
+        <span className="flex items-center gap-1 ms-auto">
+          <Switch size="small" checked={s.enabled} loading={busy} onChange={(on) => post({ enabled: on })} />
+          {s.enabled ? 'البوت شغال لكل العملاء' : 'البوت مقفول لكل العملاء'}
+        </span>
+      )}
+    </div>
+  );
 }

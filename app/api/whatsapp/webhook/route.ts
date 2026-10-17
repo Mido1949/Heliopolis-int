@@ -3,12 +3,16 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { parseWebhook, type ParsedMessage } from '@/lib/wa-inbound';
 import { statusForStage } from '@/lib/leads/stageStatus';
+import { waitUntil } from '@vercel/functions';
+import { maybeReply, BOT_PHONE } from '@/lib/wa-bot/run';
 
 // Omni-channel: every WhatsApp message on the team's numbers lands on its lead.
 // Works for Meta calling us directly (signed with META_APP_SECRET) and for
 // 360dialog relaying the same payload (unsigned, so the URL carries ?key=).
 
 export const dynamic = 'force-dynamic';
+// The bot's reply runs after the 200, inside this function's lifetime.
+export const maxDuration = 60;
 
 // Lazy — a module-scope client breaks `next build` on Vercel Preview.
 let _supabase: SupabaseClient | null = null;
@@ -50,10 +54,12 @@ export async function POST(request: Request) {
   let stored = 0;
   let failed = 0;
 
+  const toAnswer = new Set<string>();
   for (const m of messages) {
     try {
       await storeMessage(m);
       stored += 1;
+      if (m.direction === 'in' && m.origin === 'customer' && m.businessPhone === BOT_PHONE) toAnswer.add(m.customerPhone);
     } catch (err) {
       failed += 1;
       // Loud on purpose: silent save failures already cost the CRM two months once.
@@ -64,6 +70,16 @@ export async function POST(request: Request) {
   for (const s of statuses) {
     const { error } = await db().from('wa_messages').update({ status: s.status }).eq('wamid', s.wamid);
     if (error) console.error('[wa-webhook] status update failed', s.wamid, error);
+  }
+
+  // A short pause lets a customer finish typing a burst of messages; the bot
+  // then answers the latest one, once (see maybeReply's claim).
+  for (const phone of Array.from(toAnswer)) {
+    waitUntil(
+      new Promise((r) => setTimeout(r, 6000))
+        .then(() => maybeReply(phone, 'inbound'))
+        .catch((err) => console.error('[wa-webhook] bot failed', phone, err)),
+    );
   }
 
   // Always 200 once authenticated: a non-200 makes Meta retry the whole batch,
