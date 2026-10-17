@@ -53,12 +53,23 @@ export default function VisitsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     // RLS decides the rest: a rep sees their own rows, a leader their market's.
-    const { data } = await supabase
+    // field_visits.user_id points at auth.users, not profiles, so PostgREST
+    // can't embed the visitor; joining it failed the whole query and the list
+    // showed empty although every visit was saved. Names come in a second read.
+    const { data, error } = await supabase
       .from('field_visits')
-      .select('*, lead:leads(name), visitor:profiles!field_visits_user_id_fkey(name)')
+      .select('*, lead:leads(name)')
       .order('check_in_at', { ascending: false })
       .limit(100);
-    setRows((data as VisitRow[]) || []);
+    if (error) console.error('[visits] load failed', error);
+    const visits = (data as VisitRow[]) || [];
+    const ids = Array.from(new Set(visits.map((v) => v.user_id)));
+    if (ids.length) {
+      const { data: people } = await supabase.from('profiles').select('id, name').in('id', ids);
+      const names = new Map((people ?? []).map((p) => [p.id as string, p.name as string | null]));
+      visits.forEach((v) => { v.visitor = { name: names.get(v.user_id) ?? null }; });
+    }
+    setRows(visits);
     setLoading(false);
   }, []);
 
