@@ -40,18 +40,33 @@ export default function WhatsAppInboxPage() {
       .select('lead_id, direction, body, sent_at, lead:leads(name, phone_normalized)')
       .not('lead_id', 'is', null)
       .order('sent_at', { ascending: false })
-      .limit(2000);
+      .limit(500);
     setRows((data as unknown as Row[]) ?? []);
   }, []);
 
   useEffect(() => {
     const supabase = createClient();
     load();
+    // Each open inbox re-ran the full query on every insert and exhausted the
+    // Nano disk-IO budget (2026-10-18). Coalesce bursts; skip hidden tabs.
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let stale = false;
+    const schedule = () => {
+      if (document.hidden) { stale = true; return; }
+      if (timer) return;
+      timer = setTimeout(() => { timer = null; load(); }, 5000);
+    };
+    const onVisible = () => {
+      if (!document.hidden && stale) { stale = false; load(); }
+    };
+    document.addEventListener('visibilitychange', onVisible);
     const channel = supabase
       .channel('wa-inbox')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wa_messages' }, load)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wa_messages' }, schedule)
       .subscribe();
     return () => {
+      if (timer) clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
       supabase.removeChannel(channel);
     };
   }, [load]);
