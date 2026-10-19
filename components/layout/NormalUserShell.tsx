@@ -276,17 +276,15 @@ export default function NormalUserShell({ children }: NormalUserShellProps) {
 
   useEffect(() => { loadPanels(); }, [loadPanels]);
 
-  // Realtime refresh for side panels
+  // leads/boqs/tasks are not in the realtime publication, so the old
+  // postgres_changes listener never fired — it only kept the DB polling.
+  // Refresh the side panels when the tab comes back into view instead.
   useEffect(() => {
     if (!user) return;
-    const channel = supabase
-      .channel(`normal-user-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => loadPanels())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'boqs' }, () => loadPanels())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => loadPanels())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user, supabase, loadPanels]);
+    const onVisible = () => { if (!document.hidden) loadPanels(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [user, loadPanels]);
 
   const handleLogout = async () => {
     const supabase = createClient();

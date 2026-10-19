@@ -72,12 +72,20 @@ export default function WhatsAppThread({ leadId, fill = false }: { leadId: strin
   useEffect(() => {
     const supabase = createClient();
     load();
-    // New messages and status ticks appear while the thread is open.
+    // New messages and status ticks appear while the thread is open. A DB
+    // trigger broadcasts on wa-lead:<id> — postgres_changes kept the Nano DB
+    // busy polling the WAL (2026-10-19). Bursts of ticks coalesce into one load.
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const schedule = () => {
+      if (timer) return;
+      timer = setTimeout(() => { timer = null; load(); }, 1500);
+    };
     const channel = supabase
-      .channel(`wa-${leadId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'wa_messages', filter: `lead_id=eq.${leadId}` }, load)
+      .channel(`wa-lead:${leadId}`)
+      .on('broadcast', { event: 'wa_change' }, schedule)
       .subscribe();
     return () => {
+      if (timer) clearTimeout(timer);
       supabase.removeChannel(channel);
     };
   }, [leadId, load]);

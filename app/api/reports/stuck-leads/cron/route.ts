@@ -38,27 +38,35 @@ async function handle(request: NextRequest) {
   let notified = 0;
   const today = new Date().toISOString().slice(0, 10);
 
+  // One digest per owner per day. A row per stuck lead meant ~500 inserts,
+  // pushes and broadcasts every morning on the Nano DB (2026-10-19).
+  const byOwner = new Map<string, { id: string; name: string; days: number }[]>();
   for (const lead of (leads || []) as { id: string; name: string; pipeline_stage: string; assigned_to_user: string; updated_at: string; last_contact_date?: string | null }[]) {
+    const stalenessRef = lead.last_contact_date || lead.updated_at;
+    const days = Math.max(1, Math.floor((Date.now() - new Date(stalenessRef).getTime()) / (24 * 60 * 60 * 1000)));
+    const list = byOwner.get(lead.assigned_to_user) ?? [];
+    list.push({ id: lead.id, name: lead.name, days });
+    byOwner.set(lead.assigned_to_user, list);
+  }
+
+  const cutoff = new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString();
+  const { data: recent } = await supabase
+    .from('notifications')
+    .select('user_id')
+    .eq('type', 'stuck_lead')
+    .gte('created_at', cutoff);
+  const alreadyToday = new Set((recent || []).map((r: { user_id: string }) => r.user_id));
+
+  for (const [owner, list] of Array.from(byOwner.entries())) {
+    if (alreadyToday.has(owner)) continue;
     try {
-      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const { data: recent } = await supabase
-        .from('notifications')
-        .select('id')
-        .eq('type', 'stuck_lead')
-        .eq('reference_id', lead.id)
-        .gte('created_at', cutoff)
-        .limit(1);
-
-      if (recent && recent.length > 0) continue;
-
-      const stalenessRef = lead.last_contact_date || lead.updated_at;
-      const days = Math.max(1, Math.floor((Date.now() - new Date(stalenessRef).getTime()) / (24 * 60 * 60 * 1000)));
-      const message = `⚠️ ${lead.name} واقف في ${lead.pipeline_stage} منذ ${days} أيام`;
-
-      await createNotification(lead.assigned_to_user, message, lead.id, { type: 'stuck_lead' });
+      list.sort((a, b) => b.days - a.days);
+      const top = list.slice(0, 3).map((l) => `${l.name} (${l.days} يوم)`).join('، ');
+      const message = `⚠️ عندك ${list.length} عميل واقف من غير تواصل أكتر من ٣ أيام — أقدمهم: ${top}`;
+      await createNotification(owner, message, list.length === 1 ? list[0].id : undefined, { type: 'stuck_lead' });
       notified += 1;
     } catch (err) {
-      console.error('[stuck-leads-cron] lead failed:', lead.id, err);
+      console.error('[stuck-leads-cron] owner failed:', owner, err);
     }
   }
 

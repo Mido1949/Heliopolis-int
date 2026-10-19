@@ -93,14 +93,12 @@ export default function Navbar({ lang, onToggleLang }: NavbarProps) {
 
     fetchNotifications();
 
-    const channel = supabase.channel('notifications')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${user.id}`
-      }, (payload) => {
-        setNotifications(prev => [payload.new as Notification, ...prev]);
+    // createNotification() broadcasts each new row on user:<id>; listening there
+    // instead of postgres_changes spares the DB constant WAL polling.
+    const channel = supabase.channel(`user:${user.id}`)
+      .on('broadcast', { event: 'new_notification' }, ({ payload }) => {
+        const n = payload as Notification;
+        setNotifications(prev => (prev.some(p => p.id === n.id) ? prev : [n, ...prev].slice(0, 20)));
         setUnreadCount(prev => prev + 1);
         playNotificationSound();
       })

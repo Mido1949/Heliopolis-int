@@ -176,27 +176,16 @@ export default function BOQPage({ params }: { params: { id: string } }) {
     fetchAllBOQsRef.current = fetchAllBOQs;
   }, [fetchAllBOQs]);
 
+  // boqs is not in the realtime publication, so a postgres_changes listener
+  // never fired and only kept the DB polling; refetch when the tab is shown.
   useEffect(() => {
     if (!user?.id) return;
-    const channel = supabase
-      .channel(`boqs_${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "boqs",
-          filter: `created_by=eq.${user.id}`,
-        },
-        () => {
-          fetchAllBOQsRef.current();
-        }
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
+    const onVisible = () => {
+      if (!document.hidden) fetchAllBOQsRef.current();
     };
-  }, [supabase, user?.id]);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [user?.id]);
 
   useEffect(() => {
     async function fetchData() {

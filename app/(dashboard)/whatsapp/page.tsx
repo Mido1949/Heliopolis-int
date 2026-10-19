@@ -62,7 +62,7 @@ export default function WhatsAppInboxPage() {
     document.addEventListener('visibilitychange', onVisible);
     const channel = supabase
       .channel('wa-inbox')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wa_messages' }, schedule)
+      .on('broadcast', { event: 'wa_insert' }, schedule)
       .subscribe();
     return () => {
       if (timer) clearTimeout(timer);
