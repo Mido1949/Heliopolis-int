@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>تقرير الشغل اليومي — HelioMax</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  @page {{ size: A4; margin: 0; }}
+  @page inner {{
+    size: A4; margin: 15mm 17mm 18mm;
+    @bottom-right {{ content: "HelioMax · سري — للاستخدام الداخلي"; font-family: "IBM Plex Sans Arabic",Tahoma,sans-serif; font-size: 8pt; color: #5B6678; }}
+    @bottom-left {{ content: counter(page); font-family: "IBM Plex Mono",Consolas,monospace; font-size: 8pt; color: #5B6678; }}
+  }}
+  :root{{
+    --midnight:#14284D; --cyan:#2BA8E0; --amber:#F5A623; --cloud:#F4F7FA;
+    --ink:#1B2433; --muted:#5B6678; --line:#DCE3EC; --green:#1E9E6A; --red:#C8483A;
+  }}
+  *{{box-sizing:border-box;margin:0;padding:0}}
+  html,body{{background:#fff}}
+  body{{font-family:"IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;color:var(--ink);font-size:10.5pt;line-height:1.75;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  .num{{font-family:"IBM Plex Mono",Consolas,monospace;direction:ltr;unicode-bidi:isolate}}
+
+  .cover{{width:210mm;height:297mm;background:var(--midnight);color:#fff;display:flex;flex-direction:column;justify-content:space-between;padding:22mm 20mm;page-break-after:always;overflow:hidden}}
+  .cover .logo{{width:62mm}}
+  .cover .sysline{{height:2px;background:var(--cyan);width:100%;margin:10mm 0 8mm}}
+  .cover h1{{font-size:30pt;line-height:1.35;font-weight:700}}
+  .cover h1 span{{color:var(--cyan)}}
+  .cover .sub{{font-size:13pt;color:#C9D6EA;margin-top:4mm}}
+  .cover .meta{{display:grid;grid-template-columns:1fr 1fr;gap:5mm 10mm;font-size:10pt;color:#C9D6EA;border-top:1px solid rgba(255,255,255,.18);padding-top:7mm}}
+  .cover .meta b{{display:block;color:#fff;font-size:11pt;font-weight:600}}
+  .cover .toc{{margin-top:12mm;display:grid;gap:3mm;font-size:11pt}}
+  .cover .toc div{{display:flex;gap:4mm;align-items:baseline}}
+  .cover .toc .n{{color:var(--cyan);width:8mm}}
+
+  .inner{{page:inner}}
+  .hdr{{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--cyan);padding-bottom:3mm;margin-bottom:7mm}}
+  .hdr img{{height:9mm}}
+  .hdr span{{font-size:9pt;color:var(--muted)}}
+  .sec{{margin-bottom:9mm}}
+  .sechead{{break-inside:avoid;break-after:avoid}}
+  h2{{font-size:17pt;color:var(--midnight);font-weight:700;margin-bottom:1mm;display:flex;align-items:center;gap:3mm;break-after:avoid}}
+  h2 .k{{font-family:"IBM Plex Mono",monospace;color:var(--cyan);font-size:12pt}}
+  .lead{{color:var(--muted);margin-bottom:5mm;font-size:10.5pt}}
+  h3{{font-size:12pt;color:var(--midnight);margin:6mm 0 2mm;font-weight:700;break-after:avoid}}
+  p{{margin-bottom:2.5mm}}
+  ul{{padding-right:5mm;margin-bottom:3mm}}
+  li{{margin-bottom:1.6mm}}
+  li::marker{{color:var(--cyan)}}
+
+  .kpis{{display:grid;grid-template-columns:repeat(4,1fr);gap:4mm;margin:2mm 0 6mm}}
+  .kpi{{background:var(--cloud);border-radius:3mm;padding:4mm 4mm 3.5mm;border-top:3px solid var(--cyan);break-inside:avoid}}
+  .kpi .v{{font-family:"IBM Plex Mono",monospace;font-size:17pt;color:var(--midnight);direction:ltr;text-align:right;line-height:1.3}}
+  .kpi .l{{font-size:8.8pt;color:var(--muted);line-height:1.5;margin-top:1mm}}
+  .kpi.warn{{border-top-color:var(--amber)}}
+
+  .box{{border:1px solid var(--line);border-radius:3mm;padding:4.5mm 5mm;margin-bottom:4.5mm;break-inside:avoid}}
+  .box.blue{{background:#EEF7FC;border-color:#CBE7F6}}
+  .box.amber{{background:#FFF7E8;border-color:#F6DDAE}}
+  .box h4{{font-size:11pt;color:var(--midnight);margin-bottom:1.5mm;font-weight:700}}
+  .box ul:last-child,.box p:last-child{{margin-bottom:0}}
+  .tag{{display:inline-block;font-size:8pt;font-weight:600;padding:.4mm 2.5mm;border-radius:10mm;margin-inline-start:2mm;vertical-align:middle;white-space:nowrap}}
+  .tag.done{{background:#DDF3EA;color:var(--green)}}
+  .tag.wip{{background:#E3F1FA;color:#1679A8}}
+  .tag.wait{{background:#FDEFD6;color:#A86B00}}
+
+  table{{width:100%;border-collapse:collapse;font-size:9.6pt;margin:2mm 0 5mm}}
+  th{{background:var(--midnight);color:#fff;font-weight:600;text-align:right;padding:2.4mm 3mm}}
+  td{{padding:2.3mm 3mm;border-bottom:1px solid var(--line);vertical-align:top}}
+  tr{{break-inside:avoid}}
+  tr:nth-child(even) td{{background:#FAFBFD}}
+  table.tight{{font-size:8.4pt}}
+  table.tight th,table.tight td{{padding:2mm 1.8mm}}
+  .small{{font-size:8.8pt;color:var(--muted)}}
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <div>
+    <img class="logo" src="{logo}" alt="HelioMax">
+    <div class="sysline"></div>
+    <h1>تقرير الشغل اليومي<br><span>عملنا إيه، واقفين فين، وفاضل إيه</span></h1>
+    <p class="sub">{date_ar}</p>
+    <div class="toc">{toc}</div>
+  </div>
+  <div class="meta">
+    <div><b>تاريخ التقرير</b>{date_ar}</div>
+    <div><b>وقت الإصدار</b><span class="num">{generated}</span> بتوقيت القاهرة</div>
+    <div><b>مصدر الأرقام</b>Meta Ads Manager، قاعدة بيانات CRM، سجل الشغل اليومي</div>
+    <div><b>النطاق</b>HelioMax مصر</div>
+  </div>
+</section>
+
+<main class="inner">
+  <div class="hdr"><img src="{logo_dark}" alt=""><span>تقرير الشغل اليومي · {date_ar}</span></div>
+  {sections}
+</main>
+
+</body>
+</html>
