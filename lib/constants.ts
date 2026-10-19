@@ -18,6 +18,7 @@ export const NAV_ITEMS = [
   { key: 'calls', labelAr: 'المكالمات', labelEn: 'Calls', icon: 'phone', path: '/calls' },
   { key: 'tasks', labelAr: 'المهام', labelEn: 'Tasks', icon: 'tasks', path: '/tasks' },
   { key: 'whatsapp', labelAr: 'واتساب', labelEn: 'WhatsApp', icon: 'whatsapp', path: '/whatsapp' },
+  { key: 'files', labelAr: 'الملفات', labelEn: 'Files', icon: 'folder', path: '/files' },
   { key: 'visits', labelAr: 'الزيارات الميدانية', labelEn: 'Field Visits', icon: 'mapPin', path: '/visits' },
   { key: 'after-sales', labelAr: 'خدمة ما بعد البيع', labelEn: 'After Sales', icon: 'wrench', path: '/after-sales' },
   { key: 'ai-assistant', labelAr: 'المساعد الذكي', labelEn: 'AI Assistant', icon: 'robot', path: '/ai-assistant' },

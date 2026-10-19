@@ -620,6 +620,7 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                     <Text strong>{lead.assigned_user.name}</Text>
                   </div>
                 )}
+                <div data-tour="lead-details">
                 <Descriptions column={1} size="small" bordered className="mb-6">
                   <Descriptions.Item label="مرحلة القمع (Pipeline Stage)">
                     {canActDirectly ? (
@@ -695,6 +696,7 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                     {formatDate(lead.created_at)}
                   </Descriptions.Item>
                 </Descriptions>
+                </div>
 
                 {lead.stage_timestamps && Object.keys(lead.stage_timestamps).length > 0 && (
                   <>
@@ -983,12 +985,12 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
           },
           {
             key: 'whatsapp',
-            label: 'واتساب (WhatsApp)',
+            label: <span data-tour="tab-whatsapp">واتساب (WhatsApp)</span>,
             children: <WhatsAppThread leadId={lead.id} />,
           },
           {
             key: '3',
-            label: 'النشاط (Activity)',
+            label: <span data-tour="tab-activity">النشاط (Activity)</span>,
             children: (
               <div className="space-y-3">
                 {/* Sub-tabs */}

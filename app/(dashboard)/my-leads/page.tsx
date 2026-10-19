@@ -142,7 +142,7 @@ export default function MyLeadsPage() {
       render: (_, record) => (
         <Space size="small">
           <Tooltip title="عرض">
-            <Button size="small" icon={<EyeOutlined />} onClick={() => { setSelectedLead(record); setDrawerOpen(true); }} />
+            <Button data-tour="lead-view" size="small" icon={<EyeOutlined />} onClick={() => { setSelectedLead(record); setDrawerOpen(true); }} />
           </Tooltip>
           {record.phone && (
             <Tooltip title="واتساب">
@@ -168,6 +168,7 @@ export default function MyLeadsPage() {
         actions={
         <Space>
           <Button
+            data-tour="new-lead"
             icon={<PlusOutlined />}
             onClick={() => { setEditingLead(null); setModalOpen(true); }}
             type="primary"
@@ -190,7 +191,7 @@ export default function MyLeadsPage() {
       <MyStatsStrip reloadToken={mydayReload} />
 
       {/* My Day — prioritized action list (SLA-red + due next steps) */}
-      <div>
+      <div data-tour="myday">
         <Title level={5} style={{ margin: '4px 0' }}>🗓️ يومي (My Day)</Title>
         <Text type="secondary" className="block mb-2">العملاء اللي محتاجين إجراء دلوقتي — متأخرين في المرحلة أو خطوة مستحقة</Text>
         <MyDayList
@@ -199,7 +200,7 @@ export default function MyLeadsPage() {
         />
       </div>
 
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+      <div data-tour="lead-search" className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
         <Row gutter={[12, 12]}>
           <Col xs={24} md={10}>
             <Input

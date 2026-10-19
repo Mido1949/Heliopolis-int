@@ -22,6 +22,7 @@ import {
   Gauge,
   MapPin,
   MessageCircle,
+  FolderOpen,
 } from 'lucide-react';
 import { NAV_ITEMS } from '@/lib/constants';
 import { getInitials } from '@/lib/utils';
@@ -48,6 +49,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   brain: <Brain className="h-4 w-4" />,
   mapPin: <MapPin className="h-4 w-4" />,
   whatsapp: <MessageCircle className="h-4 w-4" />,
+  folder: <FolderOpen className="h-4 w-4" />,
 };
 
 // Maps NAV_ITEMS key → module name in the DB (null = always visible)
@@ -65,6 +67,7 @@ const NAV_MODULE_MAP: Record<string, string | null> = {
   tasks:        null,
   visits:       null,
   whatsapp:     null,
+  files:        null,
   'after-sales': 'after_sales',
   'ai-assistant': 'ai_assistant',
   helio:        null,
@@ -186,6 +189,7 @@ export default function AppRail({ lang, profile, onLogout }: AppRailProps) {
           <Link
             key={item.key}
             href={item.path}
+            data-tour={`nav-${item.key}`}
             aria-current={active ? 'page' : undefined}
             className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-start text-xs font-semibold transition-colors lg:w-full ${
               active ? 'text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-[#0D2137]'

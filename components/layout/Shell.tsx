@@ -4,6 +4,7 @@ import AppRail from './AppRail';
 import Navbar from './Navbar';
 import HelioAgent from '@/components/agent/HelioAgent';
 import NavigationLoader from './NavigationLoader';
+import ProductTour from '@/components/onboarding/ProductTour';
 import { RailProvider } from '@/context/RailContext';
 import { useAuth } from '@/context/AuthContext';
 import { useSessionManager } from '@/hooks/useSessionManager';
@@ -63,6 +64,7 @@ export default function Shell({ children }: ShellProps) {
 
         {/* Floating AI agent — Helio, available to every role as an optional assistant */}
         <HelioAgent />
+        <ProductTour />
       </div>
     </RailProvider>
   );

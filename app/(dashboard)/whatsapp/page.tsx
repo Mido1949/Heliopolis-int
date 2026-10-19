@@ -100,7 +100,7 @@ export default function WhatsAppInboxPage() {
 
   return (
     <div className="flex h-[calc(100vh-4rem)] gap-3 p-3" dir="rtl">
-      <aside className={`${selected ? 'hidden md:flex' : 'flex'} w-full md:w-80 shrink-0 flex-col rounded-lg border bg-white`}>
+      <aside data-tour="wa-list" className={`${selected ? 'hidden md:flex' : 'flex'} w-full md:w-80 shrink-0 flex-col rounded-lg border bg-white`}>
         <div className="space-y-2 border-b p-3">
           <h1 className="text-lg font-semibold">واتساب</h1>
           <Input.Search allowClear placeholder="اسم أو رقم" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -125,6 +125,7 @@ export default function WhatsAppInboxPage() {
               const open = c.lastInAt && Date.now() - new Date(c.lastInAt).getTime() < WINDOW_MS;
               return (
                 <button
+                  data-tour="wa-chat"
                   key={c.leadId}
                   onClick={() => setSelected(c.leadId)}
                   className={`w-full border-b px-3 py-2 text-right hover:bg-gray-50 ${selected === c.leadId ? 'bg-green-50' : ''}`}

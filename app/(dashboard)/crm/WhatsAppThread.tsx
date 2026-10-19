@@ -232,7 +232,7 @@ export default function WhatsAppThread({ leadId, fill = false }: { leadId: strin
                 <Button size="small" type="text" icon={<CloseOutlined />} onClick={() => setFile(null)} disabled={sending} />
               </div>
             )}
-            <div className="flex gap-2 items-end">
+            <div data-tour="wa-composer" className="flex gap-2 items-end">
               <input
                 ref={picker}
                 type="file"
@@ -341,6 +341,7 @@ function MessageMenu({ m, canReply, onReply, onForward }: { m: WaMessage; canRep
       }}
     >
       <button
+        data-tour="wa-menu"
         className="absolute end-1 top-1 z-10 rounded-full px-1 text-gray-500 hover:bg-black/5 md:opacity-0 md:group-hover:opacity-100"
         aria-label="خيارات الرسالة"
       >

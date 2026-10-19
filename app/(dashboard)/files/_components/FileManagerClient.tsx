@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Upload, Button, Select, Input, Table, Tag, Modal, Image, Spin, message } from 'antd';
-import { UploadOutlined, SearchOutlined, FileOutlined, FilePdfOutlined } from '@ant-design/icons';
+import { UploadOutlined, SearchOutlined, FileOutlined, FilePdfOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload';
 import type { ClientFile } from '@/types/org';
 
@@ -95,7 +95,7 @@ export default function FileManagerClient() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">File Manager</h1>
-        <div className="flex gap-2">
+        <div data-tour="files-upload" className="flex gap-2">
           <Select
             placeholder="Category for upload"
             value={uploadCategory}
@@ -134,6 +134,7 @@ export default function FileManagerClient() {
         />
       </div>
 
+      <div data-tour="files-table">
       <Table
         dataSource={files}
         columns={columns}
@@ -141,6 +142,7 @@ export default function FileManagerClient() {
         loading={loading}
         pagination={{ pageSize: 20 }}
       />
+      </div>
 
       <Modal
         open={!!previewFile}
@@ -155,6 +157,11 @@ export default function FileManagerClient() {
         )}
         {previewUrl && previewFile?.file_type === 'pdf' && (
           <iframe src={previewUrl} style={{ width: '100%', height: 500 }} title="PDF Preview" />
+        )}
+        {previewUrl && previewFile && previewFile.file_type !== 'image' && previewFile.file_type !== 'pdf' && (
+          <Button type="primary" href={previewUrl} target="_blank" icon={<DownloadOutlined />}>
+            تحميل الملف
+          </Button>
         )}
         {previewFile?.ai_summary && (
           <div className="mt-4 p-3 bg-gray-50 rounded text-sm">

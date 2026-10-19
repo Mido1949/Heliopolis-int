@@ -222,6 +222,14 @@ export default function Navbar({ lang, onToggleLang }: NavbarProps) {
 
         {/* Actions */}
         <div className="flex items-center gap-2 md:gap-4 border-s border-slate-200 ps-4 md:ps-6 ms-2 md:ms-0">
+          <button
+            data-tour="tour-help"
+            onClick={() => window.dispatchEvent(new Event('heliomax:tour'))}
+            title={lang === 'ar' ? 'جولة تعريفية' : 'Product tour'}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-slate-500 hover:bg-slate-50 hover:text-[#0D2137] border border-slate-200"
+          >
+            ?
+          </button>
           <button 
             onClick={onToggleLang}
             className="flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-[#0D2137] transition-colors p-2 rounded-lg hover:bg-slate-50"
