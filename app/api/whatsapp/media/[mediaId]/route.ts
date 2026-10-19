@@ -63,15 +63,26 @@ export async function GET(request: Request, { params }: { params: Promise<{ medi
 
 // Audio and video players need byte ranges (206) to read the duration and
 // play; a plain 200 leaves the player stuck at 0:00.
+// Only what a browser can show opens in the tab. Anything else (DWG, RAR,
+// ZIP…) downloads, so the rep opens it in AutoCAD / WinRAR. Customers' phones
+// label DWG as "image/vnd.dwg", which a browser tries to draw and shows broken.
+function viewable(type: string): boolean {
+  return /^(image\/(jpeg|png|gif|webp)|video\/|audio\/|application\/pdf|text\/plain)/.test(type);
+}
+
 async function send(request: Request, body: Blob, type: string | undefined, filename: string | undefined) {
   const buf = Buffer.from(await body.arrayBuffer());
   const size = buf.length;
+  const inline = viewable(type || '');
   const headers: Record<string, string> = {
-    'Content-Type': type || 'application/octet-stream',
+    'Content-Type': inline ? type! : 'application/octet-stream',
     'Cache-Control': 'private, max-age=86400',
     'Accept-Ranges': 'bytes',
   };
-  if (filename) headers['Content-Disposition'] = `inline; filename*=UTF-8''${encodeURIComponent(filename)}`;
+  if (filename || !inline) {
+    const name = filename ? `; filename*=UTF-8''${encodeURIComponent(filename)}` : '';
+    headers['Content-Disposition'] = `${inline ? 'inline' : 'attachment'}${name}`;
+  }
 
   const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get('range') ?? '');
   if (range && (range[1] || range[2])) {

@@ -180,7 +180,7 @@ export default function WhatsAppThread({ leadId }: { leadId: string }) {
               ref={picker}
               type="file"
               hidden
-              accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.dwg"
+              accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z,.dwg,.dxf"
               onChange={(e) => {
                 pick(e.target.files?.[0]);
                 e.target.value = '';

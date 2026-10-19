@@ -106,7 +106,7 @@ export default function FileManagerClient() {
           <Upload
             beforeUpload={handleUpload}
             showUploadList={false}
-            accept=".pdf,.jpg,.jpeg,.png,.mp4,.xlsx,.docx"
+            accept=".pdf,.jpg,.jpeg,.png,.mp4,.xlsx,.docx,.zip,.rar,.7z,.dwg,.dxf"
           >
             <Button icon={<UploadOutlined />} loading={uploading} type="primary">
               Upload File

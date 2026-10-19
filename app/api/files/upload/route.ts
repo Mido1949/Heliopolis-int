@@ -32,8 +32,9 @@ export async function POST(request: NextRequest) {
 
   if (!membership) return NextResponse.json({ error: 'No org' }, { status: 403 });
 
-  const orgs = membership.organizations as { slug: string }[] | null;
-  const orgSlug = orgs?.[0]?.slug;
+  // A many-to-one embed comes back as one object, not an array.
+  const orgs = membership.organizations as { slug: string } | { slug: string }[] | null;
+  const orgSlug = Array.isArray(orgs) ? orgs[0]?.slug : orgs?.slug;
   if (!orgSlug) return NextResponse.json({ error: 'No org slug' }, { status: 403 });
 
   const formData = await request.formData();
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
   }
 
   const fileType = ext === 'pdf' ? 'pdf'
-    : file.type.startsWith('image/') ? 'image'
+    : file.type.startsWith('image/') && !file.type.includes('vnd.') ? 'image'
     : file.type.startsWith('video/') ? 'video'
     : 'document';
 
