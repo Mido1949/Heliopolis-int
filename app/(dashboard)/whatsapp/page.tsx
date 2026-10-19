@@ -129,6 +129,9 @@ export default function WhatsAppInboxPage() {
                   onClick={() => setSelected(c.leadId)}
                   className={`w-full border-b px-3 py-2 text-right hover:bg-gray-50 ${selected === c.leadId ? 'bg-green-50' : ''}`}
                 >
+                  <div className="flex items-center gap-3">
+                  <Avatar name={c.name} />
+                  <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className={`truncate ${waiting ? 'font-semibold' : ''}`}>{c.name}</span>
                     <span className="shrink-0 text-[11px] text-gray-500">{dayjs(c.last.sent_at).format('DD/MM HH:mm')}</span>
@@ -140,6 +143,8 @@ export default function WhatsAppInboxPage() {
                     {waiting && <span className="h-2 w-2 shrink-0 rounded-full bg-[#25D366]" />}
                     {!open && <span className="shrink-0 text-[10px] text-gray-400">مقفول</span>}
                   </div>
+                  </div>
+                  </div>
                 </button>
               );
             })
@@ -147,20 +152,40 @@ export default function WhatsAppInboxPage() {
         </div>
       </aside>
 
-      <section className={`${selected ? 'flex' : 'hidden md:flex'} flex-1 flex-col rounded-lg border bg-white p-3 overflow-y-auto`}>
+      <section className={`${selected ? 'flex' : 'hidden md:flex'} min-h-0 flex-1 flex-col overflow-hidden rounded-lg border bg-white`}>
         {selected ? (
           <>
-            <div className="mb-2 flex items-center gap-2">
-              <button className="md:hidden text-sm text-blue-600" onClick={() => setSelected(null)}>→ رجوع</button>
-              <span className="font-semibold">{conversations.find((c) => c.leadId === selected)?.name}</span>
-              <span className="text-xs text-gray-500" dir="ltr">+{conversations.find((c) => c.leadId === selected)?.phone}</span>
+            <div className="flex items-center gap-3 border-b bg-[#f0f2f5] px-3 py-2">
+              <button className="md:hidden text-sm text-blue-600" onClick={() => setSelected(null)}>→</button>
+              <Avatar name={conversations.find((c) => c.leadId === selected)?.name ?? ''} />
+              <div className="min-w-0">
+                <div className="truncate font-semibold">{conversations.find((c) => c.leadId === selected)?.name}</div>
+                <div className="text-xs text-gray-500" dir="ltr">+{conversations.find((c) => c.leadId === selected)?.phone}</div>
+              </div>
             </div>
-            <WhatsAppThread key={selected} leadId={selected} />
+            <div className="min-h-0 flex-1">
+              <WhatsAppThread key={selected} leadId={selected} fill />
+            </div>
           </>
         ) : (
           <Empty className="m-auto" description="اختار محادثة" />
         )}
       </section>
     </div>
+  );
+}
+
+/** Initials on a colour picked from the name, like WhatsApp's default avatars. */
+function Avatar({ name }: { name: string }) {
+  const colors = ['#25D366', '#53bdeb', '#ff8a65', '#a78bfa', '#f59e0b', '#06b6d4'];
+  const hash = Array.from(name).reduce((h, ch) => h + ch.charCodeAt(0), 0);
+  const initials = name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('') || '?';
+  return (
+    <span
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+      style={{ background: colors[hash % colors.length] }}
+    >
+      {initials}
+    </span>
   );
 }

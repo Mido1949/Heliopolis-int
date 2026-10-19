@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient as createAdmin } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
+import { cacheMedia } from '@/lib/wa-media';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,9 +25,12 @@ function kindOf(type: string, size: number): 'image' | 'video' | 'audio' | 'docu
 }
 
 /**
- * POST { leadId, text, file? } — a rep replies to a lead from the CRM.
- * file = { path, name, type } of an upload made through
- * /api/whatsapp/upload-url; text then becomes its caption.
+ * POST { leadId, text, file?, replyTo?, forwardOf? } — a rep replies to a lead
+ * from the CRM. file = { path, name, type } of an upload made through
+ * /api/whatsapp/upload-url; text then becomes its caption. replyTo is the
+ * wamid of a message in this chat, shown quoted on the customer's phone.
+ * forwardOf is the id of any wa_messages row the rep can see; its text or
+ * file is sent again to this lead.
  *
  * Free-form text is only allowed inside Meta's 24-hour customer-service
  * window (free of charge); outside it Meta requires a paid template, so the
@@ -41,15 +45,41 @@ export async function POST(request: Request) {
   const apiKey = process.env.D360_API_KEY;
   if (!apiKey) return NextResponse.json({ error: 'واتساب مش متوصل (D360_API_KEY ناقص)' }, { status: 503 });
 
-  let body: { leadId?: string; text?: string; file?: { path?: string; name?: string; type?: string } };
+  let body: {
+    leadId?: string;
+    text?: string;
+    file?: { path?: string; name?: string; type?: string };
+    replyTo?: string;
+    forwardOf?: string;
+  };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
-  const text = body.text?.trim() ?? '';
+  let text = body.text?.trim() ?? '';
   const file = body.file;
-  if (!body.leadId || (!text && !file?.path)) return NextResponse.json({ error: 'leadId و text أو ملف مطلوبين' }, { status: 400 });
+
+  // Forwarding reuses the original's text, or its file from our media cache.
+  // The original is read with the rep's session, so RLS guards it too.
+  let forwarded: { key: string; name: string; type: string } | null = null;
+  if (body.forwardOf) {
+    const { data: src } = await supabase
+      .from('wa_messages')
+      .select('body, msg_type, media_id, raw')
+      .eq('id', body.forwardOf)
+      .maybeSingle();
+    if (!src) return NextResponse.json({ error: 'الرسالة الأصلية مش موجودة' }, { status: 404 });
+    const meta = (src.raw as Record<string, { mime_type?: string; filename?: string; caption?: string }> | null)?.[src.msg_type] ?? {};
+    if (src.media_id) {
+      forwarded = { key: src.media_id, name: meta.filename || 'file', type: meta.mime_type || '' };
+      text = meta.caption ?? '';
+    } else {
+      text = src.body?.trim() ?? '';
+    }
+  }
+
+  if (!body.leadId || (!text && !file?.path && !forwarded)) return NextResponse.json({ error: 'leadId و text أو ملف مطلوبين' }, { status: 400 });
   // A rep may only send what they uploaded themselves.
   if (file?.path && !file.path.startsWith(`outgoing/${user.id}/`)) {
     return NextResponse.json({ error: 'ملف غير صالح' }, { status: 400 });
@@ -86,17 +116,22 @@ export async function POST(request: Request) {
   let payload: Record<string, unknown> = { body: text };
   let mediaId: string | null = null;
   let blob: Blob | null = null;
-  if (file?.path) {
-    const { data: stored } = await admin.storage.from(BUCKET).download(file.path);
-    if (!stored) return NextResponse.json({ error: 'الملف مترفعش، جرّب تاني' }, { status: 400 });
-    const type = file.type || stored.type || 'application/octet-stream';
+  const source = forwarded ?? (file?.path ? { key: file.path, name: file.name || 'file', type: file.type || '' } : null);
+  if (source) {
+    let { data: stored } = await admin.storage.from(BUCKET).download(source.key);
+    // An old forwarded file may not be cached yet; copy it from Meta once.
+    if (!stored && forwarded && (await cacheMedia(forwarded.key, forwarded.type)).ok) {
+      ({ data: stored } = await admin.storage.from(BUCKET).download(source.key));
+    }
+    if (!stored) return NextResponse.json({ error: forwarded ? 'الملف الأصلي مش متاح' : 'الملف مترفعش، جرّب تاني' }, { status: 400 });
+    const type = source.type || stored.type || 'application/octet-stream';
     blob = new Blob([await stored.arrayBuffer()], { type });
     msgType = kindOf(type, blob.size);
 
     const form = new FormData();
     form.append('messaging_product', 'whatsapp');
     form.append('type', type);
-    form.append('file', blob, file.name || 'file');
+    form.append('file', blob, source.name);
     const up = await fetch(`${D360}/media`, { method: 'POST', headers: { 'D360-API-KEY': apiKey }, body: form });
     const upOut = await up.json().catch(() => ({}));
     mediaId = upOut?.id ? String(upOut.id) : null;
@@ -106,7 +141,20 @@ export async function POST(request: Request) {
     }
     payload = { id: mediaId };
     if (text && msgType !== 'audio') payload.caption = text;
-    if (msgType === 'document') payload.filename = file.name || 'file';
+    if (msgType === 'document') payload.filename = source.name;
+  }
+
+  // Quote the customer's message, as WhatsApp's own reply does. Only a message
+  // from this same chat may be quoted.
+  let context: { message_id: string } | undefined;
+  if (body.replyTo) {
+    const { data: quoted } = await admin
+      .from('wa_messages')
+      .select('wamid')
+      .eq('wamid', body.replyTo)
+      .eq('customer_phone', lead.phone_normalized)
+      .maybeSingle();
+    if (quoted) context = { message_id: quoted.wamid };
   }
 
   const res = await fetch(`${D360}/messages`, {
@@ -116,6 +164,7 @@ export async function POST(request: Request) {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
       to: lead.phone_normalized,
+      ...(context ? { context } : {}),
       type: msgType,
       [msgType]: payload,
     }),
@@ -136,10 +185,14 @@ export async function POST(request: Request) {
     direction: 'out',
     origin: 'api',
     msg_type: msgType,
-    body: mediaId ? [LABELS[msgType], text || (msgType === 'document' ? file?.name : '')].filter(Boolean).join(' — ') : text,
+    body: mediaId ? [LABELS[msgType], text || (msgType === 'document' ? source?.name : '')].filter(Boolean).join(' — ') : text,
     media_id: mediaId,
-    // The thread's media viewer reads mime type and filename from raw.
-    raw: mediaId ? { [msgType]: { id: mediaId, mime_type: blob?.type, filename: file?.name, caption: text || undefined } } : null,
+    // The thread reads mime type and filename from raw, and the quote from
+    // raw.context — the same shape Meta's webhook stores for inbound messages.
+    raw: {
+      ...(mediaId ? { [msgType]: { id: mediaId, mime_type: blob?.type, filename: source?.name, caption: text || undefined } } : {}),
+      ...(context ? { context: { id: context.message_id } } : {}),
+    },
     status: 'sent',
     sent_at: now,
     country: lead.country === 'SA' ? 'SA' : 'EG',
@@ -150,10 +203,10 @@ export async function POST(request: Request) {
 
   // Keep the file under its media id, where the thread's viewer looks for it,
   // and drop the upload slot.
-  if (mediaId && blob && file?.path) {
+  if (mediaId && blob) {
     const { error: cacheErr } = await admin.storage.from(BUCKET).upload(mediaId, blob, { contentType: blob.type, upsert: true });
     if (cacheErr) console.error('[wa-send] media cache failed', mediaId, cacheErr);
-    await admin.storage.from(BUCKET).remove([file.path]);
+    if (file?.path && !forwarded) await admin.storage.from(BUCKET).remove([file.path]);
   }
 
   await admin.from('leads').update({ last_contact_date: now }).eq('id', lead.id);

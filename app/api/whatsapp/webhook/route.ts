@@ -5,6 +5,7 @@ import { parseWebhook, type ParsedMessage } from '@/lib/wa-inbound';
 import { statusForStage } from '@/lib/leads/stageStatus';
 import { waitUntil } from '@vercel/functions';
 import { maybeReply, BOT_PHONE } from '@/lib/wa-bot/run';
+import { cacheMedia } from '@/lib/wa-media';
 
 // Omni-channel: every WhatsApp message on the team's numbers lands on its lead.
 // Works for Meta calling us directly (signed with META_APP_SECRET) and for
@@ -151,6 +152,13 @@ async function storeMessage(m: ParsedMessage): Promise<void> {
       { onConflict: 'wamid', ignoreDuplicates: true },
     );
   if (error) throw error;
+
+  // Copy fresh media to our storage now, so the rep's first click is instant.
+  // History backfill is skipped: hundreds of old files would outlive the function.
+  if (m.mediaId && Date.now() - Date.parse(m.sentAt) < 24 * 60 * 60 * 1000) {
+    const mime = (m.raw as Record<string, { mime_type?: string }>)[m.msgType]?.mime_type;
+    waitUntil(cacheMedia(m.mediaId, mime).catch((err) => console.error('[wa-webhook] media cache failed', m.mediaId, err)));
+  }
 }
 
 async function findLead(phone: string): Promise<string | null> {
