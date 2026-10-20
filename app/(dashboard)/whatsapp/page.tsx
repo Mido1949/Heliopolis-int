@@ -100,11 +100,10 @@ export default function WhatsAppInboxPage() {
     if (!user) return;
     createClient()
       .from('profiles')
-      .select('id, name, crm_team')
+      .select('id, name')
       .order('name')
-      // Only reps with a CRM team take chats; managers (Mido) never do.
-      .then(({ data }) => setPeople(((data ?? []) as { id: string; name: string | null; crm_team: string | null }[])
-        .filter((p) => p.name && p.crm_team)
+      .then(({ data }) => setPeople(((data ?? []) as { id: string; name: string | null }[])
+        .filter((p) => p.name)
         .map((p) => ({ id: p.id, name: p.name as string }))));
   }, [user]);
 
