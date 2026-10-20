@@ -19,7 +19,8 @@ const AUDIO_TYPES = ['audio/aac', 'audio/mp4', 'audio/mpeg', 'audio/amr', 'audio
 // presets/; replace a file there to change what every rep sends.
 const PRESETS: Record<string, { key: string; name: string; type: string }> = {
   explainer: { key: 'presets/explainer.ogg', name: 'شرح هليوماكس.ogg', type: 'audio/ogg' },
-  catalog: { key: 'presets/catalog.pdf', name: 'HelioMax catalog.pdf', type: 'application/pdf' },
+  catalog: { key: 'presets/catalog.pdf', name: 'HelioMax Mini VRF catalog.pdf', type: 'application/pdf' },
+  catalog_vrf: { key: 'presets/catalog-vrf.pdf', name: 'HelioMax VRF catalog.pdf', type: 'application/pdf' },
 };
 const LABELS: Record<string, string> = { image: '📷 صورة', video: '🎬 فيديو', document: '📄 ملف', audio: '🎤 رسالة صوتية' };
 

@@ -37,7 +37,8 @@ const WEBSITE = 'https://heliomax.co/ar/eg';
 // /api/whatsapp/send).
 const QUICK: { label: string; text?: string; preset?: string }[] = [
   { label: 'حجز معاينة', text: 'يسعدنا نحدد لحضرتك معاد معاينة مجانية في الموقع. ممكن تبعتلنا العنوان واليوم والوقت اللي يناسبك؟' },
-  { label: 'ابعت الكتالوج', preset: 'catalog' },
+  { label: '📘 كتالوج Mini', preset: 'catalog' },
+  { label: '📗 كتالوج VRF', preset: 'catalog_vrf' },
   { label: 'طلب رقم للمكالمة', text: 'ممكن رقم تليفون حضرتك والوقت المناسب، عشان مهندس من عندنا يكلمك ويشرحلك كل التفاصيل؟' },
   { label: '🎤 فويس الشرح', preset: 'explainer' },
   { label: '🔗 لينك الويبسايت', text: `تقدر تشوف أنظمتنا ومشاريعنا على الويبسايت: ${WEBSITE}` },
