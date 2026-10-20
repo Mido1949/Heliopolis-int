@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
 
+import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -13,6 +14,7 @@ import {
   Search,
   Bot,
   LogOut,
+  X,
   Phone,
   BarChart2,
   Building2,
@@ -84,6 +86,9 @@ interface AppRailProps {
   lang: 'ar' | 'en';
   profile?: Profile | null;
   onLogout: () => void;
+  /** Phones: the page list lives in a drawer the navbar's ☰ opens. */
+  menuOpen: boolean;
+  onCloseMenu: () => void;
 }
 
 /**
@@ -92,10 +97,11 @@ interface AppRailProps {
  * page the signed-in user is allowed to open. It replaces the dark sidebar, so
  * the whole app reads as one continuous card surface.
  *
- * Below `lg` it collapses to a horizontal scroller of nav pills; the org
- * header, ring and profile block are desktop-only (the navbar covers those).
+ * Below `lg` the pages move into a side drawer opened from the navbar's ☰, so
+ * the screen starts with the page itself; only the current page's own
+ * sections stay on the page as a row of pills.
  */
-export default function AppRail({ lang, profile, onLogout }: AppRailProps) {
+export default function AppRail({ lang, profile, onLogout, menuOpen, onCloseMenu }: AppRailProps) {
   const pathname = usePathname();
   const { org, orgModules, isSuperAdmin } = useOrg();
   const rail = useRailConfig();
@@ -121,21 +127,44 @@ export default function AppRail({ lang, profile, onLogout }: AppRailProps) {
     return enabledModuleNames.has(moduleName);
   });
 
+  // Opening a page closes the drawer.
+  useEffect(() => { onCloseMenu(); }, [pathname, onCloseMenu]);
+
   const sectionsHeading =
     (lang === 'ar' ? rail?.groupLabelAr : rail?.groupLabel) ??
     (lang === 'ar' ? 'أقسام الصفحة' : 'On this page');
 
-  return (
-    <nav
-      aria-label={lang === 'ar' ? 'التنقل' : 'Navigation'}
-      className="flex shrink-0 flex-row gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:sticky lg:top-[4.5rem] lg:max-h-[calc(100vh-5.5rem)] lg:w-[220px] lg:flex-col lg:overflow-x-visible lg:overflow-y-auto"
-    >
-      {/* Org identity — desktop only */}
-      <div className="hidden items-center gap-2.5 px-1 pb-3 lg:flex">
+  const sectionButton = (section: NonNullable<typeof rail>['sections'][number], full: boolean) => {
+    const active = section.id === rail?.activeId;
+    return (
+      <button
+        key={section.id}
+        type="button"
+        onClick={() => rail?.onSelect(section.id)}
+        aria-current={active ? 'true' : undefined}
+        className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-start text-xs font-semibold transition-colors ${full ? 'w-full' : ''} ${
+          active
+            ? 'bg-[#0D2137] text-white'
+            : 'text-slate-600 hover:bg-slate-100 hover:text-[#0D2137]'
+        }`}
+      >
+        <span className={active ? 'text-white' : 'text-slate-400'}>{section.icon}</span>
+        <span className="whitespace-nowrap">
+          {lang === 'ar' ? section.labelAr : section.label}
+        </span>
+      </button>
+    );
+  };
+
+  // The full vertical menu: the desktop rail, and the phone drawer.
+  const menu = (inDrawer: boolean) => (
+    <>
+      {/* Org identity */}
+      <div className="flex items-center gap-2.5 px-1 pb-3">
         <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-slate-50">
           <img src={logoUrl} alt={orgName} className="h-full w-full object-contain" />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold leading-tight text-[#0D2137]">{orgName}</p>
           <span
             className="truncate text-[9px] font-bold uppercase tracking-[2px]"
@@ -144,42 +173,31 @@ export default function AppRail({ lang, profile, onLogout }: AppRailProps) {
             {org?.industry ?? 'platform'}
           </span>
         </div>
+        {inDrawer && (
+          <button
+            type="button"
+            onClick={onCloseMenu}
+            aria-label={lang === 'ar' ? 'اقفل القائمة' : 'Close menu'}
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-[#0D2137]"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
-      {/* Group 1 — the current page's own sections */}
-      {rail && rail.sections.length > 0 && (
+      {/* Group 1 — the current page's own sections (on phones they stay on the page) */}
+      {!inDrawer && rail && rail.sections.length > 0 && (
         <>
-          <p className="hidden px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 lg:block">
+          <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
             {sectionsHeading}
           </p>
-          {rail.sections.map(section => {
-            const active = section.id === rail.activeId;
-            return (
-              <button
-                key={section.id}
-                type="button"
-                onClick={() => rail.onSelect(section.id)}
-                aria-current={active ? 'true' : undefined}
-                className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-start text-xs font-semibold transition-colors lg:w-full ${
-                  active
-                    ? 'bg-[#0D2137] text-white'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-[#0D2137]'
-                }`}
-              >
-                <span className={active ? 'text-white' : 'text-slate-400'}>{section.icon}</span>
-                <span className="whitespace-nowrap">
-                  {lang === 'ar' ? section.labelAr : section.label}
-                </span>
-              </button>
-            );
-          })}
-
-          <div className="hidden border-t border-slate-100 pt-3 lg:my-1 lg:block" />
+          {rail.sections.map(section => sectionButton(section, true))}
+          <div className="my-1 border-t border-slate-100 pt-3" />
         </>
       )}
 
       {/* Group 2 — every page the user can open */}
-      <p className="hidden px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 lg:block">
+      <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
         {lang === 'ar' ? 'الصفحات' : 'Pages'}
       </p>
       {visibleNavItems.map(item => {
@@ -191,9 +209,9 @@ export default function AppRail({ lang, profile, onLogout }: AppRailProps) {
             href={item.path}
             data-tour={`nav-${item.key}`}
             aria-current={active ? 'page' : undefined}
-            className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-start text-xs font-semibold transition-colors lg:w-full ${
-              active ? 'text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-[#0D2137]'
-            }`}
+            className={`flex w-full shrink-0 items-center gap-2 rounded-xl px-3 text-start font-semibold transition-colors ${
+              inDrawer ? 'py-3 text-sm' : 'py-2 text-xs'
+            } ${active ? 'text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-[#0D2137]'}`}
             style={active ? { backgroundColor: primaryColor } : undefined}
           >
             <span className={active ? 'text-white' : 'text-slate-400'}>{ICON_MAP[item.icon]}</span>
@@ -203,8 +221,8 @@ export default function AppRail({ lang, profile, onLogout }: AppRailProps) {
       })}
 
       {/* Progress ring the page published — desktop only */}
-      {rail?.ring && (
-        <div className="hidden border-t border-slate-100 pt-4 lg:mt-3 lg:block">
+      {!inDrawer && rail?.ring && (
+        <div className="mt-3 border-t border-slate-100 pt-4">
           <StatusRing
             progress={rail.ring.progress}
             label={lang === 'ar' ? 'من الهدف' : 'of target'}
@@ -214,8 +232,8 @@ export default function AppRail({ lang, profile, onLogout }: AppRailProps) {
         </div>
       )}
 
-      {/* Profile + logout — desktop only */}
-      <div className="mt-auto hidden pt-3 lg:block">
+      {/* Profile + logout */}
+      <div className="mt-auto pt-3">
         <div className="border-t border-slate-100 pt-3">
           <div
             className={`flex items-center justify-between gap-2 rounded-xl p-2 transition-colors ${
@@ -252,6 +270,43 @@ export default function AppRail({ lang, profile, onLogout }: AppRailProps) {
           </div>
         </div>
       </div>
-    </nav>
+    </>
+  );
+
+  return (
+    <>
+      <nav
+        aria-label={lang === 'ar' ? 'التنقل' : 'Navigation'}
+        className="sticky top-[4.5rem] hidden max-h-[calc(100vh-5.5rem)] w-[220px] shrink-0 flex-col gap-2 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:flex"
+      >
+        {menu(false)}
+      </nav>
+
+      {/* Phones: the page's own sections stay on the page as a row of pills */}
+      {rail && rail.sections.length > 0 && (
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:hidden">
+          {rail.sections.map(section => sectionButton(section, false))}
+        </div>
+      )}
+
+      {/* Phones: the drawer the navbar's ☰ opens, from the reading side */}
+      <div
+        className={`fixed inset-0 z-50 lg:hidden ${menuOpen ? '' : 'pointer-events-none'}`}
+        aria-hidden={!menuOpen}
+      >
+        <div
+          onClick={onCloseMenu}
+          className={`absolute inset-0 bg-slate-900/40 transition-opacity duration-200 ${menuOpen ? 'opacity-100' : 'opacity-0'}`}
+        />
+        <nav
+          aria-label={lang === 'ar' ? 'التنقل' : 'Navigation'}
+          className={`absolute inset-y-0 start-0 flex w-[78vw] max-w-[300px] flex-col gap-1 overflow-y-auto bg-white p-4 shadow-xl transition-transform duration-200 ${
+            menuOpen ? 'translate-x-0' : 'ltr:-translate-x-full rtl:translate-x-full'
+          }`}
+        >
+          {menu(true)}
+        </nav>
+      </div>
+    </>
   );
 }

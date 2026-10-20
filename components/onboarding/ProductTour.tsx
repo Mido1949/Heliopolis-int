@@ -107,6 +107,8 @@ export default function ProductTour() {
     let tries = 0;
     const timer = setInterval(() => {
       const found = find(step.target!);
+      // On a phone the page links sit in the closed drawer; open it.
+      if (!found && tries === 0 && step.target!.includes('nav-')) window.dispatchEvent(new Event('heliomax:menu'));
       if (found) {
         clearInterval(timer);
         setSearching(false);

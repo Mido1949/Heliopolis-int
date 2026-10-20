@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback, useEffect, useState } from 'react';
 import AppRail from './AppRail';
 import Navbar from './Navbar';
 import HelioAgent from '@/components/agent/HelioAgent';
@@ -40,6 +41,15 @@ export default function Shell({ children }: ShellProps) {
     router.refresh();
   };
 
+  // Phones: the page drawer. The tour opens it when it points at a page link.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const openMenu = useCallback(() => setMenuOpen(true), []);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  useEffect(() => {
+    window.addEventListener('heliomax:menu', openMenu);
+    return () => window.removeEventListener('heliomax:menu', openMenu);
+  }, [openMenu]);
+
   const toggleLang = () => {
     toggleLanguage();
   };
@@ -51,12 +61,12 @@ export default function Shell({ children }: ShellProps) {
       <div className="min-h-screen bg-[#F4F6F8] font-sans text-slate-900">
         <NavigationLoader />
 
-        <Navbar lang={lang} onToggleLang={toggleLang} />
+        <Navbar lang={lang} onToggleLang={toggleLang} onOpenMenu={openMenu} />
 
         <main className="min-h-screen pt-16">
           {/* `items-start` is what lets the rail stick while the page scrolls. */}
           <div className="mx-auto flex max-w-[1600px] flex-col gap-5 p-4 md:p-6 lg:flex-row lg:items-start">
-            <AppRail lang={lang} profile={profile} onLogout={handleLogout} />
+            <AppRail lang={lang} profile={profile} onLogout={handleLogout} menuOpen={menuOpen} onCloseMenu={closeMenu} />
 
             <div className="min-w-0 flex-1 overflow-x-hidden">
               <PushPrompt />

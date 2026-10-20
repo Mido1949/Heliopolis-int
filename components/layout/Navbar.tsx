@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { Search, Globe, ChevronDown } from 'lucide-react';
+import { Search, Globe, Menu as MenuIcon } from 'lucide-react';
 import { BellOutlined } from '@ant-design/icons';
 import { NAV_ITEMS } from '@/lib/constants';
 import { Badge, Popover, List, Typography, Button, Spin } from 'antd';
@@ -50,9 +50,11 @@ interface Notification {
 interface NavbarProps {
   lang: 'ar' | 'en';
   onToggleLang: () => void;
+  /** Phones: opens the page drawer. */
+  onOpenMenu?: () => void;
 }
 
-export default function Navbar({ lang, onToggleLang }: NavbarProps) {
+export default function Navbar({ lang, onToggleLang, onOpenMenu }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
@@ -203,7 +205,15 @@ export default function Navbar({ lang, onToggleLang }: NavbarProps) {
 
   return (
     <header className="fixed top-0 start-0 end-0 z-40 h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 md:px-6">
-      <div className="flex items-center gap-2 md:gap-4">
+      <div className="flex min-w-0 items-center gap-2 md:gap-4">
+        {onOpenMenu && <button
+          type="button"
+          onClick={onOpenMenu}
+          aria-label={lang === 'ar' ? 'القائمة' : 'Menu'}
+          className="-ms-1 rounded-lg p-2 text-[#0D2137] hover:bg-slate-100 lg:hidden"
+        >
+          <MenuIcon className="h-6 w-6" />
+        </button>}
         {/* Page Title */}
         <h2 className="text-lg md:text-xl font-bold text-[#0D2137] truncate">
           {pageTitle}
@@ -246,11 +256,6 @@ export default function Navbar({ lang, onToggleLang }: NavbarProps) {
               </Badge>
             </button>
           </Popover>
-          
-          {/* Mobile Profile Dropdown trigger (Optional) */}
-          <button className="md:hidden flex items-center gap-1 text-slate-400">
-            <ChevronDown className="w-4 h-4" />
-          </button>
         </div>
       </div>
     </header>
