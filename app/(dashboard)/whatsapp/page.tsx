@@ -100,10 +100,11 @@ export default function WhatsAppInboxPage() {
     if (!user) return;
     createClient()
       .from('profiles')
-      .select('id, name')
+      .select('id, name, crm_team')
       .order('name')
-      .then(({ data }) => setPeople(((data ?? []) as { id: string; name: string | null }[])
-        .filter((p) => p.name)
+      // Only reps with a CRM team take chats; managers (Mido) never do.
+      .then(({ data }) => setPeople(((data ?? []) as { id: string; name: string | null; crm_team: string | null }[])
+        .filter((p) => p.name && p.crm_team)
         .map((p) => ({ id: p.id, name: p.name as string }))));
   }, [user]);
 
@@ -169,6 +170,22 @@ export default function WhatsAppInboxPage() {
     return c.name.toLowerCase().includes(s) || c.phone.includes(s);
   });
   const current = conversations.find((c) => c.leadId === selected) ?? null;
+
+  // Opened from a lead card before the customer ever wrote: no inbox row yet,
+  // so read the name and number from the lead itself.
+  const [bare, setBare] = useState<{ name: string; phone: string } | null>(null);
+  useEffect(() => {
+    setBare(null);
+    if (!selected || current || rows === null) return;
+    createClient()
+      .from('leads')
+      .select('name, phone_normalized')
+      .eq('id', selected)
+      .maybeSingle()
+      .then(({ data }) => data && setBare({ name: data.name ?? '', phone: data.phone_normalized ?? '' }));
+  }, [selected, current, rows]);
+  const headName = current?.name ?? bare?.name ?? '';
+  const headPhone = current?.phone ?? bare?.phone;
 
   const transfer = async (to: string) => {
     if (!selected) return;
@@ -278,10 +295,10 @@ export default function WhatsAppInboxPage() {
           <>
             <div className="flex items-center gap-3 border-b border-[#E1E7EC] bg-white px-3 py-2.5 md:px-5">
               <button className="text-xl text-[#0D2137] md:hidden" onClick={() => setSelected(null)} aria-label="رجوع">→</button>
-              <Dial name={current?.name ?? ''} msLeft={windowLeft(current?.lastInAt ?? null)} />
+              <Dial name={headName} msLeft={windowLeft(current?.lastInAt ?? null)} />
               <div className="min-w-0">
-                <div className="truncate font-semibold">{current?.name}</div>
-                <div className="hidden text-xs text-[#6B7A88] sm:block" dir="ltr">+{current?.phone}</div>
+                <div className="truncate font-semibold">{headName}</div>
+                {headPhone && <div className="hidden text-xs text-[#6B7A88] sm:block" dir="ltr">+{headPhone}</div>}
               </div>
               <div className="ms-auto flex items-center gap-2">
                 <WindowPill msLeft={windowLeft(current?.lastInAt ?? null)} />

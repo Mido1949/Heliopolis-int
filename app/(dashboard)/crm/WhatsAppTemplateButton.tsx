@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { Dropdown, Tooltip, message } from 'antd';
 import type { MenuProps } from 'antd';
 import { WhatsAppOutlined } from '@ant-design/icons';
@@ -12,21 +13,23 @@ import {
 } from '@/lib/whatsapp';
 
 interface WhatsAppTemplateButtonProps {
-  lead: Pick<Lead, 'name' | 'phone' | 'pipeline_stage'>;
+  lead: Pick<Lead, 'id' | 'name' | 'phone' | 'pipeline_stage'>;
   /** 'icon' = compact icon (kanban card); 'button' = bordered button (drawer). */
   variant?: 'icon' | 'button';
 }
 
 /**
- * Stage-aware WhatsApp action (spec 005 US3). A single tap on the main control
- * opens WhatsApp pre-filled with the lead's current-stage template; the caret
- * opens a picker of all templates (≤ 2 taps to any template). Fully manual —
- * only opens a `wa.me` deep link, never sends on its own.
+ * WhatsApp action on a lead. The main control opens the lead's chat inside the
+ * CRM (/whatsapp), so the reply goes out from the company number and is logged.
+ * The caret still offers the stage templates as a `wa.me` link on the rep's own
+ * phone, for when the 24-hour window is closed. Never sends on its own.
  */
 export default function WhatsAppTemplateButton({ lead, variant = 'icon' }: WhatsAppTemplateButtonProps) {
   const phone = lead.phone || '';
   const stage = (lead.pipeline_stage || 'NEW') as PipelineStage;
   const defaultKey = defaultTemplateKeyForStage(stage);
+  const router = useRouter();
+  const openChat = () => router.push(`/whatsapp?lead=${lead.id}`);
 
   const open = (key: WhatsAppTemplateKey) => {
     const url = buildWhatsAppUrlForTemplate(phone, key, lead);
@@ -46,7 +49,7 @@ export default function WhatsAppTemplateButton({ lead, variant = 'icon' }: Whats
 
   const items: MenuProps['items'] = orderedTemplates.map((t) => ({
     key: t.key,
-    label: t.key === defaultKey ? `${t.labelAr} • المرحلة الحالية` : t.labelAr,
+    label: `📱 ${t.key === defaultKey ? `${t.labelAr} • المرحلة الحالية` : t.labelAr} (من موبايلك)`,
   }));
 
   const menu: MenuProps = {
@@ -65,7 +68,7 @@ export default function WhatsAppTemplateButton({ lead, variant = 'icon' }: Whats
           type="text"
           trigger={['click']}
           menu={menu}
-          onClick={() => open(defaultKey)}
+          onClick={openChat}
           icon={<span style={{ fontSize: 10 }}>▾</span>}
           buttonsRender={([left, right]) => [left, right]}
         >
@@ -77,11 +80,11 @@ export default function WhatsAppTemplateButton({ lead, variant = 'icon' }: Whats
 
   return (
     <span onClick={stop}>
-      <Tooltip title="WhatsApp — رسالة حسب المرحلة">
+      <Tooltip title="افتح الشات في واتساب الـCRM">
         <Dropdown.Button
           trigger={['click']}
           menu={menu}
-          onClick={() => open(defaultKey)}
+          onClick={openChat}
           style={{ width: 'auto' }}
           icon={<span style={{ fontSize: 10 }}>▾</span>}
         >
