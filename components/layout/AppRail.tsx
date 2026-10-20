@@ -178,7 +178,7 @@ export default function AppRail({ lang, profile, onLogout, menuOpen, onCloseMenu
             type="button"
             onClick={onCloseMenu}
             aria-label={lang === 'ar' ? 'اقفل القائمة' : 'Close menu'}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-[#0D2137]"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:text-[#0D2137]"
           >
             <X className="h-5 w-5" />
           </button>
@@ -210,7 +210,7 @@ export default function AppRail({ lang, profile, onLogout, menuOpen, onCloseMenu
             data-tour={`nav-${item.key}`}
             aria-current={active ? 'page' : undefined}
             className={`flex w-full shrink-0 items-center gap-2 rounded-xl px-3 text-start font-semibold transition-colors ${
-              inDrawer ? 'py-3 text-sm' : 'py-2 text-xs'
+              inDrawer ? 'min-h-[52px] gap-3 py-3 text-[16px]' : 'py-2 text-xs'
             } ${active ? 'text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-[#0D2137]'}`}
             style={active ? { backgroundColor: primaryColor } : undefined}
           >
@@ -291,7 +291,7 @@ export default function AppRail({ lang, profile, onLogout, menuOpen, onCloseMenu
 
       {/* Phones: the drawer the navbar's ☰ opens, from the reading side */}
       <div
-        className={`fixed inset-0 z-50 lg:hidden ${menuOpen ? '' : 'pointer-events-none'}`}
+        className={`fixed inset-0 z-50 overflow-hidden transition-[visibility] duration-200 lg:hidden ${menuOpen ? '' : 'invisible pointer-events-none'}`}
         aria-hidden={!menuOpen}
       >
         <div
@@ -300,7 +300,7 @@ export default function AppRail({ lang, profile, onLogout, menuOpen, onCloseMenu
         />
         <nav
           aria-label={lang === 'ar' ? 'التنقل' : 'Navigation'}
-          className={`absolute inset-y-0 start-0 flex w-[78vw] max-w-[300px] flex-col gap-1 overflow-y-auto bg-white p-4 shadow-xl transition-transform duration-200 ${
+          className={`absolute inset-y-0 start-0 flex w-[82vw] max-w-[320px] flex-col gap-1 overflow-y-auto bg-white p-4 shadow-xl transition-transform duration-200 ${
             menuOpen ? 'translate-x-0' : 'ltr:-translate-x-full rtl:translate-x-full'
           }`}
         >

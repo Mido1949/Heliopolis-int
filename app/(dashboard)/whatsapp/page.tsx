@@ -207,19 +207,42 @@ export default function WhatsAppInboxPage() {
     }
   };
 
+  // Phones: an open chat is a screen of its own, so the phone's back button
+  // closes it instead of leaving the inbox.
+  const openChat = (id: string) => {
+    if (window.matchMedia('(max-width: 767px)').matches && !history.state?.waChat) {
+      history.pushState({ ...history.state, waChat: true }, '');
+    }
+    setSelected(id);
+  };
+  const closeChat = () => {
+    if (history.state?.waChat) history.back();
+    else setSelected(null);
+  };
+  // The floating Helio button would sit on the send button of a full-screen chat.
+  useEffect(() => {
+    document.body.classList.toggle('wa-chat-open', !!selected);
+    return () => document.body.classList.remove('wa-chat-open');
+  }, [selected]);
+  useEffect(() => {
+    const onPop = () => { if (!history.state?.waChat) setSelected(null); };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
   const transferOptions = people.filter((p) => p.id !== user?.id).map((p) => ({ value: p.id, label: p.name }));
 
   return (
-    <div className={`${plex.className} flex h-[calc(100vh-4rem)] overflow-hidden rounded-xl border border-[#E1E7EC] bg-white text-[#18232F]`} dir="rtl">
+    <div className={`${plex.className} flex h-[calc(100dvh-6rem)] overflow-hidden rounded-xl md:h-[calc(100vh-4rem)] border border-[#E1E7EC] bg-white text-[#18232F]`} dir="rtl">
       {/* Chat list */}
       <aside data-tour="wa-list" className={`${selected ? 'hidden md:flex' : 'flex'} w-full md:w-[340px] shrink-0 flex-col border-e border-[#E1E7EC]`}>
         <div className="space-y-3 px-4 pb-3 pt-4">
-          <h1 className="text-xl font-bold text-[#0D2137]">واتساب</h1>
+          <h1 className="hidden text-xl font-bold text-[#0D2137] md:block">واتساب</h1>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="دوّر باسم أو رقم"
-            className="w-full rounded-lg border border-[#E1E7EC] bg-[#F3F6F8] px-3 py-2 text-sm outline-none focus:border-[#1B3A5C]"
+            className="w-full rounded-xl border border-[#E1E7EC] bg-[#F3F6F8] px-3 py-2.5 text-[16px] outline-none focus:border-[#1B3A5C] md:rounded-lg md:py-2 md:text-sm"
           />
           <div role="tablist" className="flex gap-1 rounded-lg bg-[#F3F6F8] p-1">
             {([
@@ -232,7 +255,7 @@ export default function WhatsAppInboxPage() {
                 role="tab"
                 aria-selected={tab === key}
                 onClick={() => setTab(key)}
-                className={`flex-1 rounded-md py-1.5 text-[13px] ${tab === key ? 'bg-white font-semibold text-[#0D2137] shadow-sm' : 'text-[#6B7A88]'}`}
+                className={`flex-1 rounded-md py-2 text-[14px] md:py-1.5 md:text-[13px] ${tab === key ? 'bg-white font-semibold text-[#0D2137] shadow-sm' : 'text-[#6B7A88]'}`}
               >
                 {label}
                 {key === 'waiting' && waitingCount > 0 && (
@@ -255,15 +278,15 @@ export default function WhatsAppInboxPage() {
                 <button
                   data-tour="wa-chat"
                   key={c.leadId}
-                  onClick={() => setSelected(c.leadId)}
-                  className={`flex w-full items-center gap-3 border-b border-[#F0F3F6] px-4 py-2.5 text-right hover:bg-[#F8FAFB] ${
+                  onClick={() => openChat(c.leadId)}
+                  className={`flex w-full items-center gap-3 border-b border-[#F0F3F6] px-4 py-3 text-right hover:bg-[#F8FAFB] md:py-2.5 ${
                     selected === c.leadId ? 'bg-[#EEF4FA] shadow-[inset_-3px_0_0_#0D2137]' : ''
                   }`}
                 >
                   <Dial name={c.name} msLeft={windowLeft(c.lastInAt)} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className={`truncate ${waiting ? 'font-semibold' : 'font-medium'}`}>{c.name}</span>
+                      <span className={`truncate text-[16px] md:text-sm ${waiting ? 'font-semibold' : 'font-medium'}`}>{c.name}</span>
                       {waiting ? (
                         <span className="shrink-0 text-[11px] font-semibold text-[#C9423A]">مستني {age(c.last.sent_at)}</span>
                       ) : (
@@ -271,7 +294,7 @@ export default function WhatsAppInboxPage() {
                       )}
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-[12.5px] text-[#6B7A88]">
+                      <span className="truncate text-[14px] text-[#6B7A88] md:text-[12.5px]">
                         {c.last.direction === 'out' ? 'إنت: ' : ''}{c.last.body ?? '—'}
                       </span>
                       {owner ? (
@@ -289,21 +312,21 @@ export default function WhatsAppInboxPage() {
       </aside>
 
       {/* Thread */}
-      <section className={`${selected ? 'flex' : 'hidden md:flex'} min-h-0 flex-1 flex-col bg-[#EAF0F4]`}>
+      <section className={`${selected ? 'fixed inset-0 z-[60] flex md:static md:z-auto' : 'hidden md:flex'} min-h-0 flex-1 flex-col bg-[#EAF0F4]`}>
         {selected ? (
           <>
-            <div className="flex items-center gap-3 border-b border-[#E1E7EC] bg-white px-3 py-2.5 md:px-5">
-              <button className="text-xl text-[#0D2137] md:hidden" onClick={() => setSelected(null)} aria-label="رجوع">→</button>
+            <div className="flex items-center gap-2 border-b border-[#E1E7EC] bg-[#0D2137] px-2 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] text-white md:gap-3 md:bg-white md:px-5 md:pt-2.5 md:text-inherit">
+              <button className="flex h-11 w-11 shrink-0 items-center justify-center text-2xl md:hidden" onClick={closeChat} aria-label="رجوع">→</button>
               <Dial name={headName} msLeft={windowLeft(current?.lastInAt ?? null)} />
               <div className="min-w-0">
-                <div className="truncate font-semibold">{headName}</div>
-                {headPhone && <div className="hidden text-xs text-[#6B7A88] sm:block" dir="ltr">+{headPhone}</div>}
+                <div className="truncate text-[16px] font-semibold md:text-sm">{headName}</div>
+                {headPhone && <div className="text-xs text-white/75 md:text-[#6B7A88]" dir="ltr">+{headPhone}</div>}
               </div>
               <div className="ms-auto flex items-center gap-2">
                 <WindowPill msLeft={windowLeft(current?.lastInAt ?? null)} />
                 <Select
                   data-tour="wa-transfer"
-                  className="w-32 xl:hidden"
+                  className="w-28 md:w-32 xl:hidden"
                   placeholder="تحويل لـ"
                   value={null}
                   loading={transferring}

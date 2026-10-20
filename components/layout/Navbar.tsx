@@ -210,9 +210,9 @@ export default function Navbar({ lang, onToggleLang, onOpenMenu }: NavbarProps) 
           type="button"
           onClick={onOpenMenu}
           aria-label={lang === 'ar' ? 'القائمة' : 'Menu'}
-          className="-ms-1 rounded-lg p-2 text-[#0D2137] hover:bg-slate-100 lg:hidden"
+          className="-ms-1 flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl bg-slate-100 text-[#0D2137] active:bg-slate-200 lg:hidden"
         >
-          <MenuIcon className="h-6 w-6" />
+          <MenuIcon className="h-7 w-7" />
         </button>}
         {/* Page Title */}
         <h2 className="text-lg md:text-xl font-bold text-[#0D2137] truncate">

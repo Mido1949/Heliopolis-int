@@ -24,6 +24,13 @@
   box-sizing: border-box;
 }
 
+/* Nothing may widen the page past the phone screen, or the browser zooms the
+   whole app out to fit it. `clip` (not `hidden`) keeps the sticky rail working. */
+html,
+body {
+  overflow-x: clip;
+}
+
 body {
   color: var(--text-primary);
   background: var(--bg);
@@ -77,5 +84,12 @@ html[dir="rtl"] {
 @layer utilities {
   .transition-sidebar {
     transition: width 0.3s ease, margin 0.3s ease;
+  }
+}
+
+/* Phones: a WhatsApp chat fills the screen; Helio steps aside (whatsapp/page.tsx). */
+@media (max-width: 767px) {
+  body.wa-chat-open .helio-fab {
+    display: none !important;
   }
 }

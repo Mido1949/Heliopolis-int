@@ -472,6 +472,7 @@ export default function HelioAgent() {
 
       {/* Avatar container — fixed bottom corner */}
       <div
+        className="helio-fab"
         style={{
           position: 'fixed',
           bottom: 24,

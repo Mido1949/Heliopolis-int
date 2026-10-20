@@ -243,7 +243,7 @@ ${q.text}` : q.text ?? ''));
                 )}
                 <div id={`wa-${r.wamid}`} className={`group flex ${ours ? 'justify-start' : 'justify-end'}`}>
                   <div
-                    className={`relative max-w-[85%] md:max-w-[62%] rounded-xl px-2.5 pb-1 pt-1.5 text-sm leading-relaxed shadow-[0_1px_1px_rgba(13,33,55,.06)] ${
+                    className={`relative max-w-[85%] md:max-w-[62%] rounded-xl px-2.5 pb-1 pt-1.5 text-[15px] leading-relaxed md:text-sm shadow-[0_1px_1px_rgba(13,33,55,.06)] ${
                       ours ? 'bg-[#E4EEF7] rounded-ss-sm' : 'bg-white rounded-se-sm'
                     } ${flash === r.wamid ? 'ring-2 ring-[#B8913A]' : ''}`}
                     onDoubleClick={() => open && startReply(r)}
@@ -269,7 +269,7 @@ ${q.text}` : q.text ?? ''));
         <div ref={bottom} />
       </div>
 
-      <div className={fill ? 'border-t border-[#E1E7EC] bg-white px-3 py-2' : 'space-y-1'}>
+      <div className={fill ? 'border-t border-[#E1E7EC] bg-white px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]' : 'space-y-1'}>
         {open ? (
           <div className="space-y-1">
             <div className="flex gap-1.5 overflow-x-auto pb-1">
@@ -279,7 +279,7 @@ ${q.text}` : q.text ?? ''));
                   type="button"
                   onClick={() => quick(q)}
                   disabled={sending}
-                  className="shrink-0 rounded-full border border-[#E1E7EC] bg-[#F3F6F8] px-3 py-1 text-xs text-[#1B3A5C] hover:border-[#1B3A5C] disabled:opacity-50"
+                  className="shrink-0 rounded-full border border-[#E1E7EC] bg-[#F3F6F8] px-3.5 py-1.5 text-[14px] text-[#1B3A5C] hover:border-[#1B3A5C] disabled:opacity-50 md:px-3 md:py-1 md:text-xs"
                 >
                   {q.label}
                 </button>
@@ -328,6 +328,7 @@ ${q.text}` : q.text ?? ''));
                 autoSize={{ minRows: 1, maxRows: 5 }}
                 placeholder={file ? 'تعليق على الملف (اختياري)…' : 'اكتب رسالة'}
                 disabled={sending}
+                className="!text-[16px] md:!text-sm"
                 style={{ borderRadius: 18 }}
               />
               <Button
