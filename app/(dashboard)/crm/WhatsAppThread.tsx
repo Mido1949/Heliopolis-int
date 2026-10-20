@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, Dropdown, Empty, Image, Input, Modal, Spin, Switch, Tag, Typography, message } from 'antd';
+import { Button, Dropdown, Empty, Image, Input, Modal, Spin, Switch, Typography, message } from 'antd';
 import {
   PaperClipOutlined, CloseOutlined, SendOutlined, DownOutlined, FileOutlined, DownloadOutlined,
   CaretRightFilled, PauseOutlined,
@@ -30,6 +30,18 @@ interface WaMessage {
 }
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
+const WEBSITE = 'https://heliomax.co/ar/eg';
+
+// Buttons above the reply box. A text one fills the box so the rep can adjust
+// it before sending; a preset one sends a fixed file (see PRESETS in
+// /api/whatsapp/send).
+const QUICK: { label: string; text?: string; preset?: string }[] = [
+  { label: 'حجز معاينة', text: 'يسعدنا نحدد لحضرتك معاد معاينة مجانية في الموقع. ممكن تبعتلنا العنوان واليوم والوقت اللي يناسبك؟' },
+  { label: 'ابعت الكتالوج', preset: 'catalog' },
+  { label: 'طلب رقم للمكالمة', text: 'ممكن رقم تليفون حضرتك والوقت المناسب، عشان مهندس من عندنا يكلمك ويشرحلك كل التفاصيل؟' },
+  { label: '🎤 فويس الشرح', preset: 'explainer' },
+  { label: '🔗 لينك الويبسايت', text: `تقدر تشوف أنظمتنا ومشاريعنا على الويبسايت: ${WEBSITE}` },
+];
 // WhatsApp takes videos and voice notes up to 16 MB and documents up to 100 MB;
 // 16 MB keeps the server hop quick.
 const MAX_FILE = 16 * 1024 * 1024;
@@ -116,6 +128,35 @@ export default function WhatsAppThread({ leadId, fill = false }: { leadId: strin
     setTimeout(() => setFlash(null), 1500);
   };
 
+  const sendPreset = async (preset: string) => {
+    setSending(true);
+    try {
+      const res = await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId, preset }),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        message.error(out.message ?? out.error ?? 'الرسالة متبعتتش');
+        return;
+      }
+      load();
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const quick = (q: (typeof QUICK)[number]) => {
+    if (q.preset) {
+      sendPreset(q.preset);
+      return;
+    }
+    setText((t) => (t.trim() ? `${t.trim()}
+${q.text}` : q.text ?? ''));
+    box.current?.focus();
+  };
+
   const send = async () => {
     const body = text.trim();
     if (!body && !file) return;
@@ -174,13 +215,17 @@ export default function WhatsAppThread({ leadId, fill = false }: { leadId: strin
       <div className={fill ? 'space-y-2 px-3 pt-2 empty:hidden' : 'space-y-2'}>
         <BotSwitch leadId={leadId} />
         {ad && (
-          <div className="p-2 rounded-lg bg-blue-50 border border-blue-100 text-xs">
-            <Tag color="blue">من إعلان</Tag> {ad.headline ?? ad.source_url ?? 'Click-to-WhatsApp'}
+          <div className="overflow-hidden rounded-xl border border-[#E1E7EC] bg-white text-xs">
+            <div className="h-1.5 bg-gradient-to-l from-[#0D2137] to-[#B8913A]" />
+            <div className="px-3 py-2">
+              <b className="block text-[#0D2137]">جاي من إعلان: {ad.headline ?? 'Click-to-WhatsApp'}</b>
+              {ad.source_url && <a href={ad.source_url} target="_blank" rel="noreferrer" className="text-[#6B7A88] underline">افتح الإعلان</a>}
+            </div>
           </div>
         )}
       </div>
 
-      <div className={`flex flex-col gap-1 overflow-y-auto bg-[#efeae2] px-3 py-2 ${fill ? 'flex-1 min-h-0' : 'max-h-[55vh] rounded-lg'}`}>
+      <div className={`flex flex-col gap-1 overflow-y-auto bg-[#EAF0F4] px-3 py-3 md:px-[6%] ${fill ? 'flex-1 min-h-0' : 'max-h-[55vh] rounded-lg'}`}>
         {rows.length === 0 ? (
           <Empty className="m-auto" description="لا توجد رسائل واتساب لهذا الليد بعد" />
         ) : (
@@ -192,19 +237,19 @@ export default function WhatsAppThread({ leadId, fill = false }: { leadId: strin
               <div key={r.id}>
                 {newDay && (
                   <div className="my-2 flex justify-center">
-                    <span className="rounded-lg bg-white/90 px-3 py-1 text-[11px] text-gray-600 shadow-sm">{dayLabel(r.sent_at)}</span>
+                    <span className="rounded-lg bg-white px-3 py-1 text-[11px] text-[#6B7A88]">{dayLabel(r.sent_at)}</span>
                   </div>
                 )}
                 <div id={`wa-${r.wamid}`} className={`group flex ${ours ? 'justify-start' : 'justify-end'}`}>
                   <div
-                    className={`relative max-w-[85%] md:max-w-[65%] rounded-lg px-2 pb-1 pt-1.5 text-sm shadow-sm ${
-                      ours ? 'bg-[#d9fdd3] rounded-ss-none' : 'bg-white rounded-se-none'
-                    } ${flash === r.wamid ? 'ring-2 ring-[#25D366]' : ''}`}
+                    className={`relative max-w-[85%] md:max-w-[62%] rounded-xl px-2.5 pb-1 pt-1.5 text-sm leading-relaxed shadow-[0_1px_1px_rgba(13,33,55,.06)] ${
+                      ours ? 'bg-[#E4EEF7] rounded-ss-sm' : 'bg-white rounded-se-sm'
+                    } ${flash === r.wamid ? 'ring-2 ring-[#B8913A]' : ''}`}
                     onDoubleClick={() => open && startReply(r)}
                   >
                     <MessageMenu m={r} canReply={open} onReply={() => startReply(r)} onForward={() => setForwarding(r)} />
                     {ours && r.origin === 'api' && (
-                      <div className="mb-0.5 pe-4 text-[11px] font-semibold text-[#1f7aec]">{r.is_bot ? '🤖 البوت' : r.sender?.name ?? 'الـ CRM'}</div>
+                      <div className="mb-0.5 pe-4 text-[11px] font-semibold text-[#1B3A5C]">{r.is_bot ? '🤖 البوت' : r.sender?.name ?? 'الـ CRM'}</div>
                     )}
                     {r.ctx?.id && <Quote m={quoted} onClick={quoted ? () => jumpTo(quoted.wamid) : undefined} />}
                     {r.media_id ? <Media m={r} /> : <div className="whitespace-pre-wrap break-words pe-4 ps-1">{r.body ?? '—'}</div>}
@@ -223,9 +268,22 @@ export default function WhatsAppThread({ leadId, fill = false }: { leadId: strin
         <div ref={bottom} />
       </div>
 
-      <div className={fill ? 'border-t bg-[#f0f2f5] px-3 py-2' : 'space-y-1'}>
+      <div className={fill ? 'border-t border-[#E1E7EC] bg-white px-3 py-2' : 'space-y-1'}>
         {open ? (
           <div className="space-y-1">
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
+              {QUICK.map((q) => (
+                <button
+                  key={q.label}
+                  type="button"
+                  onClick={() => quick(q)}
+                  disabled={sending}
+                  className="shrink-0 rounded-full border border-[#E1E7EC] bg-[#F3F6F8] px-3 py-1 text-xs text-[#1B3A5C] hover:border-[#1B3A5C] disabled:opacity-50"
+                >
+                  {q.label}
+                </button>
+              ))}
+            </div>
             {replyTo && (
               <div className="flex items-start gap-2 rounded-lg bg-white p-1">
                 <div className="min-w-0 flex-1"><Quote m={replyTo} /></div>
@@ -278,7 +336,7 @@ export default function WhatsAppThread({ leadId, fill = false }: { leadId: strin
                 onClick={send}
                 loading={sending}
                 disabled={!text.trim() && !file}
-                style={{ background: '#25D366', borderColor: '#25D366' }}
+                style={{ background: '#0D2137', borderColor: '#0D2137' }}
                 title="إرسال (Enter)"
               />
             </div>

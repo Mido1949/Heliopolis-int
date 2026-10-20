@@ -15,6 +15,12 @@ const BUCKET = 'wa-media';
 const IMAGE_TYPES = ['image/jpeg', 'image/png'];
 const VIDEO_TYPES = ['video/mp4', 'video/3gpp'];
 const AUDIO_TYPES = ['audio/aac', 'audio/mp4', 'audio/mpeg', 'audio/amr', 'audio/ogg'];
+// Fixed files the quick-reply buttons send. Kept in the wa-media bucket under
+// presets/; replace a file there to change what every rep sends.
+const PRESETS: Record<string, { key: string; name: string; type: string }> = {
+  explainer: { key: 'presets/explainer.ogg', name: 'شرح هليوماكس.ogg', type: 'audio/ogg' },
+  catalog: { key: 'presets/catalog.pdf', name: 'HelioMax catalog.pdf', type: 'application/pdf' },
+};
 const LABELS: Record<string, string> = { image: '📷 صورة', video: '🎬 فيديو', document: '📄 ملف', audio: '🎤 رسالة صوتية' };
 
 function kindOf(type: string, size: number): 'image' | 'video' | 'audio' | 'document' {
@@ -25,7 +31,7 @@ function kindOf(type: string, size: number): 'image' | 'video' | 'audio' | 'docu
 }
 
 /**
- * POST { leadId, text, file?, replyTo?, forwardOf? } — a rep replies to a lead
+ * POST { leadId, text, file?, replyTo?, forwardOf?, preset? } — a rep replies to a lead
  * from the CRM. file = { path, name, type } of an upload made through
  * /api/whatsapp/upload-url; text then becomes its caption. replyTo is the
  * wamid of a message in this chat, shown quoted on the customer's phone.
@@ -51,6 +57,7 @@ export async function POST(request: Request) {
     file?: { path?: string; name?: string; type?: string };
     replyTo?: string;
     forwardOf?: string;
+    preset?: string;
   };
   try {
     body = await request.json();
@@ -79,7 +86,10 @@ export async function POST(request: Request) {
     }
   }
 
-  if (!body.leadId || (!text && !file?.path && !forwarded)) return NextResponse.json({ error: 'leadId و text أو ملف مطلوبين' }, { status: 400 });
+  const preset = body.preset ? PRESETS[body.preset] ?? null : null;
+  if (body.preset && !preset) return NextResponse.json({ error: 'رد جاهز غير معروف' }, { status: 400 });
+
+  if (!body.leadId || (!text && !file?.path && !forwarded && !preset)) return NextResponse.json({ error: 'leadId و text أو ملف مطلوبين' }, { status: 400 });
   // A rep may only send what they uploaded themselves.
   if (file?.path && !file.path.startsWith(`outgoing/${user.id}/`)) {
     return NextResponse.json({ error: 'ملف غير صالح' }, { status: 400 });
@@ -116,14 +126,17 @@ export async function POST(request: Request) {
   let payload: Record<string, unknown> = { body: text };
   let mediaId: string | null = null;
   let blob: Blob | null = null;
-  const source = forwarded ?? (file?.path ? { key: file.path, name: file.name || 'file', type: file.type || '' } : null);
+  const source = forwarded ?? preset ?? (file?.path ? { key: file.path, name: file.name || 'file', type: file.type || '' } : null);
   if (source) {
     let { data: stored } = await admin.storage.from(BUCKET).download(source.key);
     // An old forwarded file may not be cached yet; copy it from Meta once.
     if (!stored && forwarded && (await cacheMedia(forwarded.key, forwarded.type)).ok) {
       ({ data: stored } = await admin.storage.from(BUCKET).download(source.key));
     }
-    if (!stored) return NextResponse.json({ error: forwarded ? 'الملف الأصلي مش متاح' : 'الملف مترفعش، جرّب تاني' }, { status: 400 });
+    if (!stored) {
+      const error = preset ? 'الملف ده لسه متسجلش في الردود الجاهزة' : forwarded ? 'الملف الأصلي مش متاح' : 'الملف مترفعش، جرّب تاني';
+      return NextResponse.json({ error }, { status: 400 });
+    }
     const type = source.type || stored.type || 'application/octet-stream';
     blob = new Blob([await stored.arrayBuffer()], { type });
     msgType = kindOf(type, blob.size);
