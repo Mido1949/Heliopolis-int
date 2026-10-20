@@ -33,6 +33,7 @@
     "libphonenumber-js": "^1.13.8",
     "lucide-react": "^0.474.0",
     "next": "14.2.35",
+    "nodemailer": "^6.9.16",
     "papaparse": "^5.5.3",
     "react": "^18",
     "react-dom": "^18",
@@ -46,6 +47,7 @@
   },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/nodemailer": "^6.4.17",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^18",
     "@types/react-dom": "^18",

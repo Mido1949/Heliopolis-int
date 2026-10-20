@@ -5,6 +5,8 @@
   "crons": [
     { "path": "/api/reports/personal/cron",    "schedule": "0 13 * * *" },
     { "path": "/api/reports/company/cron",      "schedule": "0 13 * * *" },
+    { "path": "/api/reports/crm-daily/cron?slot=dst",    "schedule": "0 14 * * *" },
+    { "path": "/api/reports/crm-daily/cron?slot=winter", "schedule": "0 15 * * *" },
     { "path": "/api/reports/stuck-leads/cron",  "schedule": "0 6 * * *" },
     { "path": "/api/agent/brain/cron",          "schedule": "0 8 * * *" },
     { "path": "/api/scraper/cron",              "schedule": "0 6 * * 6" }
