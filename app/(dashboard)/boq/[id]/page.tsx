@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import UploadedQuotes from "@/components/boq/UploadedQuotes";
 import { BOQEditor } from "@/components/boq/BOQEditor";
 import type { CustomColumn } from "@/components/boq/BOQEditor";
 import { BOQSummary } from "@/components/boq/BOQSummary";
@@ -199,24 +200,40 @@ export default function BOQPage({ params }: { params: { id: string } }) {
     fetchData();
   }, [supabase]);
 
+  // Opened from a lead: attach to it. The picker only loads 500 leads by
+  // name, so a lead outside that page is fetched on its own; otherwise saving
+  // would create a duplicate lead.
   useEffect(() => {
-    if (leadId && customers.length > 0) {
-      const c = customers.find((x) => x.id === leadId);
-      if (c) {
-        setSelectedCustomer(leadId);
-        setCustomerInfo({
-          name: c.name,
-          phone: c.phone || "",
-          address: c.company || c.region || "",
-        });
-        setActiveTab("new");
-      }
+    if (!leadId) return;
+    const pick = (c: Pick<Lead, "id" | "name" | "phone" | "company" | "region">) => {
+      setSelectedCustomer(c.id);
+      setCustomerInfo({
+        name: c.name,
+        phone: c.phone || "",
+        address: c.company || c.region || "",
+      });
+      setActiveTab("new");
+    };
+    const c = customers.find((x) => x.id === leadId);
+    if (c) {
+      pick(c);
+      return;
     }
-  }, [leadId, customers]);
+    supabase
+      .from("leads")
+      .select("id, name, phone, company, region")
+      .eq("id", leadId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        setCustomers((prev) => (prev.some((x) => x.id === data.id) ? prev : [data as unknown as Lead, ...prev]));
+        pick(data as unknown as Lead);
+      });
+  }, [leadId, customers, supabase]);
 
   useEffect(() => {
     async function fetchSpecificBOQ() {
-      if (!boqIdParam) return;
+      if (!boqIdParam || boqIdParam === "new") return;
       const { data: boq } = await supabase
         .from("boqs")
         .select("*")
@@ -575,6 +592,7 @@ export default function BOQPage({ params }: { params: { id: string } }) {
             </button>
           </div>
           <div className="flex-1 overflow-auto">
+            <UploadedQuotes />
             <table className="w-full text-left text-sm border-collapse">
               <thead className="bg-gray-50/50 sticky top-0 border-b">
                 <tr>

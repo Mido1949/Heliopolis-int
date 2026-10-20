@@ -14,6 +14,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
 import WhatsAppTemplateButton from './WhatsAppTemplateButton';
 import WhatsAppThread from './WhatsAppThread';
+import LeadFiles from './LeadFiles';
+import { listLeadFiles } from '@/lib/lead-files';
 import dayjs from 'dayjs';
 import dynamic from 'next/dynamic';
 
@@ -61,6 +63,12 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
   const [form] = Form.useForm();
   const { user, isStaff } = useAuth();
   const { currentOrgId } = useOrg();
+  const [fileCount, setFileCount] = useState(0);
+  // The tab label needs the count before the tab is ever opened.
+  useEffect(() => {
+    if (!lead?.id) return;
+    listLeadFiles(lead.id).then((f) => setFileCount(f.length));
+  }, [lead?.id]);
   const supabase = createClient();
   const [assignTeam, setAssignTeam] = useState<string | undefined>();
   const [assignUser, setAssignUser] = useState<string | undefined>();
@@ -903,12 +911,13 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
           },
           {
             key: '2',
-            label: `المقايسات (${boqs.length})`,
+            label: `المقايسات (${boqs.length + fileCount})`,
             children: (
               <div className="space-y-3">
+                <LeadFiles leadId={lead.id} orgId={lead.org_id ?? currentOrgId} onCount={setFileCount} />
                 {loadingBoqs ? (
                   <Text type="secondary" className="block text-center py-4 italic">جارٍ التحميل...</Text>
-                ) : boqs.length === 0 ? (
+                ) : boqs.length === 0 ? (fileCount > 0 ? null :
                   <div className="text-center py-4 bg-gray-50 rounded-lg">
                     <Text type="secondary" className="block mb-2">لا توجد مقايسات مرتبطة</Text>
                     <Link href={`/boq?leadId=${lead.id}`}>

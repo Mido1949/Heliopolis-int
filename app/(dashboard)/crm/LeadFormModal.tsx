@@ -11,6 +11,7 @@ import { normalizePhone } from '@/lib/phone';
 import type { Lead } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
+import { uploadLeadFile } from '@/lib/lead-files';
 import dayjs from 'dayjs';
 
 const { TextArea } = Input;
@@ -31,7 +32,7 @@ interface LeadFormModalProps {
 
 export default function LeadFormModal({ open, lead, onClose, onSaved, defaultRegion, defaultCountry }: LeadFormModalProps) {
   const { user } = useAuth();
-  const { currentOrgId } = useOrg();
+  const { currentOrgId, currentOrgSlug } = useOrg();
   const [form] = Form.useForm();
   const supabase = createClient();
   const isEdit = !!lead;
@@ -86,6 +87,23 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
     }
   }, [open, lead, form, defaultRegion]);
 
+  // Attachments (usually a quote PDF) go on the lead's المقايسات tab. They
+  // used to be sent only on create, without the lead id, and silently lost.
+  const uploadAttachments = async (leadId: string) => {
+    const files = fileList.map((f) => f.originFileObj as File | undefined).filter(Boolean) as File[];
+    if (!files.length || !user || !currentOrgId || !currentOrgSlug) return;
+    let failed = 0;
+    for (const file of files) {
+      try {
+        await uploadLeadFile(file, { leadId, orgId: currentOrgId, orgSlug: currentOrgSlug, userId: user.id });
+      } catch {
+        failed++;
+      }
+    }
+    setFileList([]);
+    if (failed) message.error(`${failed} ملف ماترفعش، جرّب ترفعه من تبويب المقايسات`);
+  };
+
   const handleSubmit = async () => {
     if (submitLock.current) return;
     submitLock.current = true;
@@ -116,6 +134,7 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
           changes: Object.keys(values).filter(k => values[k] !== lead![k as keyof Lead])
         });
 
+        await uploadAttachments(lead!.id);
         message.success('تم تحديث العميل بنجاح (Lead updated)');
       } else {
         const { data, error } = await supabase
@@ -134,16 +153,7 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
         // Non-blocking activity log
         if (data) {
           logLeadActivity(data.id, 'creation');
-          // Upload attachments after insert
-          if (fileList.length) {
-            for (const f of fileList) {
-              if (f.originFileObj) {
-                const fd = new FormData();
-                fd.append('file', f.originFileObj as File);
-                await fetch('/api/files/upload', { method: 'POST', body: fd });
-              }
-            }
-          }
+          await uploadAttachments(data.id);
         }
 
         message.success('تم إضافة العميل بنجاح (Lead created)');
