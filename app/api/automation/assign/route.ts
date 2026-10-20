@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Compute new stage
-  const newStage: PipelineStage = body.to_team === 'tech' ? 'INTERESTED' : 'NEGOTIATION';
+  const newStage: PipelineStage = body.to_team === 'tech' ? 'NEW' : 'NEGOTIATION';
   const now = new Date().toISOString();
 
   // Fetch current lead for stage_timestamps merge

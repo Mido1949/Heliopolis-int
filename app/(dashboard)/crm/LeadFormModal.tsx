@@ -103,6 +103,7 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
       }
     }
     setFileList([]);
+    if (failed < files.length) message.success('المقايسة اترفعت، والعميل اتنقل لمرحلة «تم عمل عرض السعر»', 5);
     // Show the real reason; app_errors logs the toast, so it reaches us too.
     if (failed) message.error(`${failed} ملف ماترفعش (${reason})`);
   };

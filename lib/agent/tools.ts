@@ -122,7 +122,7 @@ export function toolsForRole(role: string): ToolDefinition[] {
       input_schema: {
         type: 'object',
         properties: {
-          stage: { type: 'string', description: 'مرحلة البايبلاين (NEW, WELCOME_SENT, NO_RESPONSE, INTERESTED, PRICING, QUOTED, NEGOTIATION, WON, LOST, POSTPONED)' },
+          stage: { type: 'string', description: 'مرحلة البايبلاين (NEW, QUOTED, NEGOTIATION, WON, LOST)' },
           assigned_to_name: { type: 'string', description: 'اسم المستخدم المسؤول عن الليد' },
           stuck_only: { type: 'boolean', description: 'ليدة واقفة فقط (آخر تواصل من 3 أيام أو أكثر)' },
           search: { type: 'string', description: 'نص للبحث في الاسم أو الشركة' },
@@ -453,7 +453,7 @@ async function assignLead(input: Record<string, unknown>, ctx: ToolContext): Pro
     targetUserId = users[0].id;
   }
 
-  const newStage: PipelineStage = toTeam === 'tech' ? 'INTERESTED' : 'NEGOTIATION';
+  const newStage: PipelineStage = toTeam === 'tech' ? 'NEW' : 'NEGOTIATION';
   const now = new Date().toISOString();
 
   const { error: updateErr } = await ctx.callerClient

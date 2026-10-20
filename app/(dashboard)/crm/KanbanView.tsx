@@ -210,7 +210,7 @@ export default function KanbanView({ search, country, restrictToUserId, onLeadCl
   const zones = PIPELINE_ZONES.map((z) => ({
     ...z,
     stages: PIPELINE_STAGES.filter((s) => s.zone === z.value),
-  }));
+  })).filter((z) => z.stages.length > 0);
 
   const columns = PIPELINE_STAGES.map((s) => {
     const items = stageLeads[s.value] || [];

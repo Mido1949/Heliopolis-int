@@ -32,7 +32,7 @@ export default function LeadFiles({ leadId, orgId, onCount }: { leadId: string; 
       for (const f of Array.from(picked)) {
         await uploadLeadFile(f, { leadId, orgId: org, orgSlug: currentOrgSlug, userId: user.id });
       }
-      message.success('اترفع على العميل');
+      message.success('اترفع على العميل، واتنقل لمرحلة «تم عمل عرض السعر»', 5);
       await load();
     } catch (e) {
       message.error(e instanceof Error ? e.message : 'الرفع فشل');

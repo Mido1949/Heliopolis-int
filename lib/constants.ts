@@ -66,27 +66,27 @@ export const PIPELINE_ZONES = [
   { value: 'sales', labelAr: 'المبيعات',      color: '#D72B2B' },
 ] as const;
 
-// Unified Pipeline (10 stages — replaces legacy `status`)
+// Pipeline — 5 stages since 2026-10-20 (Mido): a lead is NEW on arrival,
+// QUOTED as soon as a quote is made for it (a DB trigger moves it), then
+// NEGOTIATION, then WON or LOST. The other stage values (WELCOME_SENT,
+// NO_RESPONSE, INTERESTED, PRICING, POSTPONED) stay valid in the type and the
+// DB check so old writers can't fail silently, but no lead sits in them and
+// the UI no longer offers them.
 export const PIPELINE_STAGES = [
-  { value: 'NEW',          labelAr: 'جديد',                  emoji: '🆕', zone: 'tech',  color: '#1890FF' },
-  { value: 'WELCOME_SENT', labelAr: 'تم الترحيب',            emoji: '👋', zone: 'tech',  color: '#13C2C2' },
-  { value: 'NO_RESPONSE',  labelAr: 'لم يرد',                emoji: '📵', zone: 'cs',    color: '#8C8C8C' },
-  { value: 'INTERESTED',   labelAr: 'مهتم / عنده مشروع',     emoji: '🔥', zone: 'tech',  color: '#FA8C16' },
-  { value: 'PRICING',      labelAr: 'جاري التسعير',          emoji: '🧮', zone: 'tech',  color: '#722ED1' },
-  { value: 'QUOTED',       labelAr: 'تم إرسال العرض',        emoji: '📤', zone: 'sales', color: '#2F54EB' },
-  { value: 'NEGOTIATION',  labelAr: 'متابعة السيلز / تفاوض', emoji: '🤝', zone: 'sales', color: '#FAAD14' },
-  { value: 'WON',          labelAr: 'تم البيع',              emoji: '✅', zone: 'sales', color: '#52C41A' },
-  { value: 'LOST',         labelAr: 'خسارة',                 emoji: '❌', zone: 'sales', color: '#FF4D4F' },
-  { value: 'POSTPONED',    labelAr: 'مؤجل',                  emoji: '⏸️', zone: 'sales', color: '#EB2F96' },
+  { value: 'NEW',          labelAr: 'جديد',                emoji: '🆕', zone: 'tech',  color: '#1890FF' },
+  { value: 'QUOTED',       labelAr: 'تم عمل عرض السعر',    emoji: '📤', zone: 'tech',  color: '#2F54EB' },
+  { value: 'NEGOTIATION',  labelAr: 'تفاوض',               emoji: '🤝', zone: 'sales', color: '#FAAD14' },
+  { value: 'WON',          labelAr: 'مكسب',                emoji: '✅', zone: 'sales', color: '#52C41A' },
+  { value: 'LOST',         labelAr: 'خسارة',               emoji: '❌', zone: 'sales', color: '#FF4D4F' },
 ] as const;
 
 export const ACTIVE_PIPELINE_STAGES: ReadonlyArray<typeof PIPELINE_STAGES[number]['value']> = [
-  'NEW', 'WELCOME_SENT', 'NO_RESPONSE', 'INTERESTED', 'PRICING', 'QUOTED', 'NEGOTIATION',
+  'NEW', 'QUOTED', 'NEGOTIATION',
 ];
 
 // Terminal stages carry no SLA urgency (deal is closed one way or another).
 export const TERMINAL_PIPELINE_STAGES: ReadonlyArray<typeof PIPELINE_STAGES[number]['value']> = [
-  'WON', 'LOST', 'POSTPONED',
+  'WON', 'LOST',
 ];
 
 // SLA card colors (spec 005 US4 / FR-008): how long a lead may sit in its
