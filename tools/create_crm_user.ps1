@@ -26,7 +26,13 @@ $secure = Read-Host 'Password' -AsSecureString
 $password = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
 
 $body = @{ email = $email; password = $password; email_confirm = $true; user_metadata = @{ name = $name; org_id = $OrgId } } | ConvertTo-Json -Depth 4
-$user = Invoke-RestMethod -Method Post -Uri "$Url/auth/v1/admin/users" -Headers $H -Body ([Text.Encoding]::UTF8.GetBytes($body))
+if ($password.Length -lt 6) { throw 'Password must be at least 6 characters.' }
+try {
+  $user = Invoke-RestMethod -Method Post -Uri "$Url/auth/v1/admin/users" -Headers $H -Body ([Text.Encoding]::UTF8.GetBytes($body))
+} catch {
+  $reason = $_.ErrorDetails.Message
+  throw "Supabase refused the account: $reason"
+}
 $id = $user.id
 Write-Host "Created auth user $email ($id)"
 

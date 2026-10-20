@@ -6,6 +6,7 @@ import HelioAgent from '@/components/agent/HelioAgent';
 import NavigationLoader from './NavigationLoader';
 import ProductTour from '@/components/onboarding/ProductTour';
 import PushPrompt from '@/components/push/PushPrompt';
+import UpdatePrompt from './UpdatePrompt';
 import { RailProvider } from '@/context/RailContext';
 import { useAuth } from '@/context/AuthContext';
 import { useSessionManager } from '@/hooks/useSessionManager';
@@ -59,6 +60,7 @@ export default function Shell({ children }: ShellProps) {
 
             <div className="min-w-0 flex-1 overflow-x-hidden">
               <PushPrompt />
+              <UpdatePrompt />
               {children}
             </div>
           </div>
