@@ -12,7 +12,6 @@ import { useOrg } from '@/context/OrgContext';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useLanguage } from '@/context/LanguageContext';
-import { useIdleLogout } from '@/lib/hooks/useIdleLogout';
 
 interface ShellProps {
   children: React.ReactNode;
@@ -27,7 +26,6 @@ export default function Shell({ children }: ShellProps) {
 
   // Hooks must run unconditionally on every render — call session manager first.
   useSessionManager(user?.id ?? null, currentOrgId);
-  useIdleLogout();
 
   // Feature 006: every authenticated role now gets the full app shell (rail +
   // Navbar + board access). The chat-only NormalUserShell is retired as the forced

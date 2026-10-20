@@ -1,17 +1,13 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
-const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const REFRESH_LEAD_MS = 5 * 60 * 1000;  // refresh 5 min before expiry
 
 export function useSessionManager(userId: string | null, orgId: string | null = null) {
-  const router = useRouter();
   const supabase = createClient();
   const logIdRef = useRef<string | null>(null);
-  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Session timer ──────────────────────────────────────────────────────────
@@ -106,26 +102,6 @@ export function useSessionManager(userId: string | null, orgId: string | null = 
     };
   }, [userId, supabase]);
 
-  // ── Idle logout ────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!userId) return;
-
-    const resetTimer = () => {
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(async () => {
-        await supabase.auth.signOut();
-        router.push('/login');
-      }, IDLE_TIMEOUT_MS);
-    };
-
-    const events = ['mousemove', 'keydown', 'click', 'touchstart'] as const;
-
-    events.forEach(e => window.addEventListener(e, resetTimer));
-    resetTimer();
-
-    return () => {
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      events.forEach(e => window.removeEventListener(e, resetTimer));
-    };
-  }, [userId, supabase, router]);
+  // No idle logout: the team asked to stay signed in until they press Logout
+  // (2026-10-20). Sessions still end on explicit sign-out.
 }
