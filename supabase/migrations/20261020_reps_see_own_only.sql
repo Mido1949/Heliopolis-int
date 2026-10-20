@@ -34,3 +34,24 @@ create policy org_isolation_boqs on boqs as restrictive for all
   with check (is_super_admin() or org_id = get_user_org_id());
 create policy boqs_select_via_lead on boqs for select
   using (lead_id is not null and exists (select 1 from leads l where l.id = boqs.lead_id));
+
+-- 4. A new task notifies the person it is assigned to (the tasks page never
+-- did). The notifications broadcast trigger then rings their bell.
+create or replace function public.notify_task_assignee() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.assigned_to is null or new.assigned_to = new.created_by then
+    return new;
+  end if;
+  insert into notifications (user_id, title, body, type, reference_id, reference_type, org_id)
+  select new.assigned_to, '📝 مهمة جديدة', new.title, 'general',
+         coalesce(new.lead_id, new.id), case when new.lead_id is null then 'task' else 'lead' end,
+         p.org_id
+  from profiles p
+  where p.id = new.assigned_to and p.org_id is not null;
+  return new;
+end $$;
+
+drop trigger if exists tasks_notify_assignee on tasks;
+create trigger tasks_notify_assignee after insert on tasks
+  for each row execute function public.notify_task_assignee();

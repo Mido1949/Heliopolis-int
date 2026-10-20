@@ -102,6 +102,9 @@ export async function POST(request: NextRequest) {
 
   const results: PerId[] = [];
   const now = new Date().toISOString();
+  // Splitting 70 leads used to send one notification per lead; each person now
+  // gets one message about their own share.
+  const handedOver = new Map<string, { id: string; name: string }[]>();
 
   for (const id of ids) {
     const lead = leadMap.get(id);
@@ -134,9 +137,9 @@ export async function POST(request: NextRequest) {
           lead_id: id, user_id: user.id, type: 'assignment', body: 'تم التعيين (جماعي)', org_id: orgId,
         });
         if (assignee !== lead.assigned_to_user) {
-          try {
-            await createNotification(assignee, `📋 تم تحويل ${lead.name} إليك`, id, { type: 'assignment' });
-          } catch (e) { console.error('[bulk] notify failed:', id, e); }
+          const got = handedOver.get(assignee) ?? [];
+          got.push({ id, name: lead.name });
+          handedOver.set(assignee, got);
         }
         results.push({ id, status: 'ok' });
 
@@ -157,6 +160,15 @@ export async function POST(request: NextRequest) {
     } catch (e) {
       results.push({ id, status: 'error', error: e instanceof Error ? e.message : 'failed' });
     }
+  }
+
+  for (const [assignee, leads] of Array.from(handedOver)) {
+    const text = leads.length === 1
+      ? `📋 اتحولك العميل ${leads[0].name}`
+      : `📋 اتحولك ${leads.length} عميل جديد — شوفهم في ليداتي`;
+    try {
+      await createNotification(assignee, text, leads.length === 1 ? leads[0].id : undefined, { type: 'assignment' });
+    } catch (e) { console.error('[bulk] notify failed:', assignee, e); }
   }
 
   const counts = results.reduce<Record<string, number>>((acc, r) => {

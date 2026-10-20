@@ -142,35 +142,7 @@ async function processLead(value: MetaLeadValue): Promise<string> {
     return `duplicate:${leadgen_id}`;
   }
 
-  await notifyAdmins(inserted.id, name, phone);
   return `inserted:${leadgen_id}`;
-}
-
-async function notifyAdmins(leadId: string, name: string, phone: string): Promise<void> {
-  const { data: admins } = await getSupabase()
-    .from('profiles')
-    .select('id, org_id')
-    .in('role', ['admin', 'Manager']);
-
-  if (!admins || admins.length === 0) return;
-
-  // notifications.org_id is NOT NULL with no default — must come from the profile
-  const notifications = admins
-    .filter((admin) => admin.org_id)
-    .map((admin) => ({
-      user_id: admin.id,
-      title: `ليد جديد من Meta: ${name} — ${phone}`,
-      type: 'meta_lead',
-      reference_id: leadId,
-      reference_type: 'lead',
-      org_id: admin.org_id,
-    }));
-  if (notifications.length === 0) return;
-
-  const { error } = await getSupabase().from('notifications').insert(notifications);
-  if (error) {
-    console.warn('Notification insert failed (non-fatal):', error);
-  }
 }
 
 // ── Payload Types ────────────────────────────────────────────────────────────

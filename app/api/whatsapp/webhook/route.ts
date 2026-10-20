@@ -206,7 +206,6 @@ async function createLead(m: ParsedMessage): Promise<string> {
     .single();
   if (error || !data) throw error ?? new Error('lead insert returned no row');
 
-  await notifyAdmins(data.id, m);
   return data.id;
 }
 
@@ -246,21 +245,4 @@ async function notifyOwner(leadId: string, m: ParsedMessage): Promise<void> {
     title: '💬 رسالة واتساب',
     data: { url: `/whatsapp?lead=${leadId}` },
   });
-}
-
-async function notifyAdmins(leadId: string, m: ParsedMessage): Promise<void> {
-  const { data: admins } = await db().from('profiles').select('id, org_id').in('role', ['admin', 'Manager']);
-  const rows = (admins ?? [])
-    .filter((a) => a.org_id)
-    .map((a) => ({
-      user_id: a.id,
-      title: `ليد جديد من واتساب: ${m.customerName ?? ''} — +${m.customerPhone}`.replace(':  —', ':'),
-      type: 'lead_intake', // must be in notifications_type_check
-      reference_id: leadId,
-      reference_type: 'lead',
-      org_id: a.org_id,
-    }));
-  if (rows.length === 0) return;
-  const { error } = await db().from('notifications').insert(rows);
-  if (error) console.warn('[wa-webhook] notification insert failed (non-fatal)', error);
 }

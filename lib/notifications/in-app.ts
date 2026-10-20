@@ -35,6 +35,12 @@ const PUSH_URL_BY_TYPE: Record<string, string> = {
   agent_digest: '/helio',
 };
 
+// Mido, 2026-10-20: the team only gets assignments, tasks and their own
+// customers' messages. New-lead announcements and the automatic stuck-lead /
+// reminder / escalation alerts flooded everyone (500+ in three days), so they
+// are dropped here, in one place, until he asks for them back.
+const MUTED_TYPES = new Set(['lead_intake', 'meta_lead', 'stuck_lead', 'nudge', 'escalation']);
+
 /**
  * In-app notification writer. Uses service role so it can write notifications
  * for any user regardless of calling context (route handlers, cron jobs, etc.).
@@ -50,6 +56,8 @@ export async function createNotification(
   leadId?: string,
   meta?: NotificationMeta
 ) {
+  if (meta?.type && MUTED_TYPES.has(meta.type)) return;
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
