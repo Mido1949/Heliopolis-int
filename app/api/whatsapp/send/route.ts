@@ -212,9 +212,10 @@ export async function POST(request: Request) {
   await admin.from('leads').update({ last_contact_date: now }).eq('id', lead.id);
 
   // Mido's rule: whoever answers an unassigned chat owns the lead. Only an
-  // unassigned lead is claimed; a colleague's lead stays theirs.
+  // unassigned lead is claimed; a colleague's lead stays theirs. Managers
+  // (no crm_team, e.g. Mido) never take leads by replying (2026-10-20).
   const { data: me } = await admin.from('profiles').select('crm_team').eq('id', user.id).maybeSingle();
-  const { data: claimed } = await admin
+  const { data: claimed } = !me?.crm_team ? { data: null } : await admin
     .from('leads')
     .update({ assigned_to_user: user.id, assigned_to_team: me?.crm_team ?? null, assigned_by: user.id })
     .eq('id', lead.id)
