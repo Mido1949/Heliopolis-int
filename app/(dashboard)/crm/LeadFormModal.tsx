@@ -93,15 +93,18 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
     const files = fileList.map((f) => f.originFileObj as File | undefined).filter(Boolean) as File[];
     if (!files.length || !user || !currentOrgId || !currentOrgSlug) return;
     let failed = 0;
+    let reason = '';
     for (const file of files) {
       try {
         await uploadLeadFile(file, { leadId, orgId: currentOrgId, orgSlug: currentOrgSlug, userId: user.id });
-      } catch {
+      } catch (err) {
         failed++;
+        reason = err instanceof Error ? err.message : String(err);
       }
     }
     setFileList([]);
-    if (failed) message.error(`${failed} ملف ماترفعش، جرّب ترفعه من تبويب المقايسات`);
+    // Show the real reason; app_errors logs the toast, so it reaches us too.
+    if (failed) message.error(`${failed} ملف ماترفعش (${reason})`);
   };
 
   const handleSubmit = async () => {
