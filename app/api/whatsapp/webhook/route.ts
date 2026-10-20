@@ -1,3 +1,4 @@
+import { createNotification } from '@/lib/notifications/in-app';
 import { NextResponse } from 'next/server';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createHmac, timingSafeEqual } from 'crypto';
@@ -126,8 +127,10 @@ async function storeMessage(m: ParsedMessage): Promise<void> {
   // Only a customer writing to us creates a lead. Rep echoes and history for an
   // unknown number are kept unattached and adopted later by the DB trigger —
   // history alone would otherwise flood the CRM with 180 days of dead threads.
+  let isNew = false;
   if (!leadId && m.direction === 'in' && m.origin === 'customer') {
     leadId = await createLead(m);
+    isNew = true;
   }
 
   const { error } = await db()
@@ -152,6 +155,12 @@ async function storeMessage(m: ParsedMessage): Promise<void> {
       { onConflict: 'wamid', ignoreDuplicates: true },
     );
   if (error) throw error;
+
+  // New leads already alert the admins; an existing chat alerts its owner.
+  if (leadId && !isNew && m.direction === 'in' && m.origin === 'customer'
+      && Date.now() - Date.parse(m.sentAt) < 10 * 60 * 1000) {
+    waitUntil(notifyOwner(leadId, m).catch((err) => console.error('[wa-webhook] owner notify failed', leadId, err)));
+  }
 
   // Copy fresh media to our storage now, so the rep's first click is instant.
   // History backfill is skipped: hundreds of old files would outlive the function.
@@ -215,6 +224,28 @@ async function orgId(): Promise<string> {
   if (error || !data?.org_id) throw error ?? new Error('no admin profile with org_id');
   _orgId = data.org_id as string;
   return _orgId;
+}
+
+// One alert per chat per 10 minutes, so a burst of messages rings once.
+async function notifyOwner(leadId: string, m: ParsedMessage): Promise<void> {
+  const { data: lead } = await db().from('leads').select('name, assigned_to_user').eq('id', leadId).maybeSingle();
+  const owner = lead?.assigned_to_user;
+  if (!owner) return;
+  const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const { count } = await db()
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', owner)
+    .eq('reference_id', leadId)
+    .gte('created_at', since);
+  if (count) return;
+  const who = lead?.name || m.customerName || `+${m.customerPhone}`;
+  const text = m.body ? `${who}: ${m.body.slice(0, 120)}` : `${who} بعت رسالة`;
+  await createNotification(owner, text, leadId, {
+    type: 'general',
+    title: '💬 رسالة واتساب',
+    data: { url: `/whatsapp?lead=${leadId}` },
+  });
 }
 
 async function notifyAdmins(leadId: string, m: ParsedMessage): Promise<void> {

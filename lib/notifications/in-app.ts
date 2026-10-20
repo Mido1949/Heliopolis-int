@@ -5,6 +5,7 @@ interface NotificationMeta {
   type: string;
   from?: string;
   to_team?: string;
+  title?: string;
   data?: Record<string, unknown>;
 }
 
@@ -68,7 +69,7 @@ export async function createNotification(
     .from('notifications')
     .insert({
       user_id: userId,
-      title: TITLES_BY_TYPE[type] || '🔔 إشعار',
+      title: meta?.title || TITLES_BY_TYPE[type] || '🔔 إشعار',
       body: message,
       type,
       reference_id: leadId || null,
@@ -86,28 +87,18 @@ export async function createNotification(
   // guard anyway — this runs inside crons that should not die here.
   try {
     await sendPushToUser(userId, {
-      title: TITLES_BY_TYPE[type] || '🔔 إشعار',
+      title: meta?.title || TITLES_BY_TYPE[type] || '🔔 إشعار',
       body: message,
-      url: leadId ? `/my-leads?lead=${leadId}` : (PUSH_URL_BY_TYPE[type] || '/'),
+      url: typeof meta?.data?.url === 'string'
+        ? meta.data.url
+        : leadId ? `/my-leads?lead=${leadId}` : (PUSH_URL_BY_TYPE[type] || '/'),
       type,
     });
   } catch (e) {
     console.warn('Push send failed:', e);
   }
 
-  // Realtime broadcast on user channel
-  if (data && supabase.channel) {
-    try {
-      await supabase.channel(`user:${userId}`).send({
-        type: 'broadcast',
-        event: 'new_notification',
-        payload: { ...data, meta },
-      });
-    } catch (e) {
-      // Non-fatal: notification row already inserted
-      console.warn('Realtime broadcast failed:', e);
-    }
-  }
-
+  // The live bell is rung by the notifications_broadcast DB trigger, which
+  // covers every insert path, not just this one.
   return data;
 }

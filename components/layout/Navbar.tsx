@@ -93,11 +93,14 @@ export default function Navbar({ lang, onToggleLang }: NavbarProps) {
 
     fetchNotifications();
 
-    // createNotification() broadcasts each new row on user:<id>; listening there
-    // instead of postgres_changes spares the DB constant WAL polling.
+    // The notifications_broadcast trigger sends each new row on user:<id>;
+    // listening there instead of postgres_changes spares the DB WAL polling.
+    const seen = new Set<string>();
     const channel = supabase.channel(`user:${user.id}`)
       .on('broadcast', { event: 'new_notification' }, ({ payload }) => {
         const n = payload as Notification;
+        if (seen.has(n.id)) return;
+        seen.add(n.id);
         setNotifications(prev => (prev.some(p => p.id === n.id) ? prev : [n, ...prev].slice(0, 20)));
         setUnreadCount(prev => prev + 1);
         playNotificationSound();

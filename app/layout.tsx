@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, Manrope } from 'next/font/google';
 import Providers from '@/components/Providers';
 import './globals.css';
@@ -20,7 +20,12 @@ export const metadata: Metadata = {
   title: 'HelioMax — HVAC Operations Platform',
   description:
     'HelioMax — internal management platform for HVAC operations: CRM, BOQ, Inventory, Email Campaigns, AI Assistant, and Time Tracking for VRF & HVAC Solutions.',
-  icons: { icon: '/logo.png' }, // Using logo as favicon draft
+  icons: { icon: '/logo.png', apple: '/apple-touch-icon.png' },
+  appleWebApp: { capable: true, title: 'Heliopolis', statusBarStyle: 'default' },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#0D2137',
 };
 
 export default function RootLayout({

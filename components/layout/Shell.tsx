@@ -5,6 +5,7 @@ import Navbar from './Navbar';
 import HelioAgent from '@/components/agent/HelioAgent';
 import NavigationLoader from './NavigationLoader';
 import ProductTour from '@/components/onboarding/ProductTour';
+import PushPrompt from '@/components/push/PushPrompt';
 import { RailProvider } from '@/context/RailContext';
 import { useAuth } from '@/context/AuthContext';
 import { useSessionManager } from '@/hooks/useSessionManager';
@@ -56,7 +57,10 @@ export default function Shell({ children }: ShellProps) {
           <div className="mx-auto flex max-w-[1600px] flex-col gap-5 p-4 md:p-6 lg:flex-row lg:items-start">
             <AppRail lang={lang} profile={profile} onLogout={handleLogout} />
 
-            <div className="min-w-0 flex-1 overflow-x-hidden">{children}</div>
+            <div className="min-w-0 flex-1 overflow-x-hidden">
+              <PushPrompt />
+              {children}
+            </div>
           </div>
         </main>
 

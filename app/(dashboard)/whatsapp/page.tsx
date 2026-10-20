@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Badge, Empty, Input, Segmented, Spin } from 'antd';
+import { Badge, Empty, Input, Segmented, Select, Spin, message } from 'antd';
 import dayjs from 'dayjs';
 import { createClient } from '@/lib/supabase/client';
 import WhatsAppThread from '../crm/WhatsAppThread';
+import { useAuth } from '@/context/AuthContext';
 
 interface Row {
   lead_id: string;
@@ -33,6 +34,48 @@ export default function WhatsAppInboxPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'waiting'>('all');
   const [q, setQ] = useState('');
+  const { user } = useAuth();
+  const [team, setTeam] = useState<{ id: string; name: string }[]>([]);
+  const [transferring, setTransferring] = useState(false);
+
+  // A push or bell link can open a chat directly: /whatsapp?lead=<id>
+  useEffect(() => {
+    const lead = new URLSearchParams(window.location.search).get('lead');
+    if (lead) setSelected(lead);
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    createClient()
+      .from('profiles')
+      .select('id, name')
+      .neq('id', user.id)
+      .order('name')
+      .then(({ data }) => setTeam(((data ?? []) as { id: string; name: string | null }[])
+        .filter((p) => p.name)
+        .map((p) => ({ id: p.id, name: p.name as string }))));
+  }, [user]);
+
+  const transfer = async (to: string) => {
+    if (!selected) return;
+    setTransferring(true);
+    try {
+      const res = await fetch(`/api/leads/${selected}/transfer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || res.statusText);
+      message.success(`اتحولت لـ ${json.name ?? ''}`);
+      setSelected(null);
+      load();
+    } catch (e) {
+      message.error(`فشل التحويل: ${(e as Error).message}`);
+    } finally {
+      setTransferring(false);
+    }
+  };
 
   const load = useCallback(async () => {
     const { data } = await createClient()
@@ -163,6 +206,19 @@ export default function WhatsAppInboxPage() {
                 <div className="truncate font-semibold">{conversations.find((c) => c.leadId === selected)?.name}</div>
                 <div className="text-xs text-gray-500" dir="ltr">+{conversations.find((c) => c.leadId === selected)?.phone}</div>
               </div>
+              <Select
+                data-tour="wa-transfer"
+                className="ms-auto w-36"
+                size="small"
+                placeholder="تحويل لـ"
+                value={null}
+                loading={transferring}
+                disabled={transferring}
+                showSearch
+                optionFilterProp="label"
+                options={team.map((p) => ({ value: p.id, label: p.name }))}
+                onChange={(v) => v && transfer(v as string)}
+              />
             </div>
             <div className="min-h-0 flex-1">
               <WhatsAppThread key={selected} leadId={selected} fill />
