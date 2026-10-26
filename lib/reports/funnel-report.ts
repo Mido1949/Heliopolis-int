@@ -20,7 +20,7 @@ import { PIPELINE_STAGES } from '@/lib/constants';
 
 // Ordered funnel path (active stages ending at WON).
 export const FUNNEL_ORDER = [
-  'NEW', 'WELCOME_SENT', 'NO_RESPONSE', 'INTERESTED', 'PRICING', 'QUOTED', 'NEGOTIATION', 'WON',
+  'NEW', 'WELCOME_SENT', 'NO_RESPONSE', 'INTERESTED', 'PRICING', 'QUOTED', 'FOLLOW_UP', 'NEGOTIATION', 'WON',
 ] as const;
 
 export interface FunnelStageRow {

@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 const LEADER_ROLES = ['admin', 'Manager', 'CS Team Leader', 'Tech Team Leader'];
 const VALID_STAGES: PipelineStage[] = [
   'NEW', 'WELCOME_SENT', 'NO_RESPONSE', 'INTERESTED', 'PRICING', 'QUOTED',
-  'NEGOTIATION', 'WON', 'LOST', 'POSTPONED',
+  'FOLLOW_UP', 'NEGOTIATION', 'WON', 'LOST', 'POSTPONED',
 ];
 const MAX_IDS = 200;
 

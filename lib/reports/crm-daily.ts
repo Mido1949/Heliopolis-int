@@ -53,7 +53,7 @@ async function all<T>(build: (from: number, to: number) => PromiseLike<{ data: T
   }
 }
 
-const OPEN = ['NEW', 'QUOTED', 'NEGOTIATION'];
+const OPEN = ['NEW', 'QUOTED', 'FOLLOW_UP', 'NEGOTIATION'];
 
 export async function generateCrmDailyReport(dateISO: string, client?: SupabaseClient): Promise<CrmDailyReport> {
   const supabase = client ?? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);

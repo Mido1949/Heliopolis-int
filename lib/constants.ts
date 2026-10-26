@@ -53,6 +53,7 @@ export const LEAD_STATUSES = [
   { value: 'Interested', labelAr: 'مهتم', color: '#FAAD14' },
   { value: 'Pricing', labelAr: 'جاري التسعير', color: '#722ED1' },
   { value: 'Quote Sent', labelAr: 'تم إرسال العرض', color: '#2F54EB' },
+  { value: 'Follow Up', labelAr: 'متابعة', color: '#16A34A' },
   { value: 'Negotiation', labelAr: 'تفاوض', color: '#FAAD14' },
   { value: 'Won', labelAr: 'تم الفوز', color: '#52C41A' },
   { value: 'Lost', labelAr: 'خسران', color: '#FF4D4F' },
@@ -66,22 +67,24 @@ export const PIPELINE_ZONES = [
   { value: 'sales', labelAr: 'المبيعات',      color: '#D72B2B' },
 ] as const;
 
-// Pipeline — 5 stages since 2026-10-20 (Mido): a lead is NEW on arrival,
-// QUOTED as soon as a quote is made for it (a DB trigger moves it), then
-// NEGOTIATION, then WON or LOST. The other stage values (WELCOME_SENT,
+// Pipeline — 6 stages since 2026-10-26 (Mido): a lead is NEW on arrival,
+// QUOTED as soon as a quote is made for it (a DB trigger moves it), FOLLOW_UP
+// once CS has made the quote call (the trigger moves it to that CS member),
+// then NEGOTIATION, then WON or LOST. The other stage values (WELCOME_SENT,
 // NO_RESPONSE, INTERESTED, PRICING, POSTPONED) stay valid in the type and the
 // DB check so old writers can't fail silently, but no lead sits in them and
 // the UI no longer offers them.
 export const PIPELINE_STAGES = [
   { value: 'NEW',          labelAr: 'جديد',                emoji: '🆕', zone: 'tech',  color: '#1890FF' },
   { value: 'QUOTED',       labelAr: 'تم عمل عرض السعر',    emoji: '📤', zone: 'tech',  color: '#2F54EB' },
+  { value: 'FOLLOW_UP',    labelAr: 'متابعة',              emoji: '📞', zone: 'cs',    color: '#16A34A' },
   { value: 'NEGOTIATION',  labelAr: 'تفاوض',               emoji: '🤝', zone: 'sales', color: '#FAAD14' },
   { value: 'WON',          labelAr: 'مكسب',                emoji: '✅', zone: 'sales', color: '#52C41A' },
   { value: 'LOST',         labelAr: 'خسارة',               emoji: '❌', zone: 'sales', color: '#FF4D4F' },
 ] as const;
 
 export const ACTIVE_PIPELINE_STAGES: ReadonlyArray<typeof PIPELINE_STAGES[number]['value']> = [
-  'NEW', 'QUOTED', 'NEGOTIATION',
+  'NEW', 'QUOTED', 'FOLLOW_UP', 'NEGOTIATION',
 ];
 
 // Terminal stages carry no SLA urgency (deal is closed one way or another).

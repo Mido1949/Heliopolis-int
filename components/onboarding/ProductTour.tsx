@@ -40,7 +40,25 @@ const STEPS: Step[] = [
   { target: T('tour-help'), title: 'خلصنا 🎉', text: 'تقدر تعيد الجولة في أي وقت من زرار ❓ ده.' },
 ];
 
+// What changed, shown once to everyone automatically and without a skip
+// button; the full tour stays on the ❓ button. A new release: write NEWS for
+// it and change NEWS_KEY.
+const NEWS: Step[] = [
+  { title: '🆕 جديد في الـ CRM', text: 'اتغيرت طريقة شغل الليدز من النهارده. دقيقة واحدة نوريك الجديد.' },
+  { title: 'الليد الجديد للفريق التقني', text: 'أي ليد جديد بيستلمه الفريق التقني. لو حد من خدمة العملاء رد على محادثة جديدة (في حالة طارئة بس)، الليد مش هيتسجل عليه وهيفضل للتقني.' },
+  { title: 'المراحل بقت 6', text: 'جديد ← تم عمل عرض السعر ← 📞 متابعة ← تفاوض ← مكسب أو خسارة. مرحلة «متابعة» جديدة وبتاعة خدمة العملاء.' },
+  { title: '📄 عرض السعر من الشات', text: 'لو بتبعت عرض السعر في الشات: اختار الملف بـ 📎 وعلّم «📄 ده عرض سعر» قبل الإرسال. الملف هيتحفظ في ملف العميل، والليد هيتحول لـ«تم عمل عرض السعر»، وخدمة العملاء هيجيلها تنبيه.' },
+  { target: T('nav-whatsapp'), click: true, optional: true, title: 'نجربها', text: 'يلا نفتح الواتساب ونشوف مكانها.' },
+  { path: '/whatsapp', target: T('wa-chat'), click: true, optional: true, title: 'افتح محادثة', text: 'اضغط على أي محادثة.' },
+  { path: '/whatsapp', target: T('wa-composer'), optional: true, title: 'هنا', text: 'بعد ما تختار الملف بـ 📎 هيظهر جنبه «📄 ده عرض سعر». علّمه لو الملف عرض سعر بس، مش كتالوج أو داتا شيت.' },
+  { title: 'خدمة العملاء: شرح عرض السعر', text: 'أول ما يتعمل عرض سعر، ريم ومنى يجيلهم تنبيه «تم إضافة ليد جديد محتاج شرح عرض السعر» ومهمة مكالمة خلال ساعة. أول واحدة تعلّم المهمة «تم»: الليد يتنقل لـ«متابعة» ويتسجل باسمها، ومهمة زميلتها تتقفل لوحدها.' },
+  { title: '⏰ المتابعة بعد 48 ساعة', text: 'بعد المكالمة بيتعمل تلقائي مهمة متابعة بعد 48 ساعة من عرض السعر، ولما ميعادها ييجي الجرس هيرن. علّمها «تم» بس بعد ما تكلم العميل فعلاً.' },
+  { target: T('nav-tasks'), optional: true, title: 'المهام', text: 'كل المكالمات دي هتلاقيها هنا في المهام.' },
+  { target: T('tour-help'), title: 'خلصنا 🎉', text: 'ده كل الجديد. الجولة الكاملة لسه موجودة في زرار ❓.' },
+];
+
 const DONE_KEY = 'hm-tour-v1:';
+const NEWS_KEY = 'hm-news-2026-10-26:';
 const PAD = 6;
 const CARD_W = 320;
 
@@ -65,6 +83,9 @@ export default function ProductTour() {
   const router = useRouter();
   const pathname = usePathname();
   const [index, setIndex] = useState<number | null>(null);
+  const [steps, setSteps] = useState<Step[]>(STEPS);
+  // The first showing of what's new has to be watched to the end.
+  const [mustFinish, setMustFinish] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [searching, setSearching] = useState(false);
   const [tapping, setTapping] = useState(false);
@@ -72,18 +93,19 @@ export default function ProductTour() {
   const el = useRef<HTMLElement | null>(null);
 
   const finish = useCallback(() => {
-    try { if (user) localStorage.setItem(DONE_KEY + user.id, '1'); } catch { /* private mode */ }
+    try { if (user) localStorage.setItem((steps === NEWS ? NEWS_KEY : DONE_KEY) + user.id, '1'); } catch { /* private mode */ }
+    setMustFinish(false);
     setIndex(null);
     setRect(null);
-  }, [user]);
+  }, [user, steps]);
 
-  // Start on first visit, and whenever the ❓ button asks.
+  // What's new starts by itself once per user; the ❓ button replays the full tour.
   useEffect(() => {
     if (!user) return;
     let seen = true;
-    try { seen = localStorage.getItem(DONE_KEY + user.id) === '1'; } catch { /* private mode */ }
-    const timer = seen ? null : setTimeout(() => { dir.current = 1; setIndex(0); }, 1500);
-    const replay = () => { dir.current = 1; setIndex(0); };
+    try { seen = localStorage.getItem(NEWS_KEY + user.id) === '1'; } catch { /* private mode */ }
+    const timer = seen ? null : setTimeout(() => { dir.current = 1; setSteps(NEWS); setMustFinish(true); setIndex(0); }, 1500);
+    const replay = () => { dir.current = 1; setSteps(STEPS); setMustFinish(false); setIndex(0); };
     window.addEventListener('heliomax:tour', replay);
     return () => {
       if (timer) clearTimeout(timer);
@@ -91,7 +113,7 @@ export default function ProductTour() {
     };
   }, [user]);
 
-  const step = index === null ? null : STEPS[index];
+  const step = index === null ? null : steps[index];
 
   // Go to the step's page, then wait for its element to render.
   useEffect(() => {
@@ -121,13 +143,13 @@ export default function ProductTour() {
         // Nothing to show here (no leads yet, closed chat…): move on.
         if (step.optional) {
           const next = index + dir.current;
-          if (next < 0 || next >= STEPS.length) finish();
+          if (next < 0 || next >= steps.length) finish();
           else setIndex(next);
         }
       }
     }, 150);
     return () => clearInterval(timer);
-  }, [index, step, pathname, router, finish]);
+  }, [index, step, steps, pathname, router, finish]);
 
   // Follow the element while the page scrolls or resizes.
   useEffect(() => {
@@ -145,14 +167,14 @@ export default function ProductTour() {
 
   useEffect(() => {
     if (index === null) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') finish(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !mustFinish) finish(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [index, finish]);
+  }, [index, finish, mustFinish]);
 
   if (index === null || !step) return null;
 
-  const last = index === STEPS.length - 1;
+  const last = index === steps.length - 1;
   const next = () => {
     dir.current = 1;
     if (last) return finish();
@@ -255,16 +277,16 @@ export default function ProductTour() {
       >
         <div className="mb-1 flex items-center justify-between">
           <span className="text-base font-bold text-[#0D2137]">{step.title}</span>
-          <span className="text-[11px] text-slate-400" dir="ltr">{index + 1} / {STEPS.length}</span>
+          <span className="text-[11px] text-slate-400" dir="ltr">{index + 1} / {steps.length}</span>
         </div>
         <p className="mb-3 text-sm leading-relaxed text-slate-600">
           {searching ? 'لحظة…' : step.text}
         </p>
         <div className="mb-3 h-1 overflow-hidden rounded bg-slate-100">
-          <div className="h-full bg-[#25D366] transition-all" style={{ width: `${((index + 1) / STEPS.length) * 100}%` }} />
+          <div className="h-full bg-[#25D366] transition-all" style={{ width: `${((index + 1) / steps.length) * 100}%` }} />
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={finish} className="text-xs text-slate-400 hover:text-slate-600">تخطي الجولة</button>
+          {!mustFinish && <button onClick={finish} className="text-xs text-slate-400 hover:text-slate-600">تخطي الجولة</button>}
           <span className="flex-1" />
           {index > 0 && (
             <button onClick={back} disabled={tapping} className="rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">

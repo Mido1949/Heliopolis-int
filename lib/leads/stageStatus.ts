@@ -16,6 +16,7 @@ export const STAGE_TO_STATUS: Record<PipelineStage, LeadStatus> = {
   INTERESTED: 'Interested',
   PRICING: 'Pricing',
   QUOTED: 'Quote Sent',
+  FOLLOW_UP: 'Follow Up',
   NEGOTIATION: 'Negotiation',
   WON: 'Won',
   LOST: 'Lost',

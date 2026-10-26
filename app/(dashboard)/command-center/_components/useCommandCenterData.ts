@@ -318,7 +318,7 @@ export function useCommandCenterData({ orgId, orgName, canSeeTeam, userId }: Use
           activeValue += value;
           if (slaColor(lead) === 'red') stuck.push(lead);
         }
-        if (stage === 'QUOTED' || stage === 'NEGOTIATION') {
+        if (stage === 'QUOTED' || stage === 'FOLLOW_UP' || stage === 'NEGOTIATION') {
           quotedCount += 1;
           quotedValue += value;
         }

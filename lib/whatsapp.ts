@@ -74,6 +74,7 @@ const STAGE_TEMPLATE: Record<PipelineStage, WhatsAppTemplateKey> = {
   INTERESTED: 'follow_up',
   PRICING: 'price_objection',
   QUOTED: 'quote_sent',
+  FOLLOW_UP: 'follow_up',
   NEGOTIATION: 'price_objection',
   WON: 'generic',
   LOST: 'generic',

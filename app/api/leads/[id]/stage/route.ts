@@ -7,7 +7,7 @@ import { statusForStage } from '@/lib/leads/stageStatus';
 
 const VALID_STAGES: PipelineStage[] = [
   'NEW','WELCOME_SENT','NO_RESPONSE','INTERESTED','PRICING','QUOTED',
-  'NEGOTIATION','WON','LOST','POSTPONED',
+  'FOLLOW_UP','NEGOTIATION','WON','LOST','POSTPONED',
 ];
 
 export async function PATCH(

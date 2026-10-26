@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient as createAdmin } from '@supabase/supabase-js';
+import { createClient as createAdmin, type SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { cacheMedia } from '@/lib/wa-media';
 
@@ -32,12 +32,14 @@ function kindOf(type: string, size: number): 'image' | 'video' | 'audio' | 'docu
 }
 
 /**
- * POST { leadId, text, file?, replyTo?, forwardOf?, preset? } — a rep replies to a lead
+ * POST { leadId, text, file?, replyTo?, forwardOf?, preset?, asQuote? } — a rep replies to a lead
  * from the CRM. file = { path, name, type } of an upload made through
  * /api/whatsapp/upload-url; text then becomes its caption. replyTo is the
  * wamid of a message in this chat, shown quoted on the customer's phone.
  * forwardOf is the id of any wa_messages row the rep can see; its text or
- * file is sent again to this lead.
+ * file is sent again to this lead. asQuote marks the sent file as the
+ * lead's quote: it is saved in the lead's files, which moves the lead to
+ * QUOTED and gives CS their call tasks (DB triggers).
  *
  * Free-form text is only allowed inside Meta's 24-hour customer-service
  * window (free of charge); outside it Meta requires a paid template, so the
@@ -59,6 +61,7 @@ export async function POST(request: Request) {
     replyTo?: string;
     forwardOf?: string;
     preset?: string;
+    asQuote?: boolean;
   };
   try {
     body = await request.json();
@@ -99,7 +102,7 @@ export async function POST(request: Request) {
 
   const { data: lead } = await supabase
     .from('leads')
-    .select('id, phone_normalized, country')
+    .select('id, phone_normalized, country, org_id')
     .eq('id', body.leadId)
     .maybeSingle();
   if (!lead?.phone_normalized) return NextResponse.json({ error: 'الليد مش موجود أو مالوش رقم' }, { status: 404 });
@@ -227,9 +230,11 @@ export async function POST(request: Request) {
 
   // Mido's rule: whoever answers an unassigned chat owns the lead. Only an
   // unassigned lead is claimed; a colleague's lead stays theirs. Managers
-  // (no crm_team, e.g. Mido) never take leads by replying (2026-10-20).
+  // (no crm_team, e.g. Mido) never take leads by replying (2026-10-20), and
+  // neither does CS: new leads belong to tech, CS only answers an emergency
+  // (2026-10-26).
   const { data: me } = await admin.from('profiles').select('crm_team').eq('id', user.id).maybeSingle();
-  const { data: claimed } = !me?.crm_team ? { data: null } : await admin
+  const { data: claimed } = me?.crm_team !== 'tech' ? { data: null } : await admin
     .from('leads')
     .update({ assigned_to_user: user.id, assigned_to_team: me?.crm_team ?? null, assigned_by: user.id })
     .eq('id', lead.id)
@@ -246,5 +251,47 @@ export async function POST(request: Request) {
     });
   }
 
-  return NextResponse.json({ ok: true, wamid });
+  // After the claim, so a tech rep owns the lead before it turns QUOTED.
+  let quoteSaved = false;
+  if (body.asQuote && blob && source) {
+    quoteSaved = await saveAsQuote(admin, { blob, name: source.name, leadId: lead.id, orgId: lead.org_id, userId: user.id });
+  }
+
+  return NextResponse.json({ ok: true, wamid, quoteSaved });
+}
+
+/** Copies a file sent in the chat into the lead's files as its quote. */
+async function saveAsQuote(
+  admin: SupabaseClient,
+  q: { blob: Blob; name: string; leadId: string; orgId: string | null; userId: string },
+): Promise<boolean> {
+  if (!q.orgId) return false;
+  const { data: org } = await admin.from('organizations').select('slug').eq('id', q.orgId).maybeSingle();
+  if (!org?.slug) return false;
+  const ext = q.name.includes('.') ? q.name.split('.').pop() : 'bin';
+  const path = `${org.slug}/quotes/${q.leadId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const { error: upErr } = await admin.storage
+    .from('client-files')
+    .upload(path, q.blob, { contentType: q.blob.type || 'application/octet-stream' });
+  if (upErr) {
+    console.error('[wa-send] quote copy failed', q.leadId, upErr);
+    return false;
+  }
+  const { error: dbErr } = await admin.from('client_files').insert({
+    org_id: q.orgId,
+    file_name: q.name,
+    file_path: path,
+    file_type: ext === 'pdf' ? 'pdf' : q.blob.type.startsWith('image/') ? 'image' : 'document',
+    category: 'quote',
+    file_size: q.blob.size,
+    mime_type: q.blob.type || null,
+    uploaded_by: q.userId,
+    metadata: { lead_id: q.leadId, from_chat: true },
+  });
+  if (dbErr) {
+    console.error('[wa-send] quote not recorded', q.leadId, dbErr);
+    await admin.storage.from('client-files').remove([path]);
+    return false;
+  }
+  return true;
 }

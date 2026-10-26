@@ -122,7 +122,7 @@ export function toolsForRole(role: string): ToolDefinition[] {
       input_schema: {
         type: 'object',
         properties: {
-          stage: { type: 'string', description: 'مرحلة البايبلاين (NEW, QUOTED, NEGOTIATION, WON, LOST)' },
+          stage: { type: 'string', description: 'مرحلة البايبلاين (NEW, QUOTED, FOLLOW_UP, NEGOTIATION, WON, LOST)' },
           assigned_to_name: { type: 'string', description: 'اسم المستخدم المسؤول عن الليد' },
           stuck_only: { type: 'boolean', description: 'ليدة واقفة فقط (آخر تواصل من 3 أيام أو أكثر)' },
           search: { type: 'string', description: 'نص للبحث في الاسم أو الشركة' },

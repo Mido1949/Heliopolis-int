@@ -65,6 +65,8 @@ export default function WhatsAppThread({ leadId, fill = false }: { leadId: strin
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  // The attached file is the lead's quote: saved to its files, lead → QUOTED.
+  const [asQuote, setAsQuote] = useState(false);
   const [replyTo, setReplyTo] = useState<WaMessage | null>(null);
   const [forwarding, setForwarding] = useState<WaMessage | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -114,6 +116,7 @@ export default function WhatsAppThread({ leadId, fill = false }: { leadId: strin
       return;
     }
     setFile(f);
+    setAsQuote(false);
   };
 
   const startReply = (m: WaMessage) => {
@@ -187,15 +190,20 @@ ${q.text}` : q.text ?? ''));
       const res = await fetch('/api/whatsapp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leadId, text: body, file: attachment, replyTo: replyTo?.wamid }),
+        body: JSON.stringify({ leadId, text: body, file: attachment, replyTo: replyTo?.wamid, asQuote: !!attachment && asQuote }),
       });
       const out = await res.json().catch(() => ({}));
       if (!res.ok) {
         message.error(out.message ?? out.error ?? 'الرسالة متبعتتش');
         return;
       }
+      if (attachment && asQuote) {
+        if (out.quoteSaved) message.success('عرض السعر اتحفظ في ملف العميل');
+        else message.warning('الرسالة اتبعتت بس عرض السعر ماتحفظش في ملف العميل، ارفعه من تبويب الملفات');
+      }
       setText('');
       setFile(null);
+      setAsQuote(false);
       setReplyTo(null);
       load();
     } finally {
@@ -296,6 +304,10 @@ ${q.text}` : q.text ?? ''));
                 <PaperClipOutlined />
                 <span className="truncate">{file.name}</span>
                 <span className="text-gray-400">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
+                <label className="ms-auto flex shrink-0 cursor-pointer items-center gap-1 rounded-full border border-[#2F54EB]/30 bg-[#F0F5FF] px-2 py-0.5 text-[#2F54EB]">
+                  <input type="checkbox" checked={asQuote} onChange={(e) => setAsQuote(e.target.checked)} disabled={sending} />
+                  📄 ده عرض سعر
+                </label>
                 <Button size="small" type="text" icon={<CloseOutlined />} onClick={() => setFile(null)} disabled={sending} />
               </div>
             )}
