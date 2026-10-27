@@ -75,7 +75,7 @@ export async function generateCrmDailyReport(dateISO: string, client?: SupabaseC
     all<{ assigned_to: string | null; due_date: string | null }>((a, b) => supabase.from('tasks')
       .select('assigned_to, due_date').eq('status', 'pending').lt('due_date', new Date(now).toISOString()).range(a, b)),
     all<{ assigned_to: string | null }>((a, b) => supabase.from('tasks')
-      .select('assigned_to').gte('completed_at', startISO).range(a, b)),
+      .select('assigned_to').eq('status', 'done').gte('completed_at', startISO).range(a, b)),
     all<{ id: string; country: string | null }>((a, b) => supabase.from('boqs')
       .select('id, country').gte('created_at', startISO).range(a, b)),
     all<{ id: string }>((a, b) => supabase.from('client_files')

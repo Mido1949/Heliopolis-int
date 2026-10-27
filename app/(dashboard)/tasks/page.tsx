@@ -302,8 +302,8 @@ export default function TasksPage() {
       key: 'status',
       width: 100,
       render: (status: string) => (
-        <Tag color={status === 'done' ? 'success' : 'default'}>
-          {status === 'done' ? 'منتهية' : 'معلقة'}
+        <Tag color={status === 'done' ? 'success' : status === 'cancelled' ? 'error' : 'default'}>
+          {status === 'done' ? 'منتهية' : status === 'cancelled' ? 'اتلغت' : 'معلقة'}
         </Tag>
       ),
     },

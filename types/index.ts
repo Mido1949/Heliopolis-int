@@ -258,7 +258,7 @@ export interface Task {
   created_by: string;
   lead_id?: string;
   due_date?: string;
-  status: 'pending' | 'done';
+  status: 'pending' | 'done' | 'cancelled';
   priority: 'high' | 'medium' | 'low';
   created_at: string;
   completed_at?: string;

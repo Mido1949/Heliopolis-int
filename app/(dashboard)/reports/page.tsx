@@ -549,7 +549,7 @@ export default function ReportsPage() {
         rows.push([
           profileMap.get(t.assigned_to) || t.assigned_to,
           t.title,
-          t.status === 'done' ? 'منجزة' : 'قيد التنفيذ',
+          t.status === 'done' ? 'منجزة' : t.status === 'cancelled' ? 'ملغاة' : 'قيد التنفيذ',
           t.priority,
           t.due_date ? dayjs(t.due_date).format('YYYY-MM-DD') : '',
           dayjs(t.created_at).format('YYYY-MM-DD'),
