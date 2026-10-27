@@ -1,20 +1,20 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Table, Tag, Button, Input, Select, Space, Row, Col, Typography, message,
-  Modal, Form, DatePicker, Checkbox, Empty,
+  Modal, Form, DatePicker, Checkbox, Empty, Popconfirm,
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined,
-  ClockCircleOutlined, ExclamationCircleOutlined,
+  ClockCircleOutlined, ExclamationCircleOutlined, WhatsAppOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import type { Task, Profile, Lead } from '@/types';
 import { formatDate } from '@/lib/utils';
-import { PIPELINE_STAGES } from '@/lib/constants';
 import LeadDrawer from '../crm/LeadDrawer';
 import dayjs from 'dayjs';
 
@@ -23,6 +23,7 @@ const { Title, Text } = Typography;
 export default function TasksPage() {
   const { isStaff, user, profile } = useAuth();
   const supabase = createClient();
+  const router = useRouter();
 
   const [myTasks, setMyTasks] = useState<Task[]>([]);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
@@ -37,8 +38,6 @@ export default function TasksPage() {
 
   const [filter, setFilter] = useState<string>('all');
   const [dailyLeads, setDailyLeads] = useState<{ id: string; name: string; next_follow_up: string; status: string; reason: string }[]>([]);
-  // T061: pipeline-driven daily tasks (leads at active stages for current user)
-  const [pipelineTasks, setPipelineTasks] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [leadDrawerOpen, setLeadDrawerOpen] = useState(false);
 
@@ -49,8 +48,14 @@ export default function TasksPage() {
     setProfiles((data || []) as Profile[]);
   }, [supabase]);
 
-  const fetchLeads = useCallback(async () => {
-    const { data } = await supabase.from('leads').select('id, name, phone').order('name').limit(200);
+  // The picker searches by name or phone; with no query it shows the newest leads.
+  const fetchLeads = useCallback(async (q = '') => {
+    let query = supabase.from('leads').select('id, name, phone').limit(30);
+    const term = q.trim().replace(/[%,()]/g, '');
+    query = term
+      ? query.or(`name.ilike.%${term}%,phone.ilike.%${term}%`).order('name')
+      : query.order('created_at', { ascending: false });
+    const { data } = await query;
     setLeads((data || []) as Lead[]);
   }, [supabase]);
 
@@ -58,12 +63,12 @@ export default function TasksPage() {
     setLoading(true);
     try {
       if (user) {
-        const [{ data: myData }, { count }, { data: dailyData }, { data: pipelineData }] = await Promise.all([
+        const [{ data: myData }, { count }, { data: dailyData }] = await Promise.all([
           supabase
             .from('tasks')
             .select('*, assigned_user:profiles!assigned_to(id, name), lead:leads(id, name, phone)')
             .eq('assigned_to', user.id)
-            .order('status', { ascending: true })
+            .order('due_date', { ascending: true, nullsFirst: false })
             .order('created_at', { ascending: false }),
           supabase
             .from('tasks')
@@ -73,19 +78,10 @@ export default function TasksPage() {
           supabase.rpc('get_daily_tasks', {
             p_user_id: isStaff ? null : user.id,
           }),
-          // T061: pipeline-driven daily tasks — leads at active stages assigned to current user
-          supabase
-            .from('leads')
-            .select('id, name, phone, pipeline_stage, deal_value, last_contact_date, next_follow_up')
-            .eq('assigned_to_user', user.id)
-            .in('pipeline_stage', ['NEW', 'WELCOME_SENT', 'NO_RESPONSE', 'INTERESTED', 'PRICING', 'QUOTED', 'FOLLOW_UP', 'NEGOTIATION'])
-            .order('updated_at', { ascending: false })
-            .limit(20),
         ]);
         setMyTasks((myData || []) as Task[]);
         setPendingCount(count || 0);
         setDailyLeads(dailyData || []);
-        setPipelineTasks((pipelineData || []) as Lead[]);
       }
 
       if (canManage) {
@@ -107,6 +103,19 @@ export default function TasksPage() {
     fetchProfiles();
     fetchLeads();
   }, [fetchTasks, fetchProfiles, fetchLeads]);
+
+  // Opens the lead behind a task or follow-up row in the details drawer.
+  // RLS hides leads owned by other reps (e.g. the CS call tasks), so say so
+  // instead of doing nothing.
+  const openLead = async (leadId: string) => {
+    const { data } = await supabase
+      .from('leads')
+      .select('*, assigned_user:profiles!leads_assigned_to_user_fkey(id, name)')
+      .eq('id', leadId)
+      .maybeSingle();
+    if (data) { setSelectedLead(data as Lead); setLeadDrawerOpen(true); }
+    else message.warning('العميل ده مش متاح ليك — استخدم الرقم المكتوب في المهمة');
+  };
 
   const handleStatusChange = async (taskId: string, checked: boolean) => {
     const status = checked ? 'done' : 'pending';
@@ -150,15 +159,14 @@ export default function TasksPage() {
       lead_id: values.lead_id || null,
       due_date: values.due_date?.toISOString() || null,
       priority: values.priority,
-      status: 'pending',
-      created_by: user?.id,
     };
 
+    // Editing keeps the task's status; only a new task starts as pending.
     let error;
     if (editingTask) {
       ({ error } = await supabase.from('tasks').update(payload).eq('id', editingTask.id));
     } else {
-      ({ error } = await supabase.from('tasks').insert(payload));
+      ({ error } = await supabase.from('tasks').insert({ ...payload, status: 'pending', created_by: user?.id }));
     }
 
     if (error) {
@@ -181,6 +189,75 @@ export default function TasksPage() {
     if (due.toDateString() === now.toDateString()) return { color: 'gold', label: 'اليوم', icon: <ClockCircleOutlined /> };
     return null;
   };
+
+  const myPending = myTasks.filter((t) => t.status === 'pending');
+  const doneSince = Date.now() - 30 * 24 * 3600 * 1000;
+  const myDone = myTasks
+    .filter((t) => t.status === 'done' && (!t.completed_at || new Date(t.completed_at).getTime() > doneSince))
+    .sort((a, b) => (b.completed_at || '').localeCompare(a.completed_at || ''));
+
+  const renderMyTask = (task: Task) => {
+    const dueStatus = getDueStatus(task);
+    const done = task.status === 'done';
+    return (
+      <div
+        key={task.id}
+        onClick={() => task.lead_id && openLead(task.lead_id)}
+        className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
+          done ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-100'
+        } ${task.lead_id ? 'cursor-pointer hover:border-[#D72B2B]' : ''}`}
+      >
+        <span onClick={(e) => e.stopPropagation()}>
+          <Checkbox
+            checked={done}
+            onChange={(e) => handleStatusChange(task.id, e.target.checked)}
+          />
+        </span>
+        <div className="flex-1 min-w-0">
+          <Text className={done ? 'line-through text-gray-400' : ''}>
+            {task.title}
+          </Text>
+          {task.description && (
+            <div className="text-xs text-gray-500 mt-1 whitespace-pre-line">{task.description}</div>
+          )}
+          {task.lead && (
+            <div className="text-xs text-gray-500 mt-1">
+              🔗 {task.lead.name} — {task.lead.phone}
+            </div>
+          )}
+          {done && task.completed_at && (
+            <div className="text-[11px] text-gray-400 mt-1">تمت {formatDate(task.completed_at)}</div>
+          )}
+          {dueStatus && (
+            <Tag color={dueStatus.color} icon={dueStatus.icon} className="mt-1">
+              {dueStatus.label}
+            </Tag>
+          )}
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <Tag color={
+            task.priority === 'high' ? 'red' :
+            task.priority === 'medium' ? 'gold' : 'default'
+          } style={{ margin: 0 }}>
+            {task.priority === 'high' ? 'عالية' : task.priority === 'medium' ? 'متوسطة' : 'منخفضة'}
+          </Tag>
+          {task.lead_id && (
+            <Button
+              type="text"
+              size="small"
+              icon={<WhatsAppOutlined style={{ color: '#25D366' }} />}
+              title="فتح الشات"
+              onClick={(e) => { e.stopPropagation(); router.push(`/whatsapp?lead=${task.lead_id}`); }}
+            />
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const doneList = myDone.length === 0
+    ? <Empty description="لسه مفيش مهام خلصت" />
+    : <div className="space-y-3">{myDone.map(renderMyTask)}</div>;
 
   const filteredTasks = filter === 'all'
     ? allTasks
@@ -247,7 +324,16 @@ export default function TasksPage() {
       render: (_: unknown, record: Task) => (
         <Space>
           <Button type="text" size="small" icon={<EditOutlined />} onClick={() => { setEditingTask(record); setModalOpen(true); form.setFieldsValue({ ...record, due_date: record.due_date ? dayjs(record.due_date) : undefined }); }} />
-          <Button type="text" size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />
+          <Popconfirm
+            title="حذف المهمة؟"
+            description="مش هينفع ترجعها تاني"
+            okText="حذف"
+            cancelText="إلغاء"
+            okButtonProps={{ danger: true }}
+            onConfirm={() => handleDelete(record.id)}
+          >
+            <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
         </Space>
       ),
     },
@@ -340,14 +426,7 @@ export default function TasksPage() {
                 {dailyLeads.map((lead) => (
                   <button
                     key={lead.id}
-                    onClick={async () => {
-                      const { data } = await supabase
-                        .from('leads')
-                        .select('*, assigned_user:profiles!leads_assigned_to_user_fkey(id, name)')
-                        .eq('id', lead.id)
-                        .single();
-                      if (data) { setSelectedLead(data as Lead); setLeadDrawerOpen(true); }
-                    }}
+                    onClick={() => openLead(lead.id)}
                     className="w-full flex items-center justify-between p-2.5 rounded-lg border border-slate-100 hover:border-[#D72B2B] transition-colors text-right"
                   >
                     <span className="text-sm font-medium text-[#0D2137]">{lead.name}</span>
@@ -361,94 +440,24 @@ export default function TasksPage() {
             </div>
           )}
 
-          {/* T061: Pipeline-driven daily tasks (active stage leads) */}
-          {pipelineTasks.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <Title level={5} style={{ margin: 0 }}>ليدات نشطة بحاجة لمتابعة (Active Pipeline)</Title>
-                <span className="bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                  {pipelineTasks.length}
-                </span>
-              </div>
-              <div className="space-y-2">
-                {pipelineTasks.map((lead) => {
-                  const stageCfg = PIPELINE_STAGES.find(s => s.value === lead.pipeline_stage);
-                  return (
-                    <button
-                      key={lead.id}
-                      onClick={async () => {
-                        const { data } = await supabase
-                          .from('leads')
-                          .select('*, assigned_user:profiles!leads_assigned_to_user_fkey(id, name)')
-                          .eq('id', lead.id)
-                          .single();
-                        if (data) { setSelectedLead(data as Lead); setLeadDrawerOpen(true); }
-                      }}
-                      className="w-full flex items-center justify-between p-2.5 rounded-lg border border-slate-100 hover:border-emerald-500 transition-colors text-right"
-                    >
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-[#0D2137]">{lead.name}</span>
-                        <span className="text-[10px] text-slate-500">
-                          {lead.phone || '—'}
-                        </span>
-                      </div>
-                      <Tag color={stageCfg?.color || 'default'} style={{ margin: 0 }}>
-                        {stageCfg?.labelAr || lead.pipeline_stage}
-                      </Tag>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {/* ── Assigned Tasks ── */}
           <div>
             <Title level={5} style={{ margin: 0 }} className="mb-3">مهامي (My Tasks)</Title>
-            {myTasks.length === 0 ? (
-              <Empty description="لا توجد مهام معينة" />
+            {myPending.length === 0 ? (
+              <Empty description="لا توجد مهام معلقة" />
             ) : (
-              <div className="space-y-3">
-                {myTasks.map((task) => {
-                  const dueStatus = getDueStatus(task);
-                  return (
-                    <div
-                      key={task.id}
-                      className={`flex items-start gap-3 p-3 rounded-lg border ${
-                        task.status === 'done' ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-100'
-                      }`}
-                    >
-                      <Checkbox
-                        checked={task.status === 'done'}
-                        onChange={(e) => handleStatusChange(task.id, e.target.checked)}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <Text className={task.status === 'done' ? 'line-through text-gray-400' : ''}>
-                          {task.title}
-                        </Text>
-                        {task.lead && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            🔗 {task.lead.name} — {task.lead.phone}
-                          </div>
-                        )}
-                        {dueStatus && (
-                          <Tag color={dueStatus.color} icon={dueStatus.icon} className="mt-1">
-                            {dueStatus.label}
-                          </Tag>
-                        )}
-                      </div>
-                      <Tag color={
-                        task.priority === 'high' ? 'red' :
-                        task.priority === 'medium' ? 'gold' : 'default'
-                      }>
-                        {task.priority === 'high' ? 'عالية' : task.priority === 'medium' ? 'متوسطة' : 'منخفضة'}
-                      </Tag>
-                    </div>
-                  );
-                })}
-              </div>
+              <div className="space-y-3">{myPending.map(renderMyTask)}</div>
             )}
           </div>
+
+          {/* Staff keep the team panel beside this one, so their own done
+              tasks go here; everyone else gets them in the side panel. */}
+          {canManage && myDone.length > 0 && (
+            <div>
+              <Title level={5} style={{ margin: 0 }} className="mb-3">مهام تمت ({myDone.length})</Title>
+              {doneList}
+            </div>
+          )}
         </div>
 
         {/* Task Management - Right Panel (Admin/Manager Only) */}
@@ -513,8 +522,14 @@ export default function TasksPage() {
             />
           </div>
         ) : (
-          <div className="bg-white rounded-xl p-4 shadow-sm flex items-center justify-center">
-            <Text type="secondary">هذه الصفحة للأدمن والمديرين فقط</Text>
+          <div className="bg-white rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <Title level={5} style={{ margin: 0 }}>مهام تمت (Done)</Title>
+              <span className="bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                {myDone.length}
+              </span>
+            </div>
+            {doneList}
           </div>
         )}
       </div>
@@ -543,9 +558,16 @@ export default function TasksPage() {
           </Form.Item>
           <Form.Item name="lead_id" label="مرتبطة بليد">
             <Select
-              placeholder="اختر الليد (اختياري)"
+              placeholder="ابحث بالاسم أو الرقم (اختياري)"
               allowClear
-              options={leads.map((l) => ({ value: l.id, label: `${l.name} - ${l.phone}` }))}
+              showSearch
+              filterOption={false}
+              onSearch={(q) => fetchLeads(q)}
+              options={[
+                // Keep the edited task's lead selectable even when the search doesn't return it.
+                ...(editingTask?.lead && !leads.some((l) => l.id === editingTask.lead?.id) ? [editingTask.lead] : []),
+                ...leads,
+              ].map((l) => ({ value: l.id, label: `${l.name} - ${l.phone}` }))}
             />
           </Form.Item>
           <Form.Item name="due_date" label="الموعد">
