@@ -184,6 +184,10 @@ async function findLead(phone: string): Promise<string | null> {
 
 async function createLead(m: ParsedMessage): Promise<string> {
   const now = new Date().toISOString();
+  // Egypt chats go straight to a rep (least-loaded active tech sales engineer). The team
+  // answers from the phone app, whose echoes carry no sender, so waiting for a CRM reply
+  // to claim the lead left 109 chats ownerless (2026-10-28). Saudi stays unassigned.
+  const owner = m.country === 'EG' ? await pickOwner() : null;
   const { data, error } = await db()
     .from('leads')
     .insert({
@@ -196,8 +200,8 @@ async function createLead(m: ParsedMessage): Promise<string> {
       pipeline_stage: 'NEW',
       status: statusForStage('NEW'),
       stage_timestamps: { NEW: now },
-      assigned_to_user: null,
-      assigned_to_team: null,
+      assigned_to_user: owner,
+      assigned_to_team: owner ? 'tech' : null,
       // leads.org_id is NOT NULL — an explicit null overrides the column default.
       org_id: await orgId(),
       country: m.country,
@@ -206,7 +210,22 @@ async function createLead(m: ParsedMessage): Promise<string> {
     .single();
   if (error || !data) throw error ?? new Error('lead insert returned no row');
 
+  if (owner) {
+    const who = m.customerName || `+${m.customerPhone}`;
+    waitUntil(createNotification(owner, `${who}: ${m.body?.slice(0, 120) || 'محادثة واتساب جديدة'}`, data.id, {
+      type: 'assignment',
+      title: '📌 عميل واتساب جديد ليك',
+      data: { url: `/whatsapp?lead=${data.id}` },
+    }).catch((err) => console.error('[wa-webhook] assignment notify failed', data.id, err)));
+  }
   return data.id;
+}
+
+// A failed pick must never lose the message: the lead is then created unassigned.
+async function pickOwner(): Promise<string | null> {
+  const { data, error } = await db().rpc('pick_wa_lead_owner');
+  if (error) console.error('[wa-webhook] pick owner failed', error);
+  return (data as string | null) ?? null;
 }
 
 // The CRM has one org; take it from an admin profile rather than hardcoding it.
