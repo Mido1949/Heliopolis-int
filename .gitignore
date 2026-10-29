@@ -53,3 +53,8 @@ Heliomax_*_Leads.xlsx
 # python caches
 __pycache__/
 *.pyc
+
+# daily report outputs (signed links, CRM data, rendered files); only report.json is tracked
+reports/daily/*/*
+!reports/daily/*/report.json
+reports/daily/_state/
