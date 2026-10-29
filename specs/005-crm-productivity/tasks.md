@@ -61,9 +61,9 @@ description: "Delegable task list for CRM Productivity & Manual-System Completio
 **Goal**: stage-aware pre-filled WhatsApp.
 **Independent Test**: NEW lead → welcome template; QUOTED → quote template; 2 taps max.
 
-- [ ] T030 `[→OC]` Create `lib/phone.ts`: `normalizePhone(raw): string | null` using `libphonenumber-js` (regions EG→SA), returns E.164 or null. Add dep to `package.json`.
-- [ ] T031 `[→OC]` Create `lib/whatsapp.ts`: Arabic template map `stage → (firstName) => string` (welcome, follow-up, quote-sent, price-objection, generic) + `buildWhatsAppUrl(phone, stage, lead)` using `normalizePhone`. Templates also referenced from `lib/constants.ts` if that's the existing home.
-- [ ] T032 `[→S]` Replace empty `getWhatsAppUrl(phone)` usages in `KanbanView.tsx` (~L205) and `LeadDrawer.tsx` (~L385) with a small menu: when >1 template applies, let the user pick; default to the stage template. Falls back to neutral greeting when name is empty.
+- [x] T030 `[→OC]` Create `lib/phone.ts`: `normalizePhone(raw): string | null` using `libphonenumber-js` (regions EG→SA), returns E.164 or null. Add dep to `package.json`.
+- [x] T031 `[→OC]` Create `lib/whatsapp.ts`: Arabic template map `stage → (firstName) => string` (welcome, follow-up, quote-sent, price-objection, generic) + `buildWhatsAppUrl(phone, stage, lead)` using `normalizePhone`. Templates also referenced from `lib/constants.ts` if that's the existing home.
+- [x] T032 `[→S]` Replace empty `getWhatsAppUrl(phone)` usages in `KanbanView.tsx` (~L205) and `LeadDrawer.tsx` (~L385) with a small menu: when >1 template applies, let the user pick; default to the stage template. Falls back to neutral greeting when name is empty.
 
 **Checkpoint**: US3 acceptance scenarios 1–4 pass.
 
@@ -74,8 +74,8 @@ description: "Delegable task list for CRM Productivity & Manual-System Completio
 **Goal**: green/amber/red by stage age.
 **Independent Test**: leads at varied ages render correct colors; terminal stages uncolored.
 
-- [ ] T040 `[→OC]` Add `SLA_THRESHOLDS = { amberDays: 2, redDays: 5 }` and `slaColor(lead)` helper to `lib/constants.ts` (returns 'green'|'amber'|'red'|null; null for WON/LOST/POSTPONED), reusing existing `stageAgeDays`.
-- [ ] T041 `[→S]` In `KanbanView.tsx`, color the existing stage-age indicator via `slaColor`; ensure it's readable in the AntD card and Arabic RTL layout.
+- [x] T040 `[→OC]` Add `SLA_THRESHOLDS = { amberDays: 2, redDays: 5 }` and `slaColor(lead)` helper to `lib/constants.ts` (returns 'green'|'amber'|'red'|null; null for WON/LOST/POSTPONED), reusing existing `stageAgeDays`.
+- [x] T041 `[→S]` In `KanbanView.tsx`, color the existing stage-age indicator via `slaColor`; ensure it's readable in the AntD card and Arabic RTL layout.
 
 **Checkpoint**: US4 acceptance scenarios 1–4 pass; SC-004 verified.
 
