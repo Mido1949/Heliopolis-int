@@ -53,3 +53,6 @@ Heliomax_*_Leads.xlsx
 # python caches
 __pycache__/
 *.pyc
+
+# Daily report output: lead data and signed PDF links
+reports/daily/

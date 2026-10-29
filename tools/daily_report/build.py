@@ -9,8 +9,10 @@ Delivery picks the first channel that is configured (.env.local, or the cloud ta
      message body, and the agent sends that through the Gmail connector.
 """
 import base64
+import glob
 import html
 import json
+import shutil
 import smtplib
 import sys
 from datetime import datetime
@@ -214,6 +216,23 @@ def deliver(env, pdf, rep, date_ar, out_dir):
     return {"mode": "link", "to": RECIPIENT, "subject": subject, "url": link, "body_file": str(out_dir / "email.html")}
 
 
+def launch(p):
+    # Playwright's own Chromium when it is installed; otherwise any Chromium already on
+    # the machine (the cloud VM ships one, but not always the build Playwright expects).
+    try:
+        return p.chromium.launch()
+    except Exception:
+        found = [shutil.which(n) for n in ("chromium", "chromium-browser", "google-chrome", "chrome")]
+        found += sorted(glob.glob(str(Path.home() / ".cache/ms-playwright/chromium*/chrome-linux*/chrome")))
+        found += sorted(glob.glob("/opt/**/chrome", recursive=True))
+        for exe in filter(None, found):
+            try:
+                return p.chromium.launch(executable_path=exe)
+            except Exception:
+                continue
+        raise
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     date_str = args[0] if args else datetime.now(ZoneInfo("Africa/Cairo")).strftime("%Y-%m-%d")
@@ -226,7 +245,7 @@ def main():
     (out_dir / "report.html").write_text(page_html, encoding="utf-8")
     pdf = out_dir / f"HelioMax-تقرير-يومي-{date_str}.pdf"
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = launch(p)
         page = browser.new_page()
         page.goto((out_dir / "report.html").as_uri(), wait_until="networkidle")
         page.evaluate("document.fonts.ready")

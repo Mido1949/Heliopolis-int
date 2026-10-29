@@ -34,6 +34,11 @@ so it must read as a finished document for someone who was not in the room.
      `body_file`. Send once, to that one address only.
 6. Finish with one line: the PDF path and whether the email went out.
 
+Do not commit or push anything. `build.py` already saves `report.json` and the PDF to
+storage for tomorrow's run, and `reports/` holds lead data and signed links that must
+stay out of git. If `requests` or `playwright` is missing, install it with
+`python3 -m pip install --break-system-packages <name>` and carry on.
+
 ## Meta rules
 
 - Use ad account `10154131305690599` ONLY. Never list or query any other account.
