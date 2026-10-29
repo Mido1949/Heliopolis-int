@@ -10,6 +10,7 @@ import { withTimeout } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
 import WhatsAppTemplateButton from './WhatsAppTemplateButton';
+import { statusForStage } from '@/lib/leads/stageStatus';
 
 const { Text, Title } = Typography;
 
@@ -159,7 +160,7 @@ export default function KanbanView({ search, country, restrictToUserId, onLeadCl
     const stage_timestamps = { ...(moved?.stage_timestamps || {}), [newStage]: now };
 
     const { error } = await supabase.from('leads')
-      .update({ pipeline_stage: newStage, stage_timestamps, updated_at: now })
+      .update({ pipeline_stage: newStage, status: statusForStage(newStage), stage_timestamps, updated_at: now })
       .eq('id', leadId);
     if (error) { message.error('فشل تحديث المرحلة'); return; }
 
@@ -184,7 +185,7 @@ export default function KanbanView({ search, country, restrictToUserId, onLeadCl
     const stage_timestamps = { ...(moved?.stage_timestamps || {}), WON: now };
 
     const { error } = await supabase.from('leads')
-      .update({ pipeline_stage: 'WON', stage_timestamps, updated_at: now, deal_value: dealValue })
+      .update({ pipeline_stage: 'WON', status: statusForStage('WON'), stage_timestamps, updated_at: now, deal_value: dealValue })
       .eq('id', pendingWon.leadId);
     if (error) {
       message.error('فشل تحديث المرحلة');

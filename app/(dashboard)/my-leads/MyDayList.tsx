@@ -9,6 +9,7 @@ import { useOrg } from '@/context/OrgContext';
 import { PIPELINE_STAGES, slaColor, stageAgeDays } from '@/lib/constants';
 import type { Lead, PipelineStage } from '@/types';
 import WhatsAppTemplateButton from '../crm/WhatsAppTemplateButton';
+import { statusForStage } from '@/lib/leads/stageStatus';
 
 interface NextStep {
   id: string;
@@ -110,7 +111,7 @@ export default function MyDayList({ onOpen, reloadToken = 0 }: MyDayListProps) {
       const nowIso = new Date().toISOString();
       const stage_timestamps = { ...((lead.stage_timestamps as Record<string, string>) || {}), [newStage]: nowIso };
       const { error } = await supabase.from('leads')
-        .update({ pipeline_stage: newStage, stage_timestamps, updated_at: nowIso })
+        .update({ pipeline_stage: newStage, status: statusForStage(newStage), stage_timestamps, updated_at: nowIso })
         .eq('id', lead.id);
       if (error) { message.error('فشل تحديث المرحلة'); return; }
       supabase.from('lead_activities').insert({

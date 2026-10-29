@@ -25,6 +25,7 @@ const PDFDownloadButton = dynamic(() => import('@/components/boq/PDFDownloadButt
 });
 
 import { Y_BRANCH_TYPE, Y_BRANCH_DEFAULT_PRICE } from '@/components/boq/BOQEditor';
+import { statusForStage } from '@/lib/leads/stageStatus';
 
 const { Text, Title } = Typography;
 
@@ -642,7 +643,7 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                             const newStage = v as PipelineStage;
                             const stage_timestamps = { ...((lead.stage_timestamps as Record<string, string>) || {}), [newStage]: now };
                             const { error } = await supabase.from('leads')
-                              .update({ pipeline_stage: newStage, stage_timestamps, updated_at: now })
+                              .update({ pipeline_stage: newStage, status: statusForStage(newStage), stage_timestamps, updated_at: now })
                               .eq('id', lead.id);
                             if (error) return message.error('فشل تحديث المرحلة');
                             supabase.from('lead_activities').insert({
