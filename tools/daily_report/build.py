@@ -182,8 +182,10 @@ def render(rep, ctx):
 
 def email_html(rep, date_ar, link):
     points = "".join(f"<li style='margin-bottom:6px'>{b(x)}</li>" for x in rep.get("summary", []))
-    button = (f'<p style="margin:22px 0"><a href="{e(link)}" style="background:#14284D;color:#fff;padding:12px 22px;'
-              f'border-radius:8px;text-decoration:none;font-weight:bold">افتح التقرير الكامل PDF</a></p>'
+    button = (f'<table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0"><tr>'
+              f'<td bgcolor="#E3F3FB" style="background:#E3F3FB;border:2px solid #14284D;border-radius:8px;padding:12px 22px">'
+              f'<a href="{e(link)}" style="color:#14284D;font-weight:bold;font-size:16px;text-decoration:underline">'
+              f'افتح التقرير الكامل PDF</a></td></tr></table>'
               f'<p style="color:#5B6678;font-size:12px">اللينك خاص وشغال لمدة 30 يوم.</p>') if link else \
         '<p style="color:#5B6678">التقرير الكامل مرفق PDF.</p>'
     return (f'<div dir="rtl" style="font-family:Tahoma,Arial,sans-serif;color:#1B2433;line-height:1.8;max-width:640px">'
