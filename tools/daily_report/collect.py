@@ -49,9 +49,8 @@ def auth(env):
     key = env.get("SUPABASE_SERVICE_ROLE_KEY")
     if key:
         return {"apikey": key, "Authorization": f"Bearer {key}"}
-    # Cloud: the gateway takes the public anon key as apikey, and the proxy adds
-    # "Authorization: Bearer <service key>", which is what grants service access.
-    return {"apikey": env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]}
+    # Cloud: the proxy adds the service key as both "apikey" and "Authorization: Bearer".
+    return {}
 
 
 def storage_get(env, obj):
