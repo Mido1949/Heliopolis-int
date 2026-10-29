@@ -3,7 +3,7 @@
 [[DAILY-REPORT-RUN]]
 
 You are producing HelioMax's daily work report for Mido. It runs unattended every
-day at 16:00 Cairo time. Nobody is watching, so do not ask questions: finish the
+day at 17:00 Cairo time. Nobody is watching, so do not ask questions: finish the
 job, and if a data source fails, say so inside the report instead of stopping.
 
 The reader is Mido (owner, marketing lead). He forwards this report to management,
@@ -16,7 +16,11 @@ so it must read as a finished document for someone who was not in the room.
    - `crm`: today's CRM numbers for Egypt (already final, the PDF renders them itself)
    - `session_turns`: what Mido asked Claude today and what Claude answered
    - `git_commits_today`, `files_touched_today`, `worklog`
-2. Pull today's Meta numbers (rules below).
+   - `work_log_source`: where the chat/commit log came from. If it starts with
+     "missing", Mido's PC was off and `session_turns` is empty: write "work done"
+     from the commits and the CRM only, and say so in one line in `work_lead`.
+     Never guess what was worked on.
+2. Pull today's Meta numbers and the website numbers (rules below).
 3. Read yesterday's `reports/daily/<yesterday>/report.json` if it exists, so that
    "what is left" carries over: an item that was open yesterday and was not
    finished today stays in `next`.
@@ -47,6 +51,33 @@ so it must read as a finished document for someone who was not in the room.
 - The commercial ad set is paused on purpose. Report it as paused, not as a problem.
 - Read-only. Never create, edit, pause or activate anything.
 - If Meta fails, leave `ads.rows` empty and put the reason in `ads.notes`.
+
+## Website rules
+
+- `context.json` → `site` holds the WhatsApp taps from the site, already counted
+  from our own database (`wa_taps_today`, `wa_taps_7d`, Egypt only). These are the
+  real tap numbers: use them, not the pixel's `Contact`. It also holds the pixel
+  dataset id and the two time windows as epochs.
+- Call `mcp__claude_ai_meta__ads_get_dataset_stats` twice on `pixel_dataset_id` with
+  `aggregation: "event"` and `event_source: "WEB_ONLY"`: once with `start_time` =
+  `today_start_epoch`, once with `week_start_epoch`. Same `advertiser_job` as the
+  Meta calls. Read-only. The answer is hourly buckets: add up each event's counts.
+  `WEB_ONLY` matters: every event also arrives a second time from the server, so
+  without it every number comes out doubled. Never use `event_total_counts`.
+- Event names on this pixel: `PageView` = page views, `InitiateCheckout` = started
+  the price calculator, `AddToWishlist` = got a calculator result.
+- `site.rows`, in this order: ضغطات واتساب من الموقع (from `wa_taps_*`)، مشاهدات
+  صفحات، بدأوا الحاسبة، وصلوا لنتيجة الحاسبة. Skip a pixel event the pixel does
+  not return; never write 0 for a number you did not get.
+- `site.notes`: 1 to 3 points. Compare WhatsApp taps today with the 7-day daily
+  average, and say what changed on the site today if `session_turns` or the
+  `heliomax-web` commits show it. If the pixel call fails, leave `rows` empty and
+  put the reason in `notes`.
+- Add "ضغطات واتساب من الموقع" as one of the `kpis` tiles.
+- Since 2026-10-28 the site asks visitors for cookie consent, and the pixel only
+  counts people who pressed "موافق". If the pixel numbers dropped after that date,
+  say this in one note instead of reading it as lost traffic. The WhatsApp taps
+  are not affected.
 
 ## Writing rules
 
@@ -91,6 +122,11 @@ so it must read as a finished document for someone who was not in the room.
     "rows": [{"name": "", "level": "حملة | مجموعة إعلانية", "spend_today": 0, "results_today": 0,
               "cost_today": 0, "spend_7d": 0, "results_7d": 0, "cost_7d": 0, "frequency_7d": 0, "state": "شغال | موقوف"}],
     "notes": ["قراءة للأرقام: إيه اللي اتغير وإيه معناه"]
+  },
+  "site": {
+    "lead": "اختياري",
+    "rows": [{"label": "ضغطات واتساب من الموقع", "today": 0, "last_7d": 0}],
+    "notes": ["قراءة للأرقام"]
   },
   "crm_notes": ["قراءة لحركة الـ CRM النهاردة، ونقطة لكل صفقة اتحركت"],
   "decisions": [{"title": "", "body": "القرار المطلوب من مين وليه"}],

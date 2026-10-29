@@ -20,24 +20,54 @@ import requests
 ROOT = Path(__file__).resolve().parents[2]
 CAIRO = ZoneInfo("Africa/Cairo")
 RUN_MARKER = "[[DAILY-REPORT-RUN]]"
+RUN_PROMPT = "Read tools/daily_report/prompt.md"
 OPEN_STAGES_EXCLUDED = {"NEW", "LOST", "WELCOME_SENT", "NO_RESPONSE"}
 REPOS = [ROOT, Path("d:/heliomax-web")]
 SKIP_DIRS = {"node_modules", ".next", ".git", ".vercel", "__pycache__", ".superpowers", "spec-kit"}
 
 
+# Mido's machine has .env.local. The cloud scheduled task has none: the Supabase URL
+# comes from an environment variable and the agent proxy adds the key to every
+# request for the Supabase host (a network secret), so the key is never in the VM.
+LOCAL = (ROOT / ".env.local").exists()
+BUCKET = "daily-reports"
+
+
 def load_env():
     env = {}
-    for line in (ROOT / ".env.local").read_text(encoding="utf-8-sig").splitlines():
-        if "=" in line and not line.lstrip().startswith("#"):
-            k, v = line.split("=", 1)
-            env[k.strip()] = v.strip().strip('"')
+    if LOCAL:
+        for line in (ROOT / ".env.local").read_text(encoding="utf-8-sig").splitlines():
+            if "=" in line and not line.lstrip().startswith("#"):
+                k, v = line.split("=", 1)
+                env[k.strip()] = v.strip().strip('"')
+    for k, v in os.environ.items():
+        env.setdefault(k, v)
     return env
+
+
+def auth(env):
+    key = env.get("SUPABASE_SERVICE_ROLE_KEY")
+    return {"apikey": key, "Authorization": f"Bearer {key}"} if key else {}
+
+
+def storage_get(env, obj):
+    """The run's memory between days (stage history, yesterday's report) lives in the
+    report bucket, so a run on any machine sees what the previous run left."""
+    r = requests.get(f"{env['NEXT_PUBLIC_SUPABASE_URL']}/storage/v1/object/{BUCKET}/{obj}", headers=auth(env), timeout=60)
+    return r.content if r.ok else None
+
+
+def storage_put(env, obj, data, content_type="application/json"):
+    base = env["NEXT_PUBLIC_SUPABASE_URL"] + "/storage/v1"
+    requests.post(f"{base}/bucket", headers=auth(env), json={"id": BUCKET, "name": BUCKET, "public": False}, timeout=60)
+    r = requests.post(f"{base}/object/{BUCKET}/{obj}", headers={**auth(env), "Content-Type": content_type, "x-upsert": "true"},
+                      data=data, timeout=120)
+    r.raise_for_status()
 
 
 def rest(env, table, params):
     url = f"{env['NEXT_PUBLIC_SUPABASE_URL']}/rest/v1/{table}"
-    key = env["SUPABASE_SERVICE_ROLE_KEY"]
-    headers = {"apikey": key, "Authorization": f"Bearer {key}"}
+    headers = auth(env)
     rows, offset = [], 0
     while True:
         r = requests.get(url, headers=headers, params={**params, "limit": 1000, "offset": offset}, timeout=60)
@@ -74,7 +104,8 @@ def crm(env, day_start_utc, date_str):
 
     # Stage moves need yesterday's picture; the CRM keeps no stage history.
     state_file = ROOT / "reports" / "daily" / "_state" / "stages.json"
-    state = json.loads(state_file.read_text(encoding="utf-8")) if state_file.exists() else {}
+    saved = state_file.read_bytes() if state_file.exists() else storage_get(env, "_state/stages.json")
+    state = json.loads(saved) if saved else {}
     prev_dates = sorted(d for d in state if d < date_str)
     moves, prev_date = [], prev_dates[-1] if prev_dates else None
     if prev_date:
@@ -88,6 +119,7 @@ def crm(env, day_start_utc, date_str):
         del state[d]
     state_file.parent.mkdir(parents=True, exist_ok=True)
     state_file.write_text(json.dumps(state), encoding="utf-8")
+    storage_put(env, "_state/stages.json", json.dumps(state).encode())
 
     day = {"created_at": f"gte.{since}", "country": "eq.EG"}
     acts = rest(env, "lead_activities", {"select": "type,user_id,lead_id,details", **day})
@@ -137,7 +169,7 @@ def sessions(day_start_utc):
             continue
         if datetime.fromtimestamp(os.path.getmtime(path), timezone.utc) < day_start_utc:
             continue
-        file_turns, current, is_report_run = [], None, False
+        file_turns, current, is_report_run, seen_user = [], None, False, False
         with open(path, encoding="utf-8") as fh:
             for line in fh:
                 try:
@@ -156,9 +188,13 @@ def sessions(day_start_utc):
                 text = REMINDER.sub("", text).strip()
                 if not text:
                     continue
-                if RUN_MARKER in text:
-                    is_report_run = True
-                    break
+                # A report run opens with the run prompt; later mentions of the marker
+                # (a summary, a file read) don't make an ordinary session a report run.
+                if d["type"] == "user" and not seen_user:
+                    seen_user = True
+                    if RUN_MARKER in text or text.startswith(RUN_PROMPT):
+                        is_report_run = True
+                        break
                 ts = d.get("timestamp") or ""
                 try:
                     when = datetime.fromisoformat(ts.replace("Z", "+00:00"))
@@ -215,24 +251,67 @@ def files_today(day_start_local):
 
 def main():
     now = datetime.now(CAIRO)
-    date_str = sys.argv[1] if len(sys.argv) > 1 else now.strftime("%Y-%m-%d")
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    date_str = args[0] if args else now.strftime("%Y-%m-%d")
     day_start = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=CAIRO)
     day_start_utc = day_start.astimezone(timezone.utc)
     env = load_env()
 
     out_dir = ROOT / "reports" / "daily" / date_str
     out_dir.mkdir(parents=True, exist_ok=True)
+    yesterday = (day_start - timedelta(days=1)).strftime("%Y-%m-%d")
+    prev_report = ROOT / "reports" / "daily" / yesterday / "report.json"
+    if not prev_report.exists() and (saved := storage_get(env, f"{yesterday}/report.json")):
+        prev_report.parent.mkdir(parents=True, exist_ok=True)
+        prev_report.write_bytes(saved)
     worklog = ROOT / "reports" / "daily" / "worklog" / f"{date_str}.md"
+
+    # The day's chats, commits and files only exist on Mido's machine. At 16:50 it
+    # uploads them (--digest); the 17:00 cloud run picks them up if the PC was on.
+    if LOCAL:
+        work = {
+            "session_turns": sessions(day_start_utc),
+            "git_commits_today": git_today(date_str),
+            "files_touched_today": files_today(day_start),
+            "worklog": worklog.read_text(encoding="utf-8") if worklog.exists() else "",
+        }
+        if "--digest" in sys.argv:
+            storage_put(env, f"{date_str}/local.json", json.dumps(work, ensure_ascii=False).encode())
+            print("digest uploaded:", len(work["session_turns"]), "turns")
+            return
+        work_source = "Mido's machine"
+    elif saved := storage_get(env, f"{date_str}/local.json"):
+        work, work_source = json.loads(saved), "Mido's machine, uploaded at 16:50"
+    else:
+        work = {"session_turns": [], "git_commits_today": git_today(date_str), "files_touched_today": [], "worklog": ""}
+        work_source = "missing: Mido's PC was off, so only this repo's commits are known"
+
+    # website_inquiries gets one row per WhatsApp tap on the site (lib/inquiry.ts in
+    # heliomax-web). It is our own table, so the cookie banner does not hide any of them.
+    # Page views and the calculator come from the Meta pixel, pulled by the agent over
+    # these two windows.
+    since = day_start_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    week_start = day_start - timedelta(days=6)
+    site = {
+        "pixel_dataset_id": "2302611100579846",
+        "today_start_epoch": int(day_start.timestamp()),
+        "week_start_epoch": int(week_start.timestamp()),
+    }
+    try:
+        site["wa_taps_today"] = len(rest(env, "website_inquiries", {"select": "id", "country": "eq.EG", "created_at": f"gte.{since}"}))
+        site["wa_taps_7d"] = len(rest(env, "website_inquiries", {
+            "select": "id", "country": "eq.EG", "created_at": f"gte.{week_start.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}"}))
+    except requests.RequestException as err:
+        site["wa_taps_error"] = str(err)[:200]
 
     context = {
         "date": date_str,
+        "site": site,
         "generated_at_cairo": now.strftime("%Y-%m-%d %H:%M"),
-        "yesterday": (day_start - timedelta(days=1)).strftime("%Y-%m-%d"),
+        "yesterday": yesterday,
+        "work_log_source": work_source,
         "crm": crm(env, day_start_utc, date_str),
-        "session_turns": sessions(day_start_utc),
-        "git_commits_today": git_today(date_str),
-        "files_touched_today": files_today(day_start),
-        "worklog": worklog.read_text(encoding="utf-8") if worklog.exists() else "",
+        **work,
     }
     (out_dir / "context.json").write_text(json.dumps(context, ensure_ascii=False, indent=1), encoding="utf-8")
     print(out_dir / "context.json")

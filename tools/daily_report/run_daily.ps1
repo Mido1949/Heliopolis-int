@@ -1,5 +1,5 @@
 # Daily work report: collects the day's data, has Claude write it up, builds the
-# PDF and emails it. Registered in Task Scheduler as "HelioMax Daily Report" (16:00).
+# PDF and emails it. Registered in Task Scheduler as "HelioMax Daily Report" (17:00).
 $ErrorActionPreference = 'Continue'
 Set-Location 'D:\HelioMax'
 $env:PYTHONIOENCODING = 'utf-8'
@@ -15,6 +15,7 @@ $tools = @(
   'Bash(python tools/daily_report/build.py:*)',
   'mcp__claude_ai_meta__ads_get_field_context',
   'mcp__claude_ai_meta__ads_get_ad_entities',
+  'mcp__claude_ai_meta__ads_get_dataset_stats',
   'mcp__claude_ai_Gmail__send_message'
 )
 
