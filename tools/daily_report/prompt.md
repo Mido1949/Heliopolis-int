@@ -13,7 +13,11 @@ so it must read as a finished document for someone who was not in the room.
 
 1. Run `python tools/daily_report/collect.py`. It prints the path of
    `reports/daily/<date>/context.json`. Read that file. It holds:
-   - `crm`: today's CRM numbers for Egypt (already final, the PDF renders them itself)
+   - `crm`: today's CRM numbers for Egypt (already final, the PDF renders them itself).
+     Friday is the team's day off and has no report. On Saturday `crm.window` is
+     "الجمعة والسبت": the CRM numbers cover both days, so say "الجمعة والسبت" instead
+     of "النهاردة" for them. A quiet Friday is a day off, never a missed follow-up.
+     `crm.calls_today.by_user` names who made the calls: credit each person.
    - `session_turns`: what Mido asked Claude today and what Claude answered
    - `git_commits_today`, `files_touched_today`, `worklog`
    - `work_log_source`: where the chat/commit log came from. If it starts with

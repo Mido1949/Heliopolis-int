@@ -137,7 +137,8 @@ def render(rep, ctx):
          "، ".join(f"{k}: {v}" for k, v in crm["new_today_by_source"].items())),
         ("حركات على السيستم", act["total"], "، ".join(f"{k}: {v}" for k, v in act["by_user"].items())),
         ("عملاء اتعدلت بياناتهم", len(crm["updated_today"]), ""),
-        ("مكالمات اتسجلت", crm["calls_today"]["total"], "، ".join(f"{k}: {v}" for k, v in crm["calls_today"]["by_outcome"].items())),
+        ("مكالمات اتسجلت", crm["calls_today"]["total"], "، ".join(f"{k}: {v}" for k, v in crm["calls_today"].get("by_user", {}).items())),
+        ("نتيجة المكالمات", "", "، ".join(f"{k}: {v}" for k, v in crm["calls_today"]["by_outcome"].items())),
         ("مهام جديدة / مهام خلصت", f'{crm["tasks_created_today"]} / {len(crm["tasks_completed_today"])}', ""),
         ("زيارات ميدانية", crm["field_visits_today"], ""),
     ]
@@ -158,7 +159,8 @@ def render(rep, ctx):
         f'<td class="num">{num(l["deal_value"])}</td><td>{e(l["notes"] or l["project"] or "—")}</td></tr>'
         for l in crm["open_pipeline"]) + "</table><p class='small'>القيم زي ما هي متسجلة على السيستم، وفيها جنيه ودولار، فماينفعش تتجمع على بعض.</p>"
     crm_notes = f'<div class="box blue"><h4>قراءة الأرقام</h4>{ul(rep.get("crm_notes", []))}</div>' if rep.get("crm_notes") else ""
-    s6 = section("07", "حركة الـ CRM", "عملاء مصر على السيستم، من أول اليوم لحد وقت إصدار التقرير.",
+    since_label = "من صباح الجمعة (يوم الإجازة) لحد" if crm.get("window") == "الجمعة والسبت" else "من أول اليوم لحد"
+    s6 = section("07", "حركة الـ CRM", f"عملاء مصر على السيستم، {since_label} وقت إصدار التقرير.",
                  f'<div class="kpis">{stage_cells}</div>{day_table}{moves}{new_rows}{pipe}{crm_notes}')
 
     dec = "".join(f'<div class="box amber"><h4>{i}. {e(x.get("title", ""))}</h4><p>{b(x.get("body", ""))}</p></div>'

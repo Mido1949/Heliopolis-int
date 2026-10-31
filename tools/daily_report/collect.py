@@ -87,7 +87,7 @@ def clip(text, n):
     return text if len(text) <= n else text[:n] + "…"
 
 
-def crm(env, day_start_utc, date_str):
+def crm(env, day_start_utc, date_str, window):
     since = day_start_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
     leads = rest(env, "leads", {"select": "*", "country": "eq.EG", "archived_at": "is.null"})
     names = {p["id"]: p["name"] for p in rest(env, "profiles", {"select": "id,name"})}
@@ -133,6 +133,7 @@ def crm(env, day_start_utc, date_str):
 
     return {
         "scope": "Egypt only, non-archived leads",
+        "window": window,
         "deal_value_warning": "deal_value mixes currencies (USD and EGP). Never sum it. Quote each value as stored.",
         "stage_counts": dict(Counter(l.get("pipeline_stage") for l in leads)),
         "total_leads": len(leads),
@@ -152,7 +153,11 @@ def crm(env, day_start_utc, date_str):
             "edited_fields": dict(Counter(f for a in acts for f in (a.get("details") or {}).get("changes", []))),
             "leads_touched": len({a["lead_id"] for a in acts if a.get("lead_id") in by_id}),
         },
-        "calls_today": {"total": len(calls), "by_outcome": dict(Counter(c.get("outcome") or "—" for c in calls))},
+        "calls_today": {
+            "total": len(calls),
+            "by_outcome": dict(Counter(c.get("outcome") or "—" for c in calls)),
+            "by_user": dict(Counter(names.get(c["created_by"], "غير معروف") for c in calls)),
+        },
         "tasks_created_today": len(tasks_new),
         "tasks_completed_today": [t["title"] for t in tasks_done],
         "field_visits_today": len(visits),
@@ -295,6 +300,13 @@ def main():
     # these two windows.
     since = day_start_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
     week_start = day_start - timedelta(days=6)
+
+    # Friday is the team's day off and gets no report, so Saturday's CRM numbers
+    # start on Friday morning: the WhatsApp leads that arrive on Friday still count.
+    if day_start.weekday() == 5:
+        crm_start, window = day_start - timedelta(days=1), "الجمعة والسبت"
+    else:
+        crm_start, window = day_start, "النهاردة"
     site = {
         "pixel_dataset_id": "2302611100579846",
         "today_start_epoch": int(day_start.timestamp()),
@@ -313,7 +325,7 @@ def main():
         "generated_at_cairo": now.strftime("%Y-%m-%d %H:%M"),
         "yesterday": yesterday,
         "work_log_source": work_source,
-        "crm": crm(env, day_start_utc, date_str),
+        "crm": crm(env, crm_start.astimezone(timezone.utc), date_str, window),
         **work,
     }
     (out_dir / "context.json").write_text(json.dumps(context, ensure_ascii=False, indent=1), encoding="utf-8")
