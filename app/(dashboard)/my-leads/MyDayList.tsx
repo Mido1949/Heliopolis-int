@@ -53,6 +53,7 @@ export default function MyDayList({ onOpen, reloadToken = 0 }: MyDayListProps) {
           .select('*, assigned_user:profiles!leads_assigned_to_user_fkey(id, name)')
           .eq('assigned_to_user', user.id)
           .not('pipeline_stage', 'in', `(${TERMINAL.join(',')})`)
+          .is('archived_at', null)
           .limit(500),
         supabase
           .from('tasks')

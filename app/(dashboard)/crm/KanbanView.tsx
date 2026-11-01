@@ -63,6 +63,9 @@ export default function KanbanView({ search, country, restrictToUserId, onLeadCl
       .from('leads')
       .select('*, assigned_user:profiles!leads_assigned_to_user_fkey(id, name)', { count: 'exact' })
       .eq('pipeline_stage', stage);
+    // Archived leads (closed LOST, cleaned 2026-11-01) leave the board but a
+    // search still finds them, so nobody loses a customer who comes back.
+    if (!search) q = q.is('archived_at', null);
     if (search) {
       const safe = search.replace(/[,()\*]/g, ' ').trim();
       if (safe) q = q.or(`name.ilike.%${safe}%,company.ilike.%${safe}%,phone.ilike.%${safe}%`);

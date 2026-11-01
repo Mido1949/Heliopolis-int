@@ -168,6 +168,8 @@ export default function CRMPage() {
         // Saudi and Egyptian staff, but admins see both, so say it explicitly
         // or /crm and /crm-ksa would show an admin the same rows.
         .eq('country', 'EG');
+      // Archived leads stay findable by search, hidden otherwise.
+      if (!search) query = query.is('archived_at', null);
 
       if (search) {
         const safe = search.replace(/[,()\*]/g, ' ').trim();

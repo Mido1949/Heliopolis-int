@@ -44,7 +44,8 @@ export default function MyCRMPage() {
       let q = supabase
         .from('leads')
         .select('*, assigned_user:profiles!leads_assigned_to_user_fkey(id, name)', { count: 'exact' })
-        .eq('assigned_to_user', user.id);
+        .eq('assigned_to_user', user.id)
+        .is('archived_at', null);
 
       if (stageFilter) q = q.eq('pipeline_stage', stageFilter);
       if (regionFilter) q = q.eq('region', regionFilter);

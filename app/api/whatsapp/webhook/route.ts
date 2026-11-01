@@ -173,12 +173,24 @@ async function storeMessage(m: ParsedMessage): Promise<void> {
 async function findLead(phone: string): Promise<string | null> {
   const { data, error } = await db()
     .from('leads')
-    .select('id')
+    .select('id, archived_at')
     .eq('phone_normalized', phone)
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle();
   if (error) throw error;
+  // A customer from the archive (closed LOST) wrote again: bring the lead back
+  // onto the board as NEW so a rep sees the chat instead of it vanishing.
+  if (data?.archived_at) {
+    const now = new Date().toISOString();
+    const { data: full } = await db().from('leads').select('stage_timestamps').eq('id', data.id).maybeSingle();
+    const ts = { ...((full?.stage_timestamps as Record<string, string> | null) ?? {}), NEW: now };
+    const { error: upErr } = await db()
+      .from('leads')
+      .update({ archived_at: null, pipeline_stage: 'NEW', status: 'New', stage_timestamps: ts, updated_at: now })
+      .eq('id', data.id);
+    if (upErr) console.error('[wa-webhook] unarchive failed', data.id, upErr);
+  }
   return data?.id ?? null;
 }
 

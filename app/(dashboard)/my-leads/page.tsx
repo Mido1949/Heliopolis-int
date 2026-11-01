@@ -47,6 +47,7 @@ export default function MyLeadsPage() {
         .from('leads')
         .select('*, assigned_user:profiles!leads_assigned_to_user_fkey(id, name)')
         .eq('assigned_to_user', user.id)
+        .is('archived_at', null)
         .order('updated_at', { ascending: false })
         .limit(200);
 
