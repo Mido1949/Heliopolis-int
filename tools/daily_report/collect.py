@@ -209,6 +209,38 @@ def ads_week(env, start, end):
     }
 
 
+def site_week(env, start, end):
+    """Saturday table, second half: the website segment each new WhatsApp lead came from.
+
+    leads.site_segment / site_stage are filled by a DB trigger from the site's [hm-...]
+    tag (migration 20261102). A lead counts in the week its first tagged message arrived.
+    No spend here: Meta spend is per ad set, and one ad set can feed several pages.
+    """
+    iso = lambda d: d.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    leads = rest(env, "leads", {
+        "select": "id,phone_normalized,site_segment,site_stage,pipeline_stage,country",
+        "site_segment": "not.is.null",
+        "and": f"(site_first_at.gte.{iso(start)},site_first_at.lt.{iso(end)})"})
+    leads = [l for l in leads if (l.get("country") or "EG") == "EG"]
+    phones = [l["phone_normalized"] for l in leads if l.get("phone_normalized")]
+    counts = Counter()
+    for i in range(0, len(phones), 80):
+        chunk = ",".join(f'"{p}"' for p in phones[i:i + 80])
+        counts.update(r["customer_phone"] for r in rest(env, "wa_messages", {
+            "select": "customer_phone", "direction": "eq.in", "customer_phone": f"in.({chunk})"}))
+    rows = {}
+    for l in leads:
+        key = (l["site_segment"], l.get("site_stage") or "")
+        r = rows.setdefault(key, {"segment": key[0], "stage": key[1], "leads": 0, "real": 0, "quoted": 0, "won": 0})
+        st = l.get("pipeline_stage")
+        r["leads"] += 1
+        r["real"] += counts[l.get("phone_normalized")] >= 2
+        r["quoted"] += st in ("QUOTED", "NEGOTIATION", "WON")
+        r["won"] += st == "WON"
+    return {"window": f"{start:%Y-%m-%d} → {(end - timedelta(days=1)):%Y-%m-%d}",
+            "rows": sorted(rows.values(), key=lambda r: (-r["leads"], r["segment"], r["stage"]))}
+
+
 REMINDER = re.compile(r"<system-reminder>.*?</system-reminder>", re.S)
 NOISE_PREFIXES = ("This session is being continued", "<", "Caveat:", "[Request interrupted")
 
@@ -379,6 +411,10 @@ def main():
             context["ads_week"] = ads_week(env, day_start - timedelta(days=7), day_start)
         except requests.RequestException as err:
             context["ads_week"] = {"error": str(err)[:200]}
+        try:
+            context["site_week"] = site_week(env, day_start - timedelta(days=7), day_start)
+        except requests.RequestException as err:
+            context["site_week"] = {"error": str(err)[:200]}
     (out_dir / "context.json").write_text(json.dumps(context, ensure_ascii=False, indent=1), encoding="utf-8")
     print(out_dir / "context.json")
 

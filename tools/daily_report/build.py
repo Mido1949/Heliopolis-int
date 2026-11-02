@@ -118,6 +118,35 @@ def week_table(rep, ctx):
             + (f'<div class="box blue"><h4>قراءة الأسبوع</h4>{notes}</div>' if notes else ""))
 
 
+SEGMENT_AR = {"villa": "فلل", "proj": "مشاريع", "con": "مقاولين", "apt": "شقق", "gen": "عام (من غير صفحة)"}
+STAGE_AR = {"pre": "لسه ما استلمش", "fin": "بيشطّب", "done": "متشطب", "": "—"}
+
+
+def site_table(ctx):
+    """Saturday only: new WhatsApp leads from the website, by segment and stage."""
+    wk = ctx.get("site_week")
+    if not wk:
+        return ""
+    if wk.get("error"):
+        return f'<h3>الأسبوع: من الموقع حسب الشريحة</h3><div class="box amber"><p>الجدول ماتحسبش: {e(wk["error"])}</p></div>'
+    if not wk.get("rows"):
+        return (f'<h3>الأسبوع: من الموقع حسب الشريحة</h3><p class="small">مفيش ليدز جت من الموقع بكود شريحة '
+                f'في الفترة {e(wk["window"])}.</p>')
+    total = Counter()
+    rows = ""
+    for r in wk["rows"]:
+        total.update({k: r[k] for k in ("leads", "real", "quoted", "won")})
+        rows += (f'<tr><td>{e(SEGMENT_AR.get(r["segment"], r["segment"]))}</td><td>{e(STAGE_AR.get(r["stage"], r["stage"]))}</td>'
+                 f'<td class="num">{num(r["leads"])}</td><td class="num">{num(r["real"])}</td>'
+                 f'<td class="num">{num(r["quoted"])}</td><td class="num">{num(r["won"])}</td></tr>')
+    rows += (f'<tr><td><b>الإجمالي</b></td><td></td><td class="num"><b>{num(total["leads"])}</b></td><td class="num"><b>{num(total["real"])}</b></td>'
+             f'<td class="num"><b>{num(total["quoted"])}</b></td><td class="num"><b>{num(total["won"])}</b></td></tr>')
+    note = (f'الشريحة والمرحلة من الكود اللي الموقع بيحطه في رسالة الواتساب. الليد بيتحسب في الأسبوع اللي وصلت فيه أول رسالة بكود. '
+            f'عروض الأسعار والصفقات = مرحلة الليد النهارده. الفترة {e(wk["window"])}.')
+    return (f'<h3>الأسبوع: من الموقع حسب الشريحة</h3><table class="tight"><tr><th>الشريحة</th><th>المرحلة</th><th>ليدز</th>'
+            f'<th>محادثات حقيقية</th><th>عروض أسعار</th><th>صفقات</th></tr>{rows}</table><p class="small">{note}</p>')
+
+
 def render(rep, ctx):
     d = datetime.strptime(rep["date"], "%Y-%m-%d")
     date_ar = f"{DAYS[d.weekday()]} {d.day} {MONTHS[d.month - 1]} {d.year}"
@@ -163,7 +192,7 @@ def render(rep, ctx):
                  if rows else '<div class="box amber"><p>أرقام Meta ماتسحبتش النهاردة.</p></div>')
     ads_notes = f'<div class="box blue"><h4>قراءة الأرقام</h4>{ul(ads.get("notes", []))}</div>' if ads.get("notes") else ""
     s5 = section("05", "الإعلانات على Meta", ads.get("lead") or "الحساب الإعلاني لـ HelioMax مصر. الأرقام بالجنيه، وأرقام النهاردة لحد وقت إصدار التقرير.",
-                 ads_table + ads_notes + week_table(rep, ctx))
+                 ads_table + ads_notes + week_table(rep, ctx) + site_table(ctx))
 
     site = rep.get("site", {})
     srows = "".join(f'<tr><td><b>{e(r.get("label", ""))}</b></td><td class="num">{num(r.get("today"))}</td>'
