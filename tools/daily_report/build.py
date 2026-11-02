@@ -15,6 +15,7 @@ import json
 import shutil
 import smtplib
 import sys
+from collections import Counter
 from datetime import datetime
 from email.message import EmailMessage
 from pathlib import Path
@@ -72,6 +73,51 @@ def section(k, title, lead, body):
     return f'<section class="sec"><div class="sechead"><h2><span class="k">{k}</span>{e(title)}</h2>{lead_html}</div>{body}</section>'
 
 
+def week_table(rep, ctx):
+    """Saturday only: Meta spend (from the agent) joined to CRM outcomes (from
+    collect.py) per ad set. All division happens here, never in the agent."""
+    wk = ctx.get("ads_week")
+    if not wk:
+        return ""
+    if wk.get("error"):
+        return f'<h3>الأسبوع: من الإعلان للصفقة</h3><div class="box amber"><p>جدول الأسبوع ماتحسبش: {e(wk["error"])}</p></div>'
+    spend = {str(s.get("ad_id")): s for s in (rep.get("ads_week") or {}).get("spend_by_ad", [])}
+    # Only ads that spent in account 599 enter the table. Threads from any other ad
+    # (the hiring ad in the employment account, old ads with no spend this week)
+    # would make customer costs look cheaper, so they are only counted in a note.
+    groups, outside = {}, Counter()
+    for a in wk.get("per_ad", []):
+        s = spend.get(a["ad_id"])
+        if not s:
+            outside.update({"ads": 1, "threads": a["threads"]})
+            continue
+        groups.setdefault(s.get("adset") or "غير معروف", Counter()).update({k: a[k] for k in ("threads", "real", "quoted", "won")})
+    for s in spend.values():  # ads that spent but brought no thread still cost money
+        groups.setdefault(s.get("adset") or "غير معروف", Counter())["spend"] += float(s.get("spend") or 0)
+    if not groups:
+        return '<h3>الأسبوع: من الإعلان للصفقة</h3><div class="box amber"><p>صرف الإعلانات للأسبوع ماتسحبش من Meta، فالجدول ماتحسبش.</p></div>'
+    total = sum(groups.values(), Counter())
+    cost = lambda sp, n: round(sp / n) if sp and n else None
+    rows = ""
+    for name, g in sorted(groups.items(), key=lambda kv: -kv[1]["spend"]) + [("الإجمالي", total)]:
+        bold = name == "الإجمالي"
+        cell = (lambda x: f"<b>{x}</b>") if bold else (lambda x: x)
+        rows += (f'<tr><td>{cell(e(name))}</td><td class="num">{num(round(g["spend"]))}</td><td class="num">{num(g["threads"])}</td>'
+                 f'<td class="num">{num(g["real"])}</td><td class="num">{num(g["quoted"])}</td><td class="num">{num(g["won"])}</td>'
+                 f'<td class="num">{cell(num(cost(g["spend"], g["real"])))}</td><td class="num">{cell(num(cost(g["spend"], g["quoted"])))}</td>'
+                 f'<td class="num">{num(cost(g["spend"], g["won"]))}</td></tr>')
+    base = wk["baseline"]
+    note = (f'المحادثة الحقيقية = العميل بعت رسالتين أو أكتر. الأرقام من الـ CRM مش من Meta، والفترة {e(wk["window"])}. '
+            f'المرجع ({e(base["period"])}): حوالي {base["cost_per_real_conversation"]} جنيه للمحادثة الحقيقية و{base["cost_per_quote"]:,} جنيه لعرض السعر.')
+    if outside["threads"]:
+        note += f' مش محسوب في الجدول: {outside["threads"]} محادثة من {outside["ads"]} إعلان ملهوش صرف في حساب HelioMax الأسبوع ده (زي إعلان التوظيف).'
+    notes = ul((rep.get("ads_week") or {}).get("notes", []))
+    return (f'<h3>الأسبوع: من الإعلان للصفقة</h3><table class="tight"><tr><th>المجموعة الإعلانية</th><th>صرف</th><th>محادثات</th>'
+            f'<th>محادثات حقيقية</th><th>عروض أسعار</th><th>صفقات</th><th>تكلفة المحادثة الحقيقية</th><th>تكلفة عرض السعر</th>'
+            f'<th>تكلفة الصفقة</th></tr>{rows}</table><p class="small">{note}</p>'
+            + (f'<div class="box blue"><h4>قراءة الأسبوع</h4>{notes}</div>' if notes else ""))
+
+
 def render(rep, ctx):
     d = datetime.strptime(rep["date"], "%Y-%m-%d")
     date_ar = f"{DAYS[d.weekday()]} {d.day} {MONTHS[d.month - 1]} {d.year}"
@@ -117,7 +163,7 @@ def render(rep, ctx):
                  if rows else '<div class="box amber"><p>أرقام Meta ماتسحبتش النهاردة.</p></div>')
     ads_notes = f'<div class="box blue"><h4>قراءة الأرقام</h4>{ul(ads.get("notes", []))}</div>' if ads.get("notes") else ""
     s5 = section("05", "الإعلانات على Meta", ads.get("lead") or "الحساب الإعلاني لـ HelioMax مصر. الأرقام بالجنيه، وأرقام النهاردة لحد وقت إصدار التقرير.",
-                 ads_table + ads_notes)
+                 ads_table + ads_notes + week_table(rep, ctx))
 
     site = rep.get("site", {})
     srows = "".join(f'<tr><td><b>{e(r.get("label", ""))}</b></td><td class="num">{num(r.get("today"))}</td>'

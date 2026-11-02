@@ -164,6 +164,51 @@ def crm(env, day_start_utc, date_str, window):
     }
 
 
+def ads_week(env, start, end):
+    """Saturday table: what each ad's WhatsApp threads became in the CRM.
+
+    A thread belongs to the ad of the customer's FIRST ad-referral message ever, and
+    counts in this week only if that first message falls inside [start, end). A real
+    conversation = the customer sent 2+ messages. Quoted / won = the lead's stage now.
+    Spend per ad comes from Meta (pulled by the agent); build.py joins and divides.
+    """
+    iso = lambda d: d.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    msgs = rest(env, "wa_messages", {
+        "select": "customer_phone,lead_id,created_at,country,ad_id:referral->>source_id,headline:referral->>headline",
+        "direction": "eq.in", "referral": "not.is.null", "created_at": f"lt.{iso(end)}", "order": "created_at.asc"})
+    first = {}
+    for m in msgs:
+        if m.get("ad_id") and (m.get("country") or "EG") == "EG" and m["customer_phone"] not in first:
+            first[m["customer_phone"]] = m
+    week = [m for m in first.values() if m["created_at"] >= iso(start).replace("Z", "")]
+    phones = [m["customer_phone"] for m in week]
+    counts = Counter()
+    for i in range(0, len(phones), 80):
+        chunk = ",".join(f'"{p}"' for p in phones[i:i + 80])
+        counts.update(r["customer_phone"] for r in rest(env, "wa_messages", {
+            "select": "customer_phone", "direction": "eq.in", "customer_phone": f"in.({chunk})"}))
+    lead_ids = [m["lead_id"] for m in week if m.get("lead_id")]
+    stage = {}
+    for i in range(0, len(lead_ids), 80):
+        for l in rest(env, "leads", {"select": "id,pipeline_stage,deal_value",
+                                     "id": f"in.({','.join(lead_ids[i:i + 80])})"}):
+            stage[l["id"]] = l
+    per_ad = {}
+    for m in week:
+        a = per_ad.setdefault(m["ad_id"], {"ad_id": m["ad_id"], "headline": (m.get("headline") or "").strip(),
+                                           "threads": 0, "real": 0, "quoted": 0, "won": 0})
+        a["threads"] += 1
+        a["real"] += counts[m["customer_phone"]] >= 2
+        st = (stage.get(m.get("lead_id")) or {}).get("pipeline_stage")
+        a["quoted"] += st in ("QUOTED", "NEGOTIATION", "WON")
+        a["won"] += st == "WON"
+    return {
+        "window": f"{start:%Y-%m-%d} → {(end - timedelta(days=1)):%Y-%m-%d}",
+        "baseline": {"cost_per_real_conversation": 108, "cost_per_quote": 1000, "period": "2026-10-19 → 10-28"},
+        "per_ad": sorted(per_ad.values(), key=lambda a: -a["threads"]),
+    }
+
+
 REMINDER = re.compile(r"<system-reminder>.*?</system-reminder>", re.S)
 NOISE_PREFIXES = ("This session is being continued", "<", "Caveat:", "[Request interrupted")
 
@@ -328,6 +373,12 @@ def main():
         "crm": crm(env, crm_start.astimezone(timezone.utc), date_str, window),
         **work,
     }
+    # Saturday (or --weekly): the Saturday-to-Friday week that just ended, per ad.
+    if day_start.weekday() == 5 or "--weekly" in sys.argv:
+        try:
+            context["ads_week"] = ads_week(env, day_start - timedelta(days=7), day_start)
+        except requests.RequestException as err:
+            context["ads_week"] = {"error": str(err)[:200]}
     (out_dir / "context.json").write_text(json.dumps(context, ensure_ascii=False, indent=1), encoding="utf-8")
     print(out_dir / "context.json")
 

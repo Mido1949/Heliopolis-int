@@ -61,6 +61,28 @@ stay out of git. If `requests` or `playwright` is missing, install it with
 - Read-only. Never create, edit, pause or activate anything.
 - If Meta fails, leave `ads.rows` empty and put the reason in `ads.notes`.
 
+## Saturday: the week from ad to deal
+
+Only when `context.json` has `ads_week` (Saturdays). It already holds, per ad id,
+the WhatsApp threads that ad started in the Saturday-to-Friday week and what they
+became in the CRM. You add only the spend:
+
+- One more Meta call: level `ad`, `date_preset: "last_7d"` (on Saturday that is
+  exactly the Saturday-to-Friday week), fields for the ad id, ad name, ad set name
+  and `amount_spent`. Check the id and ad-set field names with
+  `ads_get_field_context` first.
+- Write `ads_week.spend_by_ad` in report.json: one entry per ad that spent anything,
+  `{"ad_id": "...", "ad_name": "...", "adset": "<ad set name>", "spend": 0}`. Copy
+  the numbers as Meta returns them. Do not divide or add anything: `build.py`
+  groups by ad set and computes every cost.
+- `ads_week.notes`: 1 to 3 points comparing the week with the baseline in
+  `ads_week.baseline`, using only counts from `ads_week.per_ad` and the spend you
+  copied. A cost you would have to calculate yourself is left out of the notes.
+- The website campaign's chats mostly come through the site's WhatsApp button and
+  carry no ad id, so its row in this table undercounts them. Say that in one note
+  whenever the website campaign spent that week; `site.wa_taps_7d` is its real count.
+- If `ads_week` has `error`, or Meta fails, skip this section; build.py says so.
+
 ## Website rules
 
 - `context.json` → `site` holds the WhatsApp taps from the site, already counted
@@ -137,6 +159,7 @@ stay out of git. If `requests` or `playwright` is missing, install it with
     "rows": [{"label": "ضغطات واتساب من الموقع", "today": 0, "last_7d": 0}],
     "notes": ["قراءة للأرقام"]
   },
+  "ads_week": {"spend_by_ad": [{"ad_id": "", "ad_name": "", "adset": "", "spend": 0}], "notes": ["Saturdays only"]},
   "crm_notes": ["قراءة لحركة الـ CRM النهاردة، ونقطة لكل صفقة اتحركت"],
   "decisions": [{"title": "", "body": "القرار المطلوب من مين وليه"}],
   "next": [{"item": "**البند** وتفصيله", "status": "wip|wait|done", "status_label": "اختياري"}],
