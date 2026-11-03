@@ -800,7 +800,13 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                       onChange={(v: string) => setAssignUser(v)}
                       className="w-full"
                       disabled={!assignTeam || teamUsers.length === 0}
-                      options={teamUsers.map((u) => ({ value: u.id, label: u.name }))}
+                      options={[
+                        ...teamUsers.map((u) => ({ value: u.id, label: u.name })),
+                        // a lead with no team still has an owner: show her name, not her id
+                        ...(assignUser && !teamUsers.some((u) => u.id === assignUser)
+                          ? [{ value: assignUser, label: lead.assigned_user?.name ?? 'المالك الحالي' }]
+                          : []),
+                      ]}
                       notFoundContent="لا يوجد مستخدمون في هذا الفريق"
                     />
                     <Button
