@@ -1079,7 +1079,17 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                           note:          { icon: '📝', label: 'ملاحظة',           color: 'bg-gray-50 border-gray-200' },
                           note_added:    { icon: '📝', label: 'ملاحظة',           color: 'bg-gray-50 border-gray-200' },
                           edit:          { icon: '✏️',  label: 'تعديل',            color: 'bg-slate-50 border-slate-200' },
+                          next_step_set: { icon: '⭐', label: 'الخطوة التالية',   color: 'bg-blue-50 border-blue-200' },
+                          next_step_done:{ icon: '✅', label: 'خطوة اتعملت',      color: 'bg-green-50 border-green-200' },
                         };
+                        // A logged call keeps its note in details, not body.
+                        const outcomeAr: Record<string, string> = {
+                          'Answered': 'رد', 'No Answer': 'مردش', 'Busy': 'مشغول', 'Callback Requested': 'طلب معاودة',
+                        };
+                        const d = (a.details || {}) as Record<string, unknown>;
+                        const dOutcome = typeof d.outcome === 'string' ? (outcomeAr[d.outcome] || d.outcome) : '';
+                        const dNotes = typeof d.notes === 'string' ? d.notes.trim() : '';
+                        const detailText = [dOutcome && `📞 ${dOutcome}`, dNotes].filter(Boolean).join(' — ');
                         const cfg = typeConfig[a.type] || { icon: '•', label: a.type, color: 'bg-gray-50 border-gray-200' };
                         return (
                           <div key={a.id} className="flex gap-3 items-start pl-1">
@@ -1096,6 +1106,9 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
                               <div className="text-[10px] text-gray-500 mb-0.5">{userName}</div>
                               {a.body && (
                                 <p className="text-xs text-gray-800 mt-1 leading-relaxed">{a.body}</p>
+                              )}
+                              {!a.body && detailText && (
+                                <p dir="rtl" className="text-xs text-gray-800 mt-1 leading-relaxed whitespace-pre-line">{detailText}</p>
                               )}
                               {a.duration_seconds && a.duration_seconds > 0 && (
                                 <span className="text-[10px] text-gray-400">⏱ {Math.floor(a.duration_seconds / 60)} دقيقة {a.duration_seconds % 60} ثانية</span>
