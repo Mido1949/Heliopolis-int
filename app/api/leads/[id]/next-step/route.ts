@@ -90,6 +90,8 @@ export async function POST(
     .eq('lead_id', leadId)
     .eq('auto_created', false)
     .eq('status', 'pending')
+    // quote-call tasks are also auto_created=false; never overwrite them
+    .is('kind', null)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -123,6 +125,12 @@ export async function POST(
       .single();
     if (insErr) return NextResponse.json({ error: insErr.message }, { status: 400 });
     taskId = inserted.id;
+  }
+
+  // The next step's date is the lead's follow-up date too, so the daily
+  // follow-up list and the leads table agree with it.
+  if (dueDate) {
+    await supabase.from('leads').update({ next_follow_up: dueDate }).eq('id', leadId);
   }
 
   // Log the manual next-step set as an activity (free-text type — no enum).

@@ -557,6 +557,7 @@ export default function LeadDrawer({ lead, open, onClose, onEdit, onAssigned }: 
               className="w-full mb-2"
               value={nsDue}
               onChange={(d) => setNsDue(d)}
+              disabledDate={(d) => d.isBefore(dayjs(), 'day')}
               placeholder="تاريخ ووقت الاستحقاق"
               format="YYYY-MM-DD HH:mm"
             />

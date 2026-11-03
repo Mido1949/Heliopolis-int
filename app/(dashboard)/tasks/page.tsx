@@ -37,7 +37,9 @@ export default function TasksPage() {
   const [form] = Form.useForm();
 
   const [filter, setFilter] = useState<string>('all');
-  const [dailyLeads, setDailyLeads] = useState<{ id: string; name: string; next_follow_up: string; status: string; reason: string }[]>([]);
+  const [dailyLeads, setDailyLeads] = useState<{ id: string; name: string; next_follow_up: string; status: string; reason: string; journey?: string | null }[]>([]);
+  // lead id → the lead's whole history in one line, shown on each task card
+  const [journeys, setJourneys] = useState<Record<string, string>>({});
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [leadDrawerOpen, setLeadDrawerOpen] = useState(false);
 
@@ -82,6 +84,20 @@ export default function TasksPage() {
         setMyTasks((myData || []) as Task[]);
         setPendingCount(count || 0);
         setDailyLeads(dailyData || []);
+
+        const leadIds = Array.from(new Set(((myData || []) as Task[])
+          .filter((t) => t.status === 'pending' && t.lead_id)
+          .map((t) => t.lead_id as string)));
+        if (leadIds.length > 0) {
+          const { data: jData } = await supabase.rpc('get_lead_journeys', { p_lead_ids: leadIds });
+          const map: Record<string, string> = {};
+          for (const row of (jData || []) as { lead_id: string; journey: string | null }[]) {
+            if (row.journey) map[row.lead_id] = row.journey;
+          }
+          setJourneys(map);
+        } else {
+          setJourneys({});
+        }
       }
 
       if (canManage) {
@@ -223,6 +239,14 @@ export default function TasksPage() {
           {task.lead && (
             <div className="text-xs text-gray-500 mt-1">
               🔗 {task.lead.name} — {task.lead.phone}
+            </div>
+          )}
+          {!done && task.lead_id && journeys[task.lead_id] && (
+            <div
+              className="text-[11px] text-slate-600 mt-1 whitespace-nowrap overflow-x-auto bg-slate-50 rounded px-1.5 py-0.5"
+              title={journeys[task.lead_id]}
+            >
+              🧭 {journeys[task.lead_id]}
             </div>
           )}
           {done && task.completed_at && (
@@ -427,13 +451,23 @@ export default function TasksPage() {
                   <button
                     key={lead.id}
                     onClick={() => openLead(lead.id)}
-                    className="w-full flex items-center justify-between p-2.5 rounded-lg border border-slate-100 hover:border-[#D72B2B] transition-colors text-right"
+                    className="w-full p-2.5 rounded-lg border border-slate-100 hover:border-[#D72B2B] transition-colors text-right"
                   >
-                    <span className="text-sm font-medium text-[#0D2137]">{lead.name}</span>
-                    <span className={`flex items-center gap-1 text-xs font-medium ${lead.reason === 'overdue' ? 'text-red-500' : 'text-amber-500'}`}>
-                      <span className={`w-2 h-2 rounded-full ${lead.reason === 'overdue' ? 'bg-red-500' : 'bg-amber-400'}`} />
-                      {lead.reason === 'overdue' ? 'متأخر' : 'لا نشاط 24س'}
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-[#0D2137]">{lead.name}</span>
+                      <span className={`flex items-center gap-1 text-xs font-medium ${lead.reason === 'overdue' ? 'text-red-500' : 'text-amber-500'}`}>
+                        <span className={`w-2 h-2 rounded-full ${lead.reason === 'overdue' ? 'bg-red-500' : 'bg-amber-400'}`} />
+                        {lead.reason === 'overdue' ? 'متأخر' : 'لا نشاط 24س'}
+                      </span>
+                    </div>
+                    {lead.journey && (
+                      <div
+                        className="text-[11px] text-slate-600 mt-1 whitespace-nowrap overflow-x-auto"
+                        title={lead.journey}
+                      >
+                        🧭 {lead.journey}
+                      </div>
+                    )}
                   </button>
                 ))}
               </div>

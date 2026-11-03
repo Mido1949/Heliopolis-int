@@ -341,7 +341,12 @@ export default function LeadFormModal({ open, lead, onClose, onSaved, defaultReg
 
         {/* ⑥ Follow-up & Notes */}
         <Form.Item name="next_follow_up" label="المتابعة القادمة (Next Follow-up)">
-          <DatePicker className="w-full" placeholder="اختر التاريخ" />
+          <DatePicker
+            className="w-full"
+            placeholder="اختر التاريخ"
+            // a past date puts the lead straight back in today's follow-ups
+            disabledDate={(d) => d.isBefore(dayjs(), 'day')}
+          />
         </Form.Item>
 
         <Form.Item name="notes" label="ملاحظات (Notes)">
