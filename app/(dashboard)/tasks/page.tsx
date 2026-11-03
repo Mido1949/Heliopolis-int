@@ -77,9 +77,9 @@ export default function TasksPage() {
             .select('*', { count: 'exact', head: true })
             .eq('assigned_to', user.id)
             .eq('status', 'pending'),
-          supabase.rpc('get_daily_tasks', {
-            p_user_id: isStaff ? null : user.id,
-          }),
+          // Everyone, staff included, gets only the leads they own here; the
+          // team's work is in the Team Task Management panel.
+          supabase.rpc('get_daily_tasks', { p_user_id: user.id }),
         ]);
         setMyTasks((myData || []) as Task[]);
         setPendingCount(count || 0);
@@ -243,6 +243,7 @@ export default function TasksPage() {
           )}
           {!done && task.lead_id && journeys[task.lead_id] && (
             <div
+              dir="rtl"
               className="text-[11px] text-slate-600 mt-1 whitespace-nowrap overflow-x-auto bg-slate-50 rounded px-1.5 py-0.5"
               title={journeys[task.lead_id]}
             >
@@ -462,6 +463,7 @@ export default function TasksPage() {
                     </div>
                     {lead.journey && (
                       <div
+                        dir="rtl"
                         className="text-[11px] text-slate-600 mt-1 whitespace-nowrap overflow-x-auto"
                         title={lead.journey}
                       >
