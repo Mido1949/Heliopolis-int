@@ -82,14 +82,18 @@ export default function CallsHistoryPage() {
   const fetchCallLogs = useCallback(async (p = page) => {
     setLoading(true);
     try {
+      // Searching filters on the joined lead's name, which needs an inner join
+      // (an .or() on an embedded column is rejected by PostgREST).
+      const term = search.trim().replace(/[%,()]/g, '');
+      const leadJoin = term ? 'leads!call_logs_lead_id_fkey!inner(name, source)' : 'leads!call_logs_lead_id_fkey(name, source)';
       let query = supabase
         .from('call_logs')
-        .select('*, leads!call_logs_lead_id_fkey(name, source)', { count: 'exact' })
+        .select(`*, ${leadJoin}`, { count: 'exact' })
         .order('created_at', { ascending: false })
         .range((p - 1) * pageSize, p * pageSize - 1);
 
-      if (search) {
-        query = query.or(`leads.name.ilike.%${search}%`);
+      if (term) {
+        query = query.ilike('leads.name', `%${term}%`);
       }
       if (outcomeFilter) {
         query = query.eq('outcome', outcomeFilter);
