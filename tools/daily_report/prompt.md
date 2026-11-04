@@ -34,8 +34,9 @@ so it must read as a finished document for someone who was not in the room.
    - `"mode": "sent"`: the email already went out with the PDF attached. Done.
    - `"mode": "link"`: send the email yourself with the Gmail connector
      (`mcp__claude_ai_Gmail__send_message`, load it with ToolSearch): `to` and
-     `subject` from the DELIVERY line, `htmlBody` = the exact contents of
-     `body_file`. Send once, to that one address only.
+     `subject` from the DELIVERY line (`to` is a list: put every address in it),
+     `htmlBody` = the exact contents of `body_file`. Send ONE email to all of
+     those addresses together, and to no one else.
 6. Finish with one line: the PDF path and whether the email went out.
 
 Do not commit or push anything. `build.py` already saves `report.json` and the PDF to

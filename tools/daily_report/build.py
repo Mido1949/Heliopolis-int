@@ -27,7 +27,8 @@ from playwright.sync_api import sync_playwright
 from collect import BUCKET, ROOT, auth, load_env, storage_put
 
 HERE = Path(__file__).resolve().parent
-RECIPIENT = "smido1949@gmail.com"
+# Mido and the CFO (Ali Abo El Makarem) both get it; Mido asked 2026-11-04.
+RECIPIENTS = ["smido1949@gmail.com", "alymakarem3@gmail.com"]
 LINK_TTL = 60 * 60 * 24 * 30
 MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
 DAYS = ["الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"]
@@ -274,14 +275,14 @@ def deliver(env, pdf, rep, date_ar, out_dir):
     subject = f"HelioMax — تقرير الشغل اليومي {rep['date']}"
     if env.get("REPORT_SMTP_USER") and env.get("REPORT_SMTP_PASS"):
         msg = EmailMessage()
-        msg["Subject"], msg["From"], msg["To"] = subject, env["REPORT_SMTP_USER"], RECIPIENT
+        msg["Subject"], msg["From"], msg["To"] = subject, env["REPORT_SMTP_USER"], ", ".join(RECIPIENTS)
         msg.set_content(rep.get("headline", ""))
         msg.add_alternative(email_html(rep, date_ar, None), subtype="html")
         msg.add_attachment(pdf.read_bytes(), maintype="application", subtype="pdf", filename=pdf.name)
         with smtplib.SMTP_SSL(env.get("REPORT_SMTP_HOST", "smtp.gmail.com"), 465, timeout=60) as s:
             s.login(env["REPORT_SMTP_USER"], env["REPORT_SMTP_PASS"])
             s.send_message(msg)
-        return {"mode": "sent", "to": RECIPIENT, "subject": subject}
+        return {"mode": "sent", "to": RECIPIENTS, "subject": subject}
 
     base = env["NEXT_PUBLIC_SUPABASE_URL"] + "/storage/v1"
     obj = f"{rep['date']}/HelioMax-daily-report-{rep['date']}.pdf"
@@ -290,7 +291,7 @@ def deliver(env, pdf, rep, date_ar, out_dir):
     r.raise_for_status()
     link = base + r.json()["signedURL"]
     (out_dir / "email.html").write_text(email_html(rep, date_ar, link), encoding="utf-8")
-    return {"mode": "link", "to": RECIPIENT, "subject": subject, "url": link, "body_file": str(out_dir / "email.html")}
+    return {"mode": "link", "to": RECIPIENTS, "subject": subject, "url": link, "body_file": str(out_dir / "email.html")}
 
 
 def launch(p):
