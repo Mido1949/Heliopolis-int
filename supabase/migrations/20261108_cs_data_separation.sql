@@ -82,6 +82,13 @@ as $$
                         and o.id <> auth.uid())
 $$;
 
+-- ── asmaa: tech team rep, not admin (Mido, 2026-11-08) ──────────────────────
+-- She now sees only her own leads + the pool, and joins the WhatsApp lead rotation
+-- (pick_wa_lead_owner: Sales Engineer + tech + EG + signed in within 14 days).
+update public.profiles
+   set role = 'Sales Engineer', crm_team = 'tech'
+ where id = 'dd8b0f71-d7e6-43b6-a598-d207de3ed7ad';
+
 commit;
 
 -- Check after running (expect 0 rows): policies that let anyone read a whole table.
