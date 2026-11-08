@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Table, Tag, Button, Input, Select, Row, Col, Typography, message, Card, Statistic, Space,
 } from 'antd';
@@ -40,46 +40,76 @@ export default function CallsHistoryPage() {
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
-  const [stats, setStats] = useState({ total: 0, today: 0, answered: 0 });
+  // Today's numbers only, so every day starts from 0 (Mido, 2026-11-08). A rep sees her
+  // own calls; an admin sees the whole team's.
+  const [stats, setStats] = useState({ today: 0, answered: 0, missed: 0 });
+  // null = not resolved yet. `mine` is the user id to filter by, or '' for admins.
+  const [mine, setMine] = useState<string | null>(null);
 
   const [outcomeFilter, setOutcomeFilter] = useState<string | undefined>();
   const [typeFilter, setTypeFilter] = useState<CallType | undefined>();
   const [search, setSearch] = useState('');
+  const fetchCallLogsRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return setMine('');
+      const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+      setMine(me?.role === 'admin' || me?.role === 'Manager' ? '' : user.id);
+    })();
+  }, [supabase]);
 
   const fetchStats = useCallback(async () => {
+    if (mine === null) return;
     try {
+      // Midnight on this device (the team is in Cairo), recomputed on every refresh so
+      // the cards roll over to 0 at midnight without a reload.
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-
-      const { count: totalCalls } = await supabase
-        .from('call_logs')
-        .select('*', { count: 'exact', head: true });
-
-      const { count: todayCalls } = await supabase
-        .from('call_logs')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', today.toISOString());
-
-      const { count: answeredCalls } = await supabase
-        .from('call_logs')
-        .select('*', { count: 'exact', head: true })
-        .eq('outcome', 'Answered');
-
+      const base = () => {
+        let q = supabase
+          .from('call_logs')
+          .select('id', { count: 'exact', head: true })
+          .gte('created_at', today.toISOString());
+        if (mine) q = q.eq('created_by', mine);
+        return q;
+      };
+      const [all, answered, missed] = await Promise.all([
+        base(),
+        base().eq('outcome', 'Answered'),
+        base().in('outcome', ['No Answer', 'Busy']),
+      ]);
       setStats({
-        total: totalCalls || 0,
-        today: todayCalls || 0,
-        answered: answeredCalls || 0,
+        today: all.count || 0,
+        answered: answered.count || 0,
+        missed: missed.count || 0,
       });
     } catch (err) {
       console.error('Failed to fetch call stats:', err);
     }
-  }, [supabase]);
+  }, [supabase, mine]);
 
+  // Live without a database subscription: postgres_changes took the DB down on
+  // 2026-10-19, so the cards and the list poll every 30 s while the tab is visible,
+  // and refresh as soon as the user comes back to it.
   useEffect(() => {
     fetchStats();
+    const tick = () => {
+      if (document.visibilityState !== 'visible') return;
+      fetchStats();
+      fetchCallLogsRef.current?.();
+    };
+    const id = setInterval(tick, 30_000);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', tick);
+    };
   }, [fetchStats]);
 
   const fetchCallLogs = useCallback(async (p = page) => {
+    if (mine === null) return;
     setLoading(true);
     try {
       // Searching filters on the joined lead's name, which needs an inner join
@@ -94,6 +124,11 @@ export default function CallsHistoryPage() {
 
       if (term) {
         query = query.ilike('leads.name', `%${term}%`);
+      }
+      // This page is "my calls" for a rep. RLS also lets her see calls others logged on
+      // her own leads; those stay in the lead's timeline, not here.
+      if (mine) {
+        query = query.eq('created_by', mine);
       }
       if (outcomeFilter) {
         query = query.eq('outcome', outcomeFilter);
@@ -118,12 +153,16 @@ export default function CallsHistoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, page, search, outcomeFilter, typeFilter]);
+  }, [supabase, page, search, outcomeFilter, typeFilter, mine]);
+
+  useEffect(() => {
+    fetchCallLogsRef.current = () => fetchCallLogs();
+  }, [fetchCallLogs]);
 
   useEffect(() => {
     fetchCallLogs(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [outcomeFilter, typeFilter]);
+  }, [outcomeFilter, typeFilter, mine]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -222,7 +261,7 @@ export default function CallsHistoryPage() {
           </Text>
         </Col>
         <Col>
-          <Button type="primary" icon={<PhoneOutlined />} onClick={() => fetchCallLogs()}>
+          <Button type="primary" icon={<PhoneOutlined />} onClick={() => { fetchCallLogs(); fetchStats(); }}>
             تحديث (Refresh)
           </Button>
         </Col>
@@ -232,8 +271,8 @@ export default function CallsHistoryPage() {
         <Col xs={24} sm={8}>
           <Card>
             <Statistic
-              title="إجمالي المكالمات (Total)"
-              value={stats.total}
+              title="مكالمات النهارده (Today)"
+              value={stats.today}
               prefix={<PhoneOutlined />}
               valueStyle={{ color: '#1890ff' }}
             />
@@ -242,8 +281,8 @@ export default function CallsHistoryPage() {
         <Col xs={24} sm={8}>
           <Card>
             <Statistic
-              title="اليوم (Today)"
-              value={stats.today}
+              title="تم الرد النهارده (Answered)"
+              value={stats.answered}
               prefix={<PhoneOutlined />}
               valueStyle={{ color: '#52c41a' }}
             />
@@ -252,8 +291,8 @@ export default function CallsHistoryPage() {
         <Col xs={24} sm={8}>
           <Card>
             <Statistic
-              title="تم الرد (Answered)"
-              value={stats.answered}
+              title="مردّش / مشغول (No answer / Busy)"
+              value={stats.missed}
               prefix={<PhoneOutlined />}
               valueStyle={{ color: '#faad14' }}
             />

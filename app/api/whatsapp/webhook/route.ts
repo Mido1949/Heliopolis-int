@@ -175,6 +175,9 @@ async function findLead(phone: string): Promise<string | null> {
     .from('leads')
     .select('id, archived_at')
     .eq('phone_normalized', phone)
+    // An active lead wins over an older archived one. Picking the oldest regardless
+    // un-archived the old copy next to the live one: a duplicate (2026-11-08).
+    .order('archived_at', { ascending: true, nullsFirst: true })
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle();
@@ -220,6 +223,13 @@ async function createLead(m: ParsedMessage): Promise<string> {
     })
     .select('id')
     .single();
+  // A burst of first messages runs in parallel and each one saw "no lead" (8 numbers
+  // got 2–5 leads each by 2026-11-08). The unique index on active phone_normalized now
+  // rejects the late inserts; they attach to the lead the first one created.
+  if (error?.code === '23505') {
+    const existing = await findLead(m.customerPhone);
+    if (existing) return existing;
+  }
   if (error || !data) throw error ?? new Error('lead insert returned no row');
 
   if (owner) {
