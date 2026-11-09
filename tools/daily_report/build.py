@@ -198,11 +198,11 @@ def render(rep, ctx):
     site = rep.get("site", {})
     srows = "".join(f'<tr><td><b>{e(r.get("label", ""))}</b></td><td class="num">{num(r.get("today"))}</td>'
                     f'<td class="num">{num(r.get("last_7d"))}</td></tr>' for r in site.get("rows", []))
-    site_table = (f'<table><tr><th>الرقم</th><th style="width:18%">النهاردة</th><th style="width:18%">آخر 7 أيام</th></tr>{srows}</table>'
+    site_pixel_table = (f'<table><tr><th>الرقم</th><th style="width:18%">النهاردة</th><th style="width:18%">آخر 7 أيام</th></tr>{srows}</table>'
                   if srows else '<div class="box amber"><p>أرقام الموقع ماتسحبتش النهاردة.</p></div>')
     site_notes = f'<div class="box blue"><h4>قراءة الأرقام</h4>{ul(site.get("notes", []))}</div>' if site.get("notes") else ""
     s_site = section("06", "الموقع heliomax.co", site.get("lead") or "زوار الموقع ومين منهم كلّمنا على واتساب، من بيكسل Meta اللي على صفحات مصر.",
-                     site_table + site_notes)
+                     site_pixel_table + site_notes)
 
     sc = crm["stage_counts"]
     stage_cells = "".join(f'<div class="kpi"><div class="v">{num(sc.get(s, 0))}</div><div class="l">{STAGES[s]}</div></div>'
