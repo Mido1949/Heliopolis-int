@@ -115,6 +115,12 @@ async function processLead(value: MetaLeadValue): Promise<string> {
   console.log('[meta-webhook processLead] SUPABASE_URL set:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
   console.log('[meta-webhook processLead] SERVICE_KEY set:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 
+  // New form leads go to CS first (Reem, Mona), same rule as WhatsApp (2026-11-15).
+  // A failed pick leaves the lead unassigned rather than dropping it.
+  const { data: pickData, error: pickErr } = await getSupabase().rpc('pick_new_lead_owner');
+  if (pickErr) console.error('[meta-webhook] pick owner failed', pickErr);
+  const picked = (Array.isArray(pickData) ? pickData[0] : pickData) as { user_id: string; team: string } | null;
+
   const { data: inserted, error } = await getSupabase()
     .from('leads')
     .upsert(
@@ -127,6 +133,8 @@ async function processLead(value: MetaLeadValue): Promise<string> {
         source: 'Meta',
         status: 'New',
         assigned_to: null,
+        assigned_to_user: picked?.user_id ?? null,
+        assigned_to_team: picked?.team ?? null,
       },
       { onConflict: 'meta_lead_id', ignoreDuplicates: true }
     )

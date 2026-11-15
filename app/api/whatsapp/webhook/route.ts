@@ -199,10 +199,12 @@ async function findLead(phone: string): Promise<string | null> {
 
 async function createLead(m: ParsedMessage): Promise<string> {
   const now = new Date().toISOString();
-  // Egypt chats go straight to a rep (least-loaded active tech sales engineer). The team
-  // answers from the phone app, whose echoes carry no sender, so waiting for a CRM reply
-  // to claim the lead left 109 chats ownerless (2026-10-28). Saudi stays unassigned.
-  const owner = m.country === 'EG' ? await pickOwner() : null;
+  // Egypt chats go straight to a rep: CS first (Reem, Mona — least-loaded), who qualify and
+  // transfer to tech (2026-11-15). The team answers from the phone app, whose echoes carry
+  // no sender, so waiting for a CRM reply to claim the lead left 109 chats ownerless
+  // (2026-10-28). Saudi stays unassigned.
+  const picked = m.country === 'EG' ? await pickNewLeadOwner() : null;
+  const owner = picked?.user_id ?? null;
   const { data, error } = await db()
     .from('leads')
     .insert({
@@ -216,7 +218,7 @@ async function createLead(m: ParsedMessage): Promise<string> {
       status: statusForStage('NEW'),
       stage_timestamps: { NEW: now },
       assigned_to_user: owner,
-      assigned_to_team: owner ? 'tech' : null,
+      assigned_to_team: picked?.team ?? null,
       // leads.org_id is NOT NULL — an explicit null overrides the column default.
       org_id: await orgId(),
       country: m.country,
@@ -244,10 +246,11 @@ async function createLead(m: ParsedMessage): Promise<string> {
 }
 
 // A failed pick must never lose the message: the lead is then created unassigned.
-async function pickOwner(): Promise<string | null> {
-  const { data, error } = await db().rpc('pick_wa_lead_owner');
+async function pickNewLeadOwner(): Promise<{ user_id: string; team: string } | null> {
+  const { data, error } = await db().rpc('pick_new_lead_owner');
   if (error) console.error('[wa-webhook] pick owner failed', error);
-  return (data as string | null) ?? null;
+  const row = Array.isArray(data) ? data[0] : data;
+  return (row as { user_id: string; team: string } | null) ?? null;
 }
 
 // The CRM has one org; take it from an admin profile rather than hardcoding it.
