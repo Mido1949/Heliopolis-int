@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>عرض مشاركة – عائلة خضر</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  :root{
+    --ink:#1c1c20; --char:#17171a; --gold:#c19a3e; --gold-d:#9c7a2b; --cream:#faf6ec; --cream-2:#f3ecdb;
+    --muted:#77736a; --line:#e8e2d4; --red:#a8322a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"IBM Plex Sans Arabic",sans-serif;color:var(--ink);font-size:13.5px;line-height:1.85;background:#fff}
+  .page{width:210mm;height:297mm;position:relative;overflow:hidden;page-break-after:always;background:#fff}
+  .page:last-child{page-break-after:auto}
+  .num{font-family:Cairo;font-weight:800}
+
+  /* ---------- COVER ---------- */
+  .cover .hero{position:absolute;top:0;bottom:0;left:0;width:47%;background:url(hero.jpg) center 30%/cover no-repeat}
+  .cover .hero::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(15,13,10,.85) 0%,rgba(15,13,10,.15) 38%,rgba(15,13,10,0) 60%)}
+  .cover .hero .tag{position:absolute;z-index:2;bottom:22mm;right:9mm;left:9mm;color:#fff}
+  .cover .hero .tag .k{font-size:11px;letter-spacing:.5px;color:#e9d39c;font-weight:600}
+  .cover .hero .tag .v{font-family:Cairo;font-weight:800;font-size:20px;line-height:1.35}
+  .cover .hero .tag .s{font-size:10.5px;opacity:.75;margin-top:1mm}
+  .cover .gold-rule{position:absolute;top:0;bottom:0;left:47%;width:2.2mm;background:var(--gold)}
+  .cover .side{position:absolute;top:0;bottom:0;right:0;width:calc(53% - 2.2mm);padding:16mm 14mm 0 12mm;display:flex;flex-direction:column}
+  .cover .logo{width:62mm;align-self:flex-start;margin-right:-1mm}
+  .cover .eyebrow{margin-top:20mm;color:var(--gold-d);font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px}
+  .cover .eyebrow::before{content:"";width:10mm;height:1.5px;background:var(--gold)}
+  .cover h1{font-family:Cairo;font-weight:900;font-size:42px;line-height:1.2;margin:3mm 0 0;color:var(--char)}
+  .cover .sub{color:var(--muted);font-size:13px;margin-top:3mm}
+  .cover .kpis{display:grid;grid-template-columns:repeat(3,1fr);margin-top:11mm;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .cover .kpis div{padding:4mm 0;text-align:center}
+  .cover .kpis div+div{border-right:1px solid var(--line)}
+  .cover .kpis b{display:block;font-family:Cairo;font-weight:800;font-size:26px;color:var(--char);line-height:1.2}
+  .cover .kpis span{font-size:11px;color:var(--muted)}
+  .party{margin-top:9mm}
+  .party .k{font-size:11.5px;color:var(--gold-d);font-weight:700}
+  .party .v{font-family:Cairo;font-weight:800;font-size:18px;color:var(--char);line-height:1.5}
+  .party .s{font-size:11.5px;color:var(--muted)}
+  .party + .party{padding-top:6mm;border-top:1px dashed var(--line)}
+  .cover .datebox{margin-top:auto;margin-bottom:22mm;font-size:11.5px;color:var(--muted)}
+
+  /* ---------- FOOTER BAR (shared) ---------- */
+  .bar{position:absolute;bottom:0;left:0;right:0;height:13mm;background:var(--char);color:#d9d4c7;display:flex;align-items:center;justify-content:center;gap:5mm;font-size:10.5px;direction:rtl}
+  .bar i{color:var(--gold);font-style:normal;font-size:8px}
+  .bar .ltr{direction:ltr;unicode-bidi:embed}
+
+  /* ---------- INNER PAGES ---------- */
+  .inner{padding:0 17mm}
+  .inner .head{display:flex;justify-content:space-between;align-items:center;padding-top:11mm;padding-bottom:4mm;border-bottom:1px solid var(--line)}
+  .inner .head img{height:13mm}
+  .inner .head .doc{text-align:left;font-size:10.5px;color:var(--muted);line-height:1.6}
+  .inner .head .doc b{display:block;color:var(--char);font-family:Cairo;font-weight:700;font-size:13px}
+  .pg{position:absolute;bottom:17mm;left:17mm;direction:ltr;font-size:10.5px;color:var(--muted)}
+  .pg b{color:var(--gold-d)}
+  .side-mark{position:absolute;top:0;right:0;width:2.2mm;height:62mm;background:var(--gold)}
+
+  h2{font-family:Cairo;font-weight:800;font-size:18px;color:var(--char);margin:7mm 0 3mm;display:flex;align-items:center;gap:9px}
+  h2::before{content:"";width:9px;height:9px;background:var(--gold);transform:rotate(45deg)}
+  h2::after{content:"";flex:1;height:1px;background:var(--line);margin-right:4px}
+  p{margin:0 0 3mm}
+  .greet{margin-top:7mm}
+  .greet .to{font-family:Cairo;font-weight:800;font-size:19px;color:var(--char)}
+  .greet .hi{color:var(--muted)}
+
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm}
+  .stat{background:var(--cream);border:1px solid var(--cream-2);border-radius:3mm;padding:4mm 5mm;position:relative}
+  .stat .i{position:absolute;top:3mm;left:4mm;font-family:Cairo;font-weight:900;font-size:22px;color:#e6d8b5}
+  .stat .lbl{font-weight:700;color:var(--char)}
+  .stat .val{font-family:Cairo;font-weight:800;font-size:27px;color:var(--gold-d);line-height:1.35}
+  .stat .val small{font-size:12px;color:var(--ink);font-weight:600;margin-right:3px}
+  .stat .sub{font-size:11.5px;color:var(--muted);line-height:1.6}
+
+  .note{border-right:3px solid var(--gold);background:var(--cream);padding:3.5mm 5mm;border-radius:2mm}
+  .note.red{border-color:var(--red);background:#fbf1ef}
+  .note .t{font-weight:700;color:var(--char)}
+  .note.red .t{color:var(--red)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:4mm}
+
+  .price{display:flex;align-items:center;justify-content:space-between;background:var(--char);color:#fff;border-radius:3mm;padding:5mm 7mm;margin-top:2mm}
+  .price .l{font-weight:700;color:#e9d39c}
+  .price .w{font-size:11.5px;color:#bdb7aa}
+  .price .v{font-family:Cairo;font-weight:900;font-size:30px;color:#fff}
+  .price .v small{font-size:13px;color:var(--gold);font-weight:700;margin-right:4px}
+
+  table{width:100%;border-collapse:collapse;margin-top:3mm}
+  th{font-family:Cairo;font-weight:700;font-size:12.5px;color:var(--gold-d);text-align:right;padding:2.5mm 3mm;border-bottom:2px solid var(--char)}
+  th:last-child,td:last-child{text-align:left}
+  td{padding:5mm 3mm;border-bottom:1px solid var(--line);vertical-align:middle}
+  td.item{font-family:Cairo;font-weight:800;font-size:15px;color:var(--char)}
+  td.item small{display:block;font-family:"IBM Plex Sans Arabic";font-weight:400;font-size:11.5px;color:var(--muted)}
+  td.calc{white-space:nowrap}
+  td.calc .x{color:var(--gold);font-weight:700;margin:0 6px}
+  td.amt{font-family:Cairo;font-weight:800;font-size:17px;white-space:nowrap}
+  .cur{font-size:11px;color:var(--muted);font-weight:600;margin-right:4px}
+  .total{display:flex;justify-content:space-between;align-items:center;background:var(--char);color:#fff;border-radius:3mm;padding:5mm 6mm;margin-top:5mm}
+  .total .l{font-family:Cairo;font-weight:800;font-size:17px}
+  .total .v{font-family:Cairo;font-weight:900;font-size:30px}
+  .total .v small{font-size:13px;color:var(--gold);margin-right:4px}
+
+  .mix{display:flex;height:10px;border-radius:5px;overflow:hidden;margin:7mm 0 2.5mm}
+  .legend{display:flex;gap:7mm;font-size:11.5px;color:var(--muted)}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-left:5px;vertical-align:middle}
+
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:4mm;margin-top:9mm}
+  .split .box{border-radius:3mm;padding:6mm;text-align:center}
+  .split .owner{background:var(--cream);border:1px solid var(--cream-2)}
+  .split .co{background:var(--char);color:#fff}
+  .split .k{font-size:12px;opacity:.85}
+  .split .big{font-family:Cairo;font-weight:900;font-size:34px;line-height:1.3}
+  .split .owner .big{color:var(--gold-d)}
+  .split .co .big{color:#e9d39c}
+
+  ol.steps{list-style:none;padding:0;margin:2mm 0 0;counter-reset:s}
+  ol.steps li{counter-increment:s;position:relative;padding:2.6mm 12mm 2.6mm 0;border-bottom:1px solid var(--line)}
+  ol.steps li::before{content:counter(s);position:absolute;right:0;top:2.5mm;width:8mm;height:8mm;border:1.5px solid var(--gold);color:var(--gold-d);font-family:Cairo;font-weight:800;display:grid;place-items:center;font-size:13px;border-radius:1.5mm}
+  ol.steps li b{color:var(--char)}
+
+  .dur{display:flex;align-items:center;gap:6mm;background:var(--char);color:#fff;border-radius:3mm;padding:5mm 7mm;margin-top:3mm}
+  .dur .n{font-family:Cairo;font-weight:900;font-size:42px;color:var(--gold);line-height:1}
+  .dur .t{font-weight:600}
+  .dur .t small{display:block;color:#bdb7aa;font-weight:400;font-size:11.5px}
+
+  .sign{display:grid;grid-template-columns:1fr 1fr;gap:14mm;margin-top:6mm;text-align:center}
+  .sign .who{font-family:Cairo;font-weight:800;font-size:15px;color:var(--char)}
+  .sign .role{font-size:11.5px;color:var(--muted)}
+  .sign .line{margin-top:16mm;border-top:1px solid var(--ink);padding-top:1.5mm;font-size:11px;color:var(--muted)}
+  .closing{text-align:center;margin-top:7mm;font-weight:600}
+  .closing small{display:block;color:var(--muted);font-weight:400;font-size:11.5px}
+</style>
+</head>
+<body>
+
+<!-- ================= COVER ================= -->
+<section class="page cover">
+  <div class="hero">
+    <div class="tag">
+      <div class="k">صورة استرشادية للمشروع</div>
+      <div class="v">برج سكني تجاري<br>بدروم + أرضي + 9 أدوار</div>
+      <div class="s">حي ثاني — طنطا</div>
+    </div>
+  </div>
+  <div class="gold-rule"></div>
+  <div class="side">
+    <img class="logo" src="logo.png" alt="هليوبلس للاستثمار العقاري">
+    <div class="eyebrow">عرض مشاركة</div>
+    <h1>إنشاء برج<br>سكني تجاري</h1>
+    <div class="sub">مشاركة بالأرض مقابل البناء — جراج + دور تجاري + 9 أدوار سكنية</div>
+
+    <div class="kpis">
+      <div><b>11</b><span>دوراً إجمالاً</span></div>
+      <div><b>27</b><span>شقة سكنية</span></div>
+      <div><b>30</b><span>شهراً للتنفيذ</span></div>
+    </div>
+
+    <div class="party">
+      <div class="k">مقدَّم إلى</div>
+      <div class="v">السادة / عائلة خضر الموقرين</div>
+      <div class="s">مُلّاك قطعة الأرض</div>
+    </div>
+    <div class="party">
+      <div class="k">مقدَّم من</div>
+      <div class="v" style="font-size:16px">هليوبلس للمقاولات والاستثمار العقاري</div>
+      <div class="s">طنطا — ش يوسف الصديق</div>
+    </div>
+
+    <div class="datebox">التاريخ: &nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;/ 2026</div>
+  </div>
+  <div class="bar">
+    <span>طنطا - ش يوسف الصديق</span><i>◆</i>
+    <span class="ltr">01000420666 - 0403355413</span><i>◆</i>
+    <span class="ltr">Heliopolis.tanta</span><i>◆</i>
+    <span class="ltr">Ehabnayel@Heliopoliseg.com</span>
+  </div>
+</section>
+
+<!-- ================= PAGE 2 ================= -->
+<section class="page inner">
+  <div class="side-mark"></div>
+  <div class="head"><img src="logo.png" alt=""><div class="doc">عرض مشاركة<b>عائلة خضر</b></div></div>
+
+  <div class="greet">
+    <div class="to">السادة / عائلة خضر الموقرين</div>
+    <div class="hi">تحية طيبة وبعد،</div>
+  </div>
+  <p style="margin-top:2mm">يسعدنا أن نتقدم لسيادتكم بعرض مشاركة لإنشاء برج سكني تجاري على قطعة الأرض المملوكة لكم، وذلك على النحو الموضح تفصيلاً فيما يلي.</p>
+
+  <h2>وصف المشروع</h2>
+  <div class="stats">
+    <div class="stat"><span class="i">1</span><div class="lbl">دور جراج</div><div class="val">304<small>م²</small></div><div class="sub">دور بدروم واحد</div></div>
+    <div class="stat"><span class="i">2</span><div class="lbl">دور أرضي تجاري</div><div class="val">240<small>م²</small></div><div class="sub">دور واحد</div></div>
+    <div class="stat"><span class="i">3</span><div class="lbl">أدوار سكنية</div><div class="val">9<small>أدوار</small></div><div class="sub">3 شقق بكل دور × 120 م² شاملة بروز البلكونات</div></div>
+  </div>
+
+  <h2>وصف الترخيص</h2>
+  <div class="note">يتم إصدار ترخيص <b>بدروم وأرضي وتسعة أدوار</b> من <b>حي ثاني طنطا</b>، واعتماده من <b>الهيئة الهندسية للقوات المسلحة</b>.</div>
+
+  <h2>إخلاء العقار</h2>
+  <div class="grid2">
+    <div class="note"><div class="t">مدة الإخلاء: 6 أشهر</div>يتم التعاقد الآن، مع مدة (6) أشهر من تاريخ التعاقد للتفاوض لإخلاء العقار بالكامل، على أن تكون تكلفة الإخلاء على عاتق الشركة.</div>
+    <div class="note red"><div class="t">شرط فاسخ</div>في حالة عدم الإخلاء في الوقت المحدد يُعتبر العقد لاغياً من تلقاء نفسه دون اللجوء للقضاء.</div>
+  </div>
+
+  <h2>المقابل</h2>
+  <p>وذلك مقابل شراكتكم بالأرض، مقابل الحصة الموضحة من العقار بعد البناء.</p>
+  <div class="price">
+    <div><div class="l">سعر المتر</div><div class="w">مائتان وخمسة وثمانون ألف جنيه مصري فقط لا غير</div></div>
+    <div class="v">285,000<small>ج.م</small></div>
+  </div>
+
+  <div class="pg"><b>2</b> / 4</div>
+  <div class="bar">
+    <span>طنطا - ش يوسف الصديق</span><i>◆</i>
+    <span class="ltr">01000420666 - 0403355413</span><i>◆</i>
+    <span class="ltr">Heliopolis.tanta</span><i>◆</i>
+    <span class="ltr">Ehabnayel@Heliopoliseg.com</span>
+  </div>
+</section>
+
+<!-- ================= PAGE 3 ================= -->
+<section class="page inner">
+  <div class="side-mark"></div>
+  <div class="head"><img src="logo.png" alt=""><div class="doc">عرض مشاركة<b>عائلة خضر</b></div></div>
+
+  <h2 style="margin-top:9mm">بيان بقيمة حصة مشاركة الأرض</h2>
+  <p style="color:var(--muted)">تقييم حصة المُلّاك في العقار بعد البناء — بالجنيه المصري.</p>
+
+  <table>
+    <thead><tr><th style="width:32%">البند</th><th>طريقة الحساب</th><th style="width:26%">القيمة</th></tr></thead>
+    <tbody>
+      <tr><td class="item">الجراج<small>300 م²</small></td><td class="calc">8 باكية جراج <span class="x">×</span> 750,000 ج.م</td><td class="amt">6,000,000<span class="cur">ج.م</span></td></tr>
+      <tr><td class="item">التجاري<small>الدور الأرضي</small></td><td class="calc">200 م² <span class="x">×</span> 160,000 ج.م/م²</td><td class="amt">32,000,000<span class="cur">ج.م</span></td></tr>
+      <tr><td class="item">الشقق السكنية<small>مقابل شراكة البناء (مُلّاك)</small></td><td class="calc">360 م² <span class="x">×</span> 45,000 ج.م/م² <span class="x">×</span> 3 أدوار</td><td class="amt">48,600,000<span class="cur">ج.م</span></td></tr>
+    </tbody>
+  </table>
+  <div class="total"><div class="l">إجمالي حصة المُلّاك</div><div class="v">86,600,000<small>ج.م</small></div></div>
+
+  <div class="mix">
+    <div style="width:56.1%;background:var(--char)"></div>
+    <div style="width:37%;background:var(--gold)"></div>
+    <div style="width:6.9%;background:#cfc6b0"></div>
+  </div>
+  <div class="legend">
+    <span><i style="background:var(--char)"></i>الشقق السكنية 56%</span>
+    <span><i style="background:var(--gold)"></i>التجاري 37%</span>
+    <span><i style="background:#cfc6b0"></i>الجراج 7%</span>
+  </div>
+
+  <h2 style="margin-top:12mm">توزيع الحصص</h2>
+  <div class="split" style="margin-top:3mm">
+    <div class="box owner"><div class="k">حصة المُلّاك</div><div class="big">3 أدوار</div><div class="k">سكنية + الجراج + الدور التجاري</div></div>
+    <div class="box co"><div class="k">حصة الشركة</div><div class="big">6 أدوار</div><div class="k">سكنية، شاملة تكلفة الإخلاء</div></div>
+  </div>
+
+  <div class="pg"><b>3</b> / 4</div>
+  <div class="bar">
+    <span>طنطا - ش يوسف الصديق</span><i>◆</i>
+    <span class="ltr">01000420666 - 0403355413</span><i>◆</i>
+    <span class="ltr">Heliopolis.tanta</span><i>◆</i>
+    <span class="ltr">Ehabnayel@Heliopoliseg.com</span>
+  </div>
+</section>
+
+<!-- ================= PAGE 4 ================= -->
+<section class="page inner">
+  <div class="side-mark"></div>
+  <div class="head"><img src="logo.png" alt=""><div class="doc">عرض مشاركة<b>عائلة خضر</b></div></div>
+
+  <h2 style="margin-top:8mm">أعمال الشركة ضمن المشاركة</h2>
+  <p style="color:var(--muted);margin-bottom:0">قيامنا بالمشاركة في بناء العقار على قطعة الأرض ملككم بالطريقة التالية:</p>
+  <ol class="steps">
+    <li>أعمال <b>الترخيص</b> (1 بدروم + أرضي + 9 أدوار سكنية) من خلال الهيئة الهندسية للقوات المسلحة.</li>
+    <li>أعمال <b>الجسات واختبارات التربة</b>، وأعمال <b>التصميمات الهندسية</b>.</li>
+    <li>سداد حصة <b>التأمينات الاجتماعية</b> على المنشأ، وحصة <b>المجمعة العشرية</b> لضمان سلامة المنشأ.</li>
+    <li><b>بناء المنشأ كاملاً</b>: (1) بدروم وأرضي و(9) أدوار سكنية، أو المصرّح به.</li>
+    <li>تشطيب <b>الواجهة تشطيباً فاخراً</b>، وأعمال النجارة والسباكة والكهرباء للعقار.</li>
+    <li>درج السلم من <b>الرخام</b>، وعمل <b>مدخل فاخر</b> للعقار.</li>
+    <li>بالإضافة إلى عدد <b>(2) مصعد فاخر</b>.</li>
+  </ol>
+
+  <div class="note" style="margin-top:4mm"><div class="t">مقابل أعمال الشركة</div>حصة عدد <b>(6) ستة أدوار سكنية</b> لشركتنا، شاملة تكلفة إخلاء السكان من العقار.</div>
+
+  <h2>مدة التنفيذ</h2>
+  <div class="dur"><div class="n">30</div><div class="t">شهراً — مدة تنفيذ المشروع<small>تبدأ من تاريخ إصدار ترخيص البناء</small></div></div>
+
+  <div class="closing">وتفضلوا سيادتكم بقبول وافر الاحترام،،،<small>مقدّمه لسيادتكم</small></div>
+
+  <div class="sign">
+    <div><div class="who">هليوبلس للمقاولات والاستثمار العقاري</div><div class="role">الطرف الأول — الشركة</div><div class="line">التوقيع والختم</div></div>
+    <div><div class="who">السادة / عائلة خضر</div><div class="role">الطرف الثاني — المُلّاك</div><div class="line">التوقيع بالموافقة</div></div>
+  </div>
+
+  <div class="pg"><b>4</b> / 4</div>
+  <div class="bar">
+    <span>طنطا - ش يوسف الصديق</span><i>◆</i>
+    <span class="ltr">01000420666 - 0403355413</span><i>◆</i>
+    <span class="ltr">Heliopolis.tanta</span><i>◆</i>
+    <span class="ltr">Ehabnayel@Heliopoliseg.com</span>
+  </div>
+</section>
+
+</body>
+</html>
