@@ -193,7 +193,7 @@ def render(rep, ctx):
                  if rows else '<div class="box amber"><p>أرقام Meta ماتسحبتش النهاردة.</p></div>')
     ads_notes = f'<div class="box blue"><h4>قراءة الأرقام</h4>{ul(ads.get("notes", []))}</div>' if ads.get("notes") else ""
     s5 = section("05", "الإعلانات على Meta", ads.get("lead") or "الحساب الإعلاني لـ HelioMax مصر. الأرقام بالجنيه، وأرقام النهاردة لحد وقت إصدار التقرير.",
-                 ads_table + ads_notes + week_table(rep, ctx) + site_table(ctx))
+                 ads_table + ads_notes + week_table(rep, ctx))
 
     site = rep.get("site", {})
     srows = "".join(f'<tr><td><b>{e(r.get("label", ""))}</b></td><td class="num">{num(r.get("today"))}</td>'
